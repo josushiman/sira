@@ -22,3 +22,4 @@ Only needed when a shipped release needs an urgent fix while `main` has since mo
 
 - Create the branch (`feature/`, `fix/`, or `chore/` as appropriate) before editing.
 - Open the PR into `main` rather than merging directly, unless told otherwise.
+- PR titles, descriptions, and commit messages must not mention "Claude Code," "Claude," "Anthropic," or include a "Generated with Claude Code" / "Co-Authored-By: Claude" footer.
