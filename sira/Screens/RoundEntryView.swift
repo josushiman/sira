@@ -1,110 +1,284 @@
 import SwiftUI
 
+/// The keypad Round Entry screen (Survival, Fixed Rounds): every still-in
+/// Entrant renders as a row at once; tapping one makes it "active," and the
+/// shared keypad plus quick-entry shortcuts always write into whichever row
+/// is active. Pushed full-screen from Play, matching the prototype's Entry
+/// screen chrome (`docs/adr/0003`).
 struct RoundEntryView: View {
     let entrants: [Entrant]
+    /// This round's number, shown in the top bar ("Round 3").
+    let roundNumber: Int
+    /// Each still-in Entrant's current total, for the "now 34" meta line.
+    let totals: [Entrant.ID: Int]
+    /// Each Entrant's dot-badge color index from the full Match roster (not
+    /// just the still-in ones shown here), so a badge's color always matches
+    /// the same Entrant's badge on Standings, even after others have gone Out.
+    let badgeIndices: [Entrant.ID: Int]
     /// The keypad's "never laid down" quick-entry shortcut value (Okey 101:
     /// 101). `nil` hides that shortcut for Variants that don't offer it.
     var neverLaidDownValue: Int? = nil
     let onSave: ([Entrant.ID: Int], Bool) -> Void
 
     @Environment(\.dismiss) private var dismiss
-    @State private var index = 0
-    @State private var digits = ""
-    @State private var deltas: [Entrant.ID: Int] = [:]
-    @State private var cifteOn = false
+    @Environment(\.theme) private var theme
+    @State private var state: RoundEntryState
 
-    private var currentEntrant: Entrant { entrants[index] }
-    private var currentValue: Int { Int(digits) ?? 0 }
-    private var isLastEntrant: Bool { index == entrants.count - 1 }
-
-    var body: some View {
-        NavigationStack {
-            VStack(spacing: 24) {
-                Text(currentEntrant.name)
-                    .font(.title2.bold())
-                Text(digits.isEmpty ? "0" : digits)
-                    .font(.system(size: 56, weight: .bold, design: .rounded))
-                    .monospacedDigit()
-                if cifteOn {
-                    Text("Çifte \u{2014} saves as \(currentValue * 2)")
-                        .font(.headline)
-                        .foregroundStyle(.orange)
-                }
-
-                quickEntryShortcuts
-
-                keypad
-
-                HStack {
-                    Button("Clear") { digits = "" }
-                    Spacer()
-                    Button(isLastEntrant ? "Save Round" : "Next") { advance() }
-                        .buttonStyle(.borderedProminent)
-                }
-            }
-            .padding()
-            .navigationTitle("Round \u{2014} \(currentEntrant.name)")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Toggle("Çifte", isOn: $cifteOn)
-                        .toggleStyle(.button)
-                        .tint(.orange)
-                }
-            }
-        }
+    /// - Parameter initialState: Seeds the screen's interactive state directly —
+    ///   used by snapshot tests to capture a specific in-progress state (a
+    ///   partial value, Çifte on) without driving the view through taps.
+    ///   Production callers omit it and get the prototype's default: the
+    ///   first still-in Entrant active, nothing entered.
+    init(
+        entrants: [Entrant],
+        roundNumber: Int,
+        totals: [Entrant.ID: Int],
+        badgeIndices: [Entrant.ID: Int],
+        neverLaidDownValue: Int? = nil,
+        initialState: RoundEntryState? = nil,
+        onSave: @escaping ([Entrant.ID: Int], Bool) -> Void
+    ) {
+        self.entrants = entrants
+        self.roundNumber = roundNumber
+        self.totals = totals
+        self.badgeIndices = badgeIndices
+        self.neverLaidDownValue = neverLaidDownValue
+        self.onSave = onSave
+        _state = State(initialValue: initialState ?? RoundEntryState(entrants: entrants))
     }
 
-    private var quickEntryShortcuts: some View {
+    private var entryTitle: String {
+        neverLaidDownValue != nil ? "Count everyone\u{2019}s tiles" : "Count the cards left"
+    }
+
+    private var entryHint: String {
+        state.cifteOn
+            ? "\u{c7}ifte on \u{2014} every score doubles when you save."
+            : "Winner takes 0. Tap a name, then type."
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            topBar
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text(entryTitle)
+                    .siraStyle(.displayTitle)
+                Text(entryHint)
+                    .siraStyle(.body)
+                    .foregroundStyle(theme.ink.opacity(0.55))
+            }
+            .padding(.horizontal, 22)
+            .padding(.top, 16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            ScrollView {
+                VStack(spacing: 7) {
+                    ForEach(entrants) { entrant in
+                        EntryRow(
+                            entrant: entrant,
+                            badgeIndex: badgeIndex(for: entrant.id),
+                            isActive: state.activeEntrantID == entrant.id,
+                            total: totals[entrant.id] ?? 0,
+                            enteredValue: state.enteredValue(for: entrant.id),
+                            doubledPreview: state.doubledPreview(for: entrant.id)
+                        ) {
+                            state.selectActive(entrant.id)
+                        }
+                    }
+                }
+
+                quickEntryChips
+                    .padding(.top, 14)
+            }
+            .padding(.horizontal, 22)
+            .padding(.top, 14)
+
+            keypad
+                .padding(11)
+                .background(theme.track)
+                .overlay(alignment: .top) {
+                    Rectangle().fill(theme.line).frame(height: 1)
+                }
+        }
+        .background(theme.background)
+        .foregroundStyle(theme.ink)
+    }
+
+    private var topBar: some View {
         HStack {
-            Button("Won round (0)") { digits = "0" }
+            Button("Cancel") { dismiss() }
+                .foregroundStyle(theme.ink.opacity(0.55))
+                .font(.sira(.subheadline))
+
+            Spacer()
+
+            Text(sira: .monoEyebrow, "Round \(roundNumber)")
+                .foregroundStyle(theme.ink.opacity(0.5))
+
+            Spacer()
+
+            Button("Save") { save() }
+                .foregroundStyle(state.isReadyToSave ? theme.accent : theme.ink.opacity(0.35))
+                .font(.sira(.subheadline))
+                .fontWeight(.semibold)
+                .disabled(!state.isReadyToSave)
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 22)
+        .padding(.top, 6)
+    }
+
+    private var quickEntryChips: some View {
+        HStack(spacing: 7) {
+            QuickEntryChip(label: "Won the round \u{b7} 0") {
+                state.applyQuickEntry(0)
+            }
             if let neverLaidDownValue {
-                Button("Never laid down (\(neverLaidDownValue))") { digits = "\(neverLaidDownValue)" }
+                QuickEntryChip(label: "Never laid down \u{b7} \(neverLaidDownValue)") {
+                    state.applyQuickEntry(neverLaidDownValue)
+                }
+            }
+            QuickEntryChip(label: "\u{c7}ifte \u{2014} double all \u{d7}2", isOn: state.cifteOn) {
+                state.cifteOn.toggle()
             }
         }
-        .buttonStyle(.bordered)
     }
 
     private var keypad: some View {
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: 12) {
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 7), count: 3), spacing: 7) {
             ForEach(1...9, id: \.self) { digit in
-                keypadButton("\(digit)") { digits.append("\(digit)") }
+                KeypadTile(label: "\(digit)") { state.appendDigit(Character("\(digit)")) }
             }
-            keypadButton("⌫") { if !digits.isEmpty { digits.removeLast() } }
-            keypadButton("0") { digits.append("0") }
-            Color.clear
+            KeypadTile(label: "C", isControl: true) { state.clearActive() }
+            KeypadTile(label: "0") { state.appendDigit("0") }
+            KeypadTile(label: "\u{232b}", isControl: true) { state.backspace() }
         }
     }
 
-    private func keypadButton(_ label: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(label)
-                .font(.title2)
-                .frame(maxWidth: .infinity, minHeight: 56)
-        }
-        .buttonStyle(.bordered)
+    private func badgeIndex(for id: Entrant.ID) -> Int {
+        badgeIndices[id] ?? 0
     }
 
-    private func advance() {
-        deltas[currentEntrant.id] = currentValue
-        digits = ""
-        if isLastEntrant {
-            onSave(deltas, cifteOn)
-        } else {
-            index += 1
-        }
+    private func save() {
+        guard state.isReadyToSave else { return }
+        onSave(state.deltas, state.cifteOn)
     }
 }
 
-#Preview {
-    RoundEntryView(entrants: [Entrant(name: "Alice"), Entrant(name: "Bob")]) { _, _ in }
+/// One Entry-screen row: dot badge, name, current total (plus the doubled
+/// preview when Çifte is on), and the entered value — highlighted when active.
+private struct EntryRow: View {
+    let entrant: Entrant
+    let badgeIndex: Int
+    let isActive: Bool
+    let total: Int
+    let enteredValue: Int?
+    let doubledPreview: Int?
+    let onTap: () -> Void
+
+    @Environment(\.theme) private var theme
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 12) {
+                DotBadge(text: entrant.initial, index: badgeIndex, size: 34)
+
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(entrant.name)
+                        .siraStyle(.headline)
+                        .lineLimit(1)
+                    Text(sira: .monoLabel, metaText)
+                        .foregroundStyle(doubledPreview != nil ? theme.accent2 : theme.ink.opacity(0.42))
+                }
+
+                Spacer(minLength: 0)
+
+                Text(valueText)
+                    .font(.custom(FontFamily.mono, size: isActive ? 27 : 20, relativeTo: .title2).weight(.semibold))
+                    .foregroundStyle(valueText == "\u{2014}" ? theme.ink.opacity(0.3) : theme.ink)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .background {
+                RoundedRectangle(cornerRadius: 19, style: .continuous)
+                    .fill(isActive ? theme.surface : Color.clear)
+            }
+            .overlay {
+                if isActive {
+                    RoundedRectangle(cornerRadius: 19, style: .continuous)
+                        .stroke(theme.line, lineWidth: 1)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var metaText: String {
+        guard let doubledPreview else { return "now \(total)" }
+        return "now \(total)   \u{d7}2 \u{2192} \(doubledPreview)"
+    }
+
+    private var valueText: String {
+        if let enteredValue {
+            return "\(enteredValue)"
+        }
+        return isActive ? "" : "\u{2014}"
+    }
+}
+
+/// A momentary quick-entry shortcut button, or the Çifte toggle chip when
+/// `isOn` is supplied — the prototype's filled/unfilled chip styling.
+private struct QuickEntryChip: View {
+    let label: String
+    var isOn: Bool = false
+    let action: () -> Void
+
+    @Environment(\.theme) private var theme
+
+    var body: some View {
+        Button(action: action) {
+            Text(label)
+                .siraStyle(.caption)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 11)
+        }
+        .foregroundStyle(isOn ? theme.background : theme.ink)
+        .background {
+            RoundedRectangle(cornerRadius: 13, style: .continuous)
+                .fill(isOn ? theme.accent2 : theme.surface)
+                .overlay {
+                    if !isOn {
+                        RoundedRectangle(cornerRadius: 13, style: .continuous)
+                            .stroke(theme.line, lineWidth: 1)
+                    }
+                }
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+#Preview("No row active") {
+    let a = Entrant(name: "Alice")
+    let b = Entrant(name: "Bob")
+    return RoundEntryView(
+        entrants: [a, b],
+        roundNumber: 3,
+        totals: [a.id: 34, b.id: 12],
+        badgeIndices: [a.id: 0, b.id: 1]
+    ) { _, _ in }
+    .themed()
 }
 
 #Preview("Okey 101") {
-    RoundEntryView(
-        entrants: [Entrant(name: "Alice"), Entrant(name: "Bob")],
+    let a = Entrant(name: "Alice")
+    let b = Entrant(name: "Bob")
+    return RoundEntryView(
+        entrants: [a, b],
+        roundNumber: 3,
+        totals: [a.id: 34, b.id: 12],
+        badgeIndices: [a.id: 0, b.id: 1],
         neverLaidDownValue: 101
     ) { _, _ in }
+    .themed()
 }

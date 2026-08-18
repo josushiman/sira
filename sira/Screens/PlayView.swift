@@ -9,7 +9,8 @@ enum PlayTab: String, CaseIterable, Identifiable {
 
 struct PlayView: View {
     @Binding var match: Match
-    @State private var showingRoundEntry = false
+    @State private var showingKeypadEntry = false
+    @State private var showingOkeyEntry = false
     @State private var rejoinQueue: [Entrant.ID] = []
     @State private var selectedTab: PlayTab
 
@@ -57,8 +58,11 @@ struct PlayView: View {
                 .padding(.vertical, 10)
                 .background(theme.background)
         }
-        .sheet(isPresented: $showingRoundEntry) {
-            roundEntrySheet
+        .navigationDestination(isPresented: $showingKeypadEntry) {
+            keypadRoundEntry(standings)
+        }
+        .sheet(isPresented: $showingOkeyEntry) {
+            okeyStandardRoundEntrySheet
         }
         .sheet(item: rejoinBinding) { entrant in
             RejoinSheet(entrant: entrant, onAccept: { acceptRejoin(for: entrant) })
@@ -106,33 +110,42 @@ struct PlayView: View {
         return max(1, variantScale)
     }
 
-    @ViewBuilder
-    private var roundEntrySheet: some View {
-        switch match.variant.entryStyle {
-        case .keypad:
-            RoundEntryView(entrants: match.entrants, neverLaidDownValue: match.variant.neverLaidDownValue) { deltas, cifte in
-                // Dismiss this sheet first and defer the Round append (which may
-                // present the Rejoin sheet) to the next run loop turn — presenting
-                // a new sheet in the same update as this one's dismissal is a race
-                // UIKit can lose, silently dropping the Rejoin sheet.
-                showingRoundEntry = false
-                DispatchQueue.main.async {
-                    match.rounds.append(Round(deltas: deltas, cifte: cifte))
-                    if let survivalEngine = engine as? SurvivalEngine {
-                        rejoinQueue.append(contentsOf: survivalEngine.newlyOutEntrantIDs(for: match))
-                    }
+    private func keypadRoundEntry(_ standings: Standings) -> some View {
+        let stillIn = match.entrants.filter { entrant in
+            standings.ranked.first { $0.entrantID == entrant.id }.map { !$0.isOut } ?? true
+        }
+        let totals = Dictionary(uniqueKeysWithValues: standings.ranked.map { ($0.entrantID, $0.total) })
+        let badgeIndices = Dictionary(uniqueKeysWithValues: match.entrants.enumerated().map { ($1.id, $0) })
+        return RoundEntryView(
+            entrants: stillIn,
+            roundNumber: match.rounds.count + 1,
+            totals: totals,
+            badgeIndices: badgeIndices,
+            neverLaidDownValue: match.variant.neverLaidDownValue
+        ) { deltas, cifte in
+            // Pop this push first and defer the Round append (which may present
+            // the Rejoin sheet) to the next run loop turn — presenting a sheet in
+            // the same update as a navigation transition is a race UIKit can
+            // lose, silently dropping the Rejoin sheet.
+            showingKeypadEntry = false
+            DispatchQueue.main.async {
+                match.rounds.append(Round(deltas: deltas, cifte: cifte))
+                if let survivalEngine = engine as? SurvivalEngine {
+                    rejoinQueue.append(contentsOf: survivalEngine.newlyOutEntrantIDs(for: match))
                 }
             }
-        case .okeyStandard:
-            OkeyStandardRoundEntryView(entrants: match.entrants) { losingEntrantID, gostergeFinds, cifte in
-                showingRoundEntry = false
-                DispatchQueue.main.async {
-                    match.rounds.append(Round(
-                        cifte: cifte,
-                        losingEntrantID: losingEntrantID,
-                        gostergeFinds: gostergeFinds
-                    ))
-                }
+        }
+    }
+
+    private var okeyStandardRoundEntrySheet: some View {
+        OkeyStandardRoundEntryView(entrants: match.entrants) { losingEntrantID, gostergeFinds, cifte in
+            showingOkeyEntry = false
+            DispatchQueue.main.async {
+                match.rounds.append(Round(
+                    cifte: cifte,
+                    losingEntrantID: losingEntrantID,
+                    gostergeFinds: gostergeFinds
+                ))
             }
         }
     }
@@ -230,7 +243,10 @@ struct PlayView: View {
     @ViewBuilder
     private func addRoundButton(isOver: Bool) -> some View {
         Button {
-            showingRoundEntry = true
+            switch match.variant.entryStyle {
+            case .keypad: showingKeypadEntry = true
+            case .okeyStandard: showingOkeyEntry = true
+            }
         } label: {
             Text(isOver ? "Match finished" : "Add round \(match.rounds.count + 1) scores")
                 .siraStyle(.subheadline)
@@ -322,9 +338,7 @@ struct StandingRow: View {
         .frame(height: 4)
     }
 
-    private var initial: String {
-        String(standing.name.trimmingCharacters(in: .whitespacesAndNewlines).prefix(1)).uppercased()
-    }
+    private var initial: String { standing.name.dotBadgeInitial }
 
     private var deltaText: String {
         standing.deltaFromLastRound == 0 && standing.total == 0 ? "—" : signedText(standing.deltaFromLastRound)
