@@ -27,6 +27,16 @@
 		B318B223303478DC002BEDC5 /* sira.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = sira.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		75FCF4CA8377AC3603FECF65 /* Exceptions for "sira" folder in "sira" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = B318B222303478DC002BEDC5 /* sira */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		7A2888699D3BBF8C559EBCFE /* siraTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
@@ -36,22 +46,12 @@
 		B318B225303478DC002BEDC5 /* sira */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				75FCF4CA8377AC3603FECF65 /* PBXFileSystemSynchronizedBuildFileExceptionSet */,
+				75FCF4CA8377AC3603FECF65 /* Exceptions for "sira" folder in "sira" target */,
 			);
 			path = sira;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
-
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		75FCF4CA8377AC3603FECF65 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Info.plist,
-			);
-			target = B318B222303478DC002BEDC5 /* sira */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		9426F09ADC33B8FAEB6E58AD /* Frameworks */ = {
@@ -226,25 +226,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
-
-/* Begin XCRemoteSwiftPackageReference section */
-		CB519557D462C9019629C329 /* XCRemoteSwiftPackageReference "swift-snapshot-testing" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/pointfreeco/swift-snapshot-testing";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 1.15.0;
-			};
-		};
-/* End XCRemoteSwiftPackageReference section */
-
-/* Begin XCSwiftPackageProductDependency section */
-		3CD3B5C42CB4DCCF5BE8FC7B /* SnapshotTesting */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = CB519557D462C9019629C329 /* XCRemoteSwiftPackageReference "swift-snapshot-testing" */;
-			productName = SnapshotTesting;
-		};
-/* End XCSwiftPackageProductDependency section */
 
 /* Begin PBXTargetDependency section */
 		5B5145968F95410050A9AE9E /* PBXTargetDependency */ = {
@@ -511,6 +492,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		CB519557D462C9019629C329 /* XCRemoteSwiftPackageReference "swift-snapshot-testing" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/pointfreeco/swift-snapshot-testing";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.15.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		3CD3B5C42CB4DCCF5BE8FC7B /* SnapshotTesting */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = CB519557D462C9019629C329 /* XCRemoteSwiftPackageReference "swift-snapshot-testing" */;
+			productName = SnapshotTesting;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = B318B21B303478DC002BEDC5 /* Project object */;
 }
