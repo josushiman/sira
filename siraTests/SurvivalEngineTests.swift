@@ -144,6 +144,21 @@ final class SurvivalEngineTests: XCTestCase {
         XCTAssertEqual(alice.total, 40)
     }
 
+    func test_rejoinTargetFallsBackToHighestTotalAmongAllEntrantsWhenEveryoneIsOut() {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        let match = makeMatch(
+            entrants: [a, b],
+            rounds: [
+                Round(deltas: [a.id: 110, b.id: 120]),
+            ]
+        )
+
+        let target = SurvivalEngine().rejoinTarget(for: match)
+
+        XCTAssertEqual(target, 120)
+    }
+
     func test_decliningRejoinLeavesEntrantOutForRestOfMatch() {
         let a = Entrant(name: "Alice")
         let b = Entrant(name: "Bob")
