@@ -35,8 +35,8 @@ struct HomeView: View {
                 .listStyle(.plain)
             }
 
-            NavigationLink("Start Gonga Match") {
-                SetupView()
+            NavigationLink("New Match") {
+                GamePickerView()
             }
             .buttonStyle(.borderedProminent)
             .padding()

@@ -12,7 +12,7 @@ extension WinCondition {
     var engine: MatchEngine {
         switch self {
         case .survival: return SurvivalEngine()
-        case .elimination: fatalError("EliminationEngine not implemented yet")
+        case .elimination: return EliminationEngine()
         case .fixedRounds: fatalError("FixedRoundsEngine not implemented yet")
         }
     }
