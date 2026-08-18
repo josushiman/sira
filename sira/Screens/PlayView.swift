@@ -8,16 +8,12 @@ enum PlayTab: String, CaseIterable, Identifiable {
 }
 
 struct PlayView: View {
-    @State private var match: Match
+    @Binding var match: Match
     @State private var showingRoundEntry = false
     @State private var rejoinQueue: [Entrant.ID] = []
     @State private var selectedTab: PlayTab = .standings
 
     private let engine = SurvivalEngine()
-
-    init(initialMatch: Match) {
-        _match = State(initialValue: initialMatch)
-    }
 
     var body: some View {
         let standings = engine.standings(for: match)
@@ -163,11 +159,11 @@ struct MatchOverBanner: View {
 
 #Preview {
     NavigationStack {
-        PlayView(initialMatch: Match(
+        PlayView(match: .constant(Match(
             game: .gonga,
             variant: .gonga101,
             mode: .players,
             entrants: [Entrant(name: "Alice"), Entrant(name: "Bob")]
-        ))
+        )))
     }
 }

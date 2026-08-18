@@ -8,10 +8,13 @@
 import SwiftUI
 
 struct ContentView: View {
+    @State private var store = MatchStore.seeded()
+
     var body: some View {
         NavigationStack {
             HomeView()
         }
+        .environment(store)
     }
 }
 
