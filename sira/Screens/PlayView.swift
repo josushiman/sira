@@ -11,54 +11,99 @@ struct PlayView: View {
     @Binding var match: Match
     @State private var showingRoundEntry = false
     @State private var rejoinQueue: [Entrant.ID] = []
-    @State private var selectedTab: PlayTab = .standings
+    @State private var selectedTab: PlayTab
+
+    @Environment(\.theme) private var theme
+    @Environment(\.dismiss) private var dismiss
+
+    init(match: Binding<Match>, initialTab: PlayTab = .standings) {
+        _match = match
+        _selectedTab = State(initialValue: initialTab)
+    }
 
     private var engine: MatchEngine { match.variant.winCondition.engine }
 
     var body: some View {
         let standings = engine.standings(for: match)
 
-        VStack(spacing: 0) {
-            if standings.isOver {
-                MatchOverBanner(text: standings.result ?? "Match over")
-            }
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                PillTrack(options: PlayTab.allCases, label: \.rawValue, selection: $selectedTab)
+                    .padding(.top, 16)
+                    .padding(.bottom, 16)
 
-            Picker("View", selection: $selectedTab) {
-                ForEach(PlayTab.allCases) { tab in
-                    Text(tab.rawValue).tag(tab)
+                switch selectedTab {
+                case .standings:
+                    standingsContent(standings)
+                case .scoresheet:
+                    ScoresheetView(match: match, engine: engine)
                 }
             }
-            .pickerStyle(.segmented)
-            .padding([.horizontal, .top])
-
-            switch selectedTab {
-            case .standings:
-                List(standings.ranked) { standing in
-                    StandingRow(standing: standing)
-                }
-                .listStyle(.plain)
-            case .scoresheet:
-                ScoresheetView(match: match, engine: engine)
-            }
-
-            HStack {
-                Button("Undo") { undoLastRound() }
-                    .buttonStyle(.bordered)
-                    .disabled(match.rounds.isEmpty)
-
-                Button("Add Round") { showingRoundEntry = true }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(standings.isOver)
-            }
-            .padding()
+            .padding(.horizontal, 22)
+            .padding(.bottom, 20)
         }
-        .navigationTitle(match.variant.label)
+        .background(theme.background)
+        .foregroundStyle(theme.ink)
+        .toolbar(.hidden, for: .navigationBar)
+        .safeAreaInset(edge: .top, spacing: 0) {
+            header
+                .padding(.horizontal, 22)
+                .padding(.top, 6)
+                .background(theme.background)
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            addRoundButton(isOver: standings.isOver)
+                .padding(.horizontal, 22)
+                .padding(.vertical, 10)
+                .background(theme.background)
+        }
         .sheet(isPresented: $showingRoundEntry) {
             roundEntrySheet
         }
         .sheet(item: rejoinBinding) { entrant in
             RejoinSheet(entrant: entrant, onAccept: { acceptRejoin(for: entrant) })
         }
+    }
+
+    @ViewBuilder
+    private func standingsContent(_ standings: Standings) -> some View {
+        if standings.isOver {
+            MatchOverBanner(text: standings.result ?? "Match over")
+                .padding(.bottom, 14)
+        }
+
+        CardSurface(cornerRadius: 24, padding: 6) {
+            VStack(spacing: 0) {
+                ForEach(Array(standings.ranked.enumerated()), id: \.element.id) { index, standing in
+                    StandingRow(
+                        standing: standing,
+                        rank: index + 1,
+                        badgeIndex: badgeIndex(for: standing.entrantID),
+                        isLeader: index == 0 && !standing.isOut && !standings.isOver,
+                        maxAbsTotal: maxAbsTotal(standings)
+                    )
+                }
+            }
+        }
+
+        let stats = PlayStats(match: match, standings: standings)
+        HStack(spacing: 10) {
+            StatTile(label: stats.leadLabel, value: stats.leadValue)
+            StatTile(label: stats.secondaryLabel, value: stats.secondaryValue)
+        }
+        .padding(.top, 14)
+    }
+
+    private func badgeIndex(for entrantID: Entrant.ID) -> Int {
+        match.entrants.firstIndex { $0.id == entrantID } ?? 0
+    }
+
+    /// The largest total magnitude among all Standings, used to normalize
+    /// each Standing's progress-bar width — matches the prototype's `maxAbs`.
+    private func maxAbsTotal(_ standings: Standings) -> Int {
+        let entrantMax = standings.ranked.map { abs($0.total) }.max() ?? 0
+        let variantScale = match.variant.limit ?? match.variant.startingScore ?? entrantMax
+        return max(1, variantScale)
     }
 
     @ViewBuilder
@@ -113,28 +158,207 @@ struct PlayView: View {
         rejoinQueue.removeAll()
         match.undoLastRound()
     }
+
+    private var header: some View {
+        HStack(spacing: 11) {
+            Button {
+                dismiss()
+            } label: {
+                Text("‹")
+                    .siraStyle(.headline)
+            }
+            .frame(width: 34, height: 34)
+            .background(theme.surface, in: Circle())
+            .overlay { Circle().stroke(theme.line, lineWidth: 1) }
+            .foregroundStyle(theme.ink)
+            .buttonStyle(.plain)
+
+            VStack(alignment: .leading, spacing: 5) {
+                Text(match.variant.label)
+                    .siraStyle(.subheadline)
+                Text(sira: .monoLabel, playSubtitle)
+                    .foregroundStyle(theme.ink.opacity(0.5))
+            }
+
+            Spacer()
+
+            HStack(spacing: 7) {
+                archiveButton
+                undoButton
+            }
+        }
+    }
+
+    private var playSubtitle: String {
+        let count = match.entrants.count
+        let noun = match.mode == .teams ? (count == 1 ? "team" : "teams") : (count == 1 ? "player" : "players")
+        return "\(count) \(noun)"
+    }
+
+    private var archiveButton: some View {
+        Button {
+            if match.archived { match.restore() } else { match.archive() }
+        } label: {
+            Text(match.archived ? "Restore" : "Archive")
+                .siraStyle(.caption)
+                .padding(.horizontal, 11)
+                .padding(.vertical, 7)
+        }
+        .foregroundStyle(theme.ink.opacity(0.7))
+        .background(theme.track, in: Capsule())
+        .buttonStyle(.plain)
+    }
+
+    private var undoButton: some View {
+        Button {
+            undoLastRound()
+        } label: {
+            Text("Undo")
+                .siraStyle(.caption)
+                .padding(.horizontal, 11)
+                .padding(.vertical, 7)
+        }
+        .foregroundStyle(theme.ink.opacity(match.rounds.isEmpty ? 0.35 : 1))
+        .background(theme.surface, in: Capsule())
+        .overlay {
+            Capsule().stroke(theme.line, lineWidth: 1)
+        }
+        .buttonStyle(.plain)
+        .disabled(match.rounds.isEmpty)
+    }
+
+    @ViewBuilder
+    private func addRoundButton(isOver: Bool) -> some View {
+        Button {
+            showingRoundEntry = true
+        } label: {
+            Text(isOver ? "Match finished" : "Add round \(match.rounds.count + 1) scores")
+                .siraStyle(.subheadline)
+                .fontWeight(.semibold)
+                .frame(maxWidth: .infinity)
+                .frame(height: 54)
+        }
+        .foregroundStyle(isOver ? theme.ink.opacity(0.5) : theme.background)
+        .background {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(isOver ? theme.surface : theme.ink)
+                .overlay {
+                    if isOver {
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .stroke(theme.line, lineWidth: 1)
+                    }
+                }
+        }
+        .buttonStyle(.plain)
+        .disabled(isOver)
+    }
 }
 
+/// A Standings row: rank, dot badge, name with LEADS/OUT tag, a progress bar
+/// scaled to the Match's biggest total, and the score with its last delta.
 struct StandingRow: View {
     let standing: EntrantStanding
+    let rank: Int
+    let badgeIndex: Int
+    let isLeader: Bool
+    let maxAbsTotal: Int
+
+    @Environment(\.theme) private var theme
 
     var body: some View {
-        HStack {
-            VStack(alignment: .leading) {
-                Text(standing.name)
-                    .font(.headline)
-                    .strikethrough(standing.isOut)
-                if standing.isOut {
-                    Text("Out")
-                        .font(.caption)
-                        .foregroundStyle(.red)
+        HStack(spacing: 12) {
+            Text(sira: .monoLabel, standing.isOut ? "—" : "\(rank)")
+                .foregroundStyle(theme.ink.opacity(0.35))
+                .frame(width: 14, alignment: .leading)
+
+            DotBadge(text: initial, index: badgeIndex, size: 34)
+                .opacity(standing.isOut ? 0.4 : 1)
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 7) {
+                    Text(standing.name)
+                        .siraStyle(.headline)
+                        .lineLimit(1)
+                    if standing.isOut {
+                        StatusPill(text: "Out", foreground: theme.background, background: theme.accent2)
+                    } else if isLeader {
+                        StatusPill(text: "Leads", foreground: theme.onAccent, background: theme.accent)
+                    }
                 }
+
+                progressBar
             }
-            Spacer()
-            Text("\(standing.total)")
-                .font(.title3.monospacedDigit())
+
+            VStack(alignment: .trailing, spacing: 7) {
+                Text("\(standing.total)")
+                    .siraStyle(.monoValueLarge)
+                    .foregroundStyle(isLeader ? theme.accent : theme.ink)
+                Text(deltaText)
+                    .siraStyle(.monoLabel)
+                    .foregroundStyle(theme.ink.opacity(0.42))
+            }
+            .frame(minWidth: 52, alignment: .trailing)
         }
-        .opacity(standing.isOut ? 0.6 : 1)
+        .padding(13)
+        .background {
+            if isLeader {
+                RoundedRectangle(cornerRadius: 19, style: .continuous)
+                    .fill(theme.track)
+            }
+        }
+        .opacity(standing.isOut ? 0.5 : 1)
+    }
+
+    private var progressBar: some View {
+        GeometryReader { geo in
+            let fraction = min(1, Double(abs(standing.total)) / Double(maxAbsTotal))
+            ZStack(alignment: .leading) {
+                Capsule().fill(theme.track)
+                Capsule()
+                    .fill(standing.isOut ? theme.line : (isLeader ? theme.accent : theme.ink.opacity(0.35)))
+                    .frame(width: geo.size.width * fraction)
+            }
+        }
+        .frame(height: 4)
+    }
+
+    private var initial: String {
+        String(standing.name.trimmingCharacters(in: .whitespacesAndNewlines).prefix(1)).uppercased()
+    }
+
+    private var deltaText: String {
+        standing.deltaFromLastRound == 0 && standing.total == 0 ? "—" : signedText(standing.deltaFromLastRound)
+    }
+
+    private func signedText(_ value: Int) -> String {
+        value > 0 ? "+\(value)" : "\(value)"
+    }
+}
+
+/// One of Play's two summary tiles above Standings: a label over a value.
+private struct StatTile: View {
+    let label: String
+    let value: String
+
+    @Environment(\.theme) private var theme
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            Text(sira: .monoEyebrow, label)
+                .foregroundStyle(theme.ink.opacity(0.5))
+            Text(value)
+                .siraStyle(.subheadline)
+                .fontWeight(.semibold)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(theme.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(theme.line, lineWidth: 1)
+        }
     }
 }
 
@@ -167,15 +391,24 @@ struct RejoinSheet: View {
     }
 }
 
+/// The accent-colored "Match over" banner shown above Standings once the
+/// Match's Win Condition is met.
 struct MatchOverBanner: View {
     let text: String
 
+    @Environment(\.theme) private var theme
+
     var body: some View {
-        Text(text)
-            .font(.headline)
-            .frame(maxWidth: .infinity)
-            .padding()
-            .background(Color.green.opacity(0.2))
+        VStack(alignment: .leading, spacing: 9) {
+            Text(sira: .monoEyebrow, "Match over")
+                .foregroundStyle(theme.onAccent.opacity(0.65))
+            Text(text)
+                .siraStyle(.headline)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(18)
+        .foregroundStyle(theme.onAccent)
+        .background(theme.accent, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
     }
 }
 
@@ -188,6 +421,7 @@ struct MatchOverBanner: View {
             entrants: [Entrant(name: "Alice"), Entrant(name: "Bob")]
         )))
     }
+    .themed()
 }
 
 #Preview("Okey standard") {
@@ -199,6 +433,7 @@ struct MatchOverBanner: View {
             entrants: [Entrant(name: "Team A"), Entrant(name: "Team B")]
         )))
     }
+    .themed()
 }
 
 #Preview("Okey 101") {
@@ -210,4 +445,5 @@ struct MatchOverBanner: View {
             entrants: [Entrant(name: "Alice"), Entrant(name: "Bob")]
         )))
     }
+    .themed()
 }
