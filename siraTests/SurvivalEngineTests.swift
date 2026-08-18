@@ -1,0 +1,125 @@
+import XCTest
+@testable import sira
+
+final class SurvivalEngineTests: XCTestCase {
+    private let variant = Variant.gonga101
+
+    private func makeMatch(entrants: [Entrant], rounds: [Round]) -> Match {
+        Match(game: .gonga, variant: variant, mode: .players, entrants: entrants, rounds: rounds)
+    }
+
+    func test_accumulatesDeltasAcrossRounds() {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        let match = makeMatch(
+            entrants: [a, b],
+            rounds: [
+                Round(deltas: [a.id: 20, b.id: 5]),
+                Round(deltas: [a.id: 10, b.id: 15]),
+            ]
+        )
+
+        let standings = SurvivalEngine().standings(for: match)
+
+        let aliceTotal = standings.ranked.first { $0.entrantID == a.id }!.total
+        let bobTotal = standings.ranked.first { $0.entrantID == b.id }!.total
+        XCTAssertEqual(aliceTotal, 30)
+        XCTAssertEqual(bobTotal, 20)
+        XCTAssertFalse(standings.isOver)
+    }
+
+    func test_entrantCrossingLimitGoesOut() {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        let c = Entrant(name: "Cara")
+        let match = makeMatch(
+            entrants: [a, b, c],
+            rounds: [
+                Round(deltas: [a.id: 105, b.id: 20, c.id: 10]),
+            ]
+        )
+
+        let standings = SurvivalEngine().standings(for: match)
+
+        let alice = standings.ranked.first { $0.entrantID == a.id }!
+        let bob = standings.ranked.first { $0.entrantID == b.id }!
+        XCTAssertTrue(alice.isOut)
+        XCTAssertEqual(alice.total, 105)
+        XCTAssertFalse(bob.isOut)
+        XCTAssertFalse(standings.isOver)
+    }
+
+    func test_matchEndsWithCorrectWinnerWhenOneEntrantRemains() {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        let c = Entrant(name: "Cara")
+        let match = makeMatch(
+            entrants: [a, b, c],
+            rounds: [
+                Round(deltas: [a.id: 50, b.id: 40, c.id: 30]),
+                Round(deltas: [a.id: 60, b.id: 65, c.id: 20]),
+            ]
+        )
+
+        let standings = SurvivalEngine().standings(for: match)
+
+        XCTAssertTrue(standings.isOver)
+        XCTAssertEqual(standings.result, "Cara wins!")
+
+        let cara = standings.ranked.first { $0.entrantID == c.id }!
+        XCTAssertFalse(cara.isOut)
+        XCTAssertEqual(cara.total, 50)
+    }
+
+    func test_outEntrantIgnoresFurtherDeltas() {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        let c = Entrant(name: "Cara")
+        let match = makeMatch(
+            entrants: [a, b, c],
+            rounds: [
+                Round(deltas: [a.id: 110, b.id: 10, c.id: 10]),
+                Round(deltas: [a.id: 5, b.id: 20, c.id: 30]),
+            ]
+        )
+
+        let standings = SurvivalEngine().standings(for: match)
+
+        let alice = standings.ranked.first { $0.entrantID == a.id }!
+        XCTAssertEqual(alice.total, 110)
+        XCTAssertTrue(alice.isOut)
+    }
+
+    func test_rankingOrdersNotOutAscendingByTotalThenOutEntrantsLast() {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        let c = Entrant(name: "Cara")
+        let match = makeMatch(
+            entrants: [a, b, c],
+            rounds: [
+                Round(deltas: [a.id: 120, b.id: 40, c.id: 10]),
+            ]
+        )
+
+        let standings = SurvivalEngine().standings(for: match)
+
+        XCTAssertEqual(standings.ranked.map(\.name), ["Cara", "Bob", "Alice"])
+    }
+
+    func test_simultaneousBustEndsMatchWithLowestTotalAsWinner() {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        let match = makeMatch(
+            entrants: [a, b],
+            rounds: [
+                Round(deltas: [a.id: 110, b.id: 120]),
+            ]
+        )
+
+        let standings = SurvivalEngine().standings(for: match)
+
+        XCTAssertTrue(standings.isOver)
+        XCTAssertEqual(standings.result, "Alice wins!")
+        XCTAssertTrue(standings.ranked.allSatisfy(\.isOut))
+    }
+}
