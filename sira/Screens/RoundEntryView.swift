@@ -59,7 +59,12 @@ struct RoundEntryView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            topBar
+            EntryTopBar(
+                roundNumber: roundNumber,
+                isReadyToSave: state.isReadyToSave,
+                onCancel: { dismiss() },
+                onSave: save
+            )
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(entryTitle)
@@ -105,41 +110,17 @@ struct RoundEntryView: View {
         .foregroundStyle(theme.ink)
     }
 
-    private var topBar: some View {
-        HStack {
-            Button("Cancel") { dismiss() }
-                .foregroundStyle(theme.ink.opacity(0.55))
-                .font(.sira(.subheadline))
-
-            Spacer()
-
-            Text(sira: .monoEyebrow, "Round \(roundNumber)")
-                .foregroundStyle(theme.ink.opacity(0.5))
-
-            Spacer()
-
-            Button("Save") { save() }
-                .foregroundStyle(state.isReadyToSave ? theme.accent : theme.ink.opacity(0.35))
-                .font(.sira(.subheadline))
-                .fontWeight(.semibold)
-                .disabled(!state.isReadyToSave)
-        }
-        .buttonStyle(.plain)
-        .padding(.horizontal, 22)
-        .padding(.top, 6)
-    }
-
     private var quickEntryChips: some View {
         HStack(spacing: 7) {
-            QuickEntryChip(label: "Won the round \u{b7} 0") {
+            EntryChip(label: "Won the round \u{b7} 0") {
                 state.applyQuickEntry(0)
             }
             if let neverLaidDownValue {
-                QuickEntryChip(label: "Never laid down \u{b7} \(neverLaidDownValue)") {
+                EntryChip(label: "Never laid down \u{b7} \(neverLaidDownValue)") {
                     state.applyQuickEntry(neverLaidDownValue)
                 }
             }
-            QuickEntryChip(label: "\u{c7}ifte \u{2014} double all \u{d7}2", isOn: state.cifteOn) {
+            EntryChip(label: "\u{c7}ifte \u{2014} double all \u{d7}2", isOn: state.cifteOn) {
                 state.cifteOn.toggle()
             }
         }
@@ -224,37 +205,6 @@ private struct EntryRow: View {
             return "\(enteredValue)"
         }
         return isActive ? "" : "\u{2014}"
-    }
-}
-
-/// A momentary quick-entry shortcut button, or the Çifte toggle chip when
-/// `isOn` is supplied — the prototype's filled/unfilled chip styling.
-private struct QuickEntryChip: View {
-    let label: String
-    var isOn: Bool = false
-    let action: () -> Void
-
-    @Environment(\.theme) private var theme
-
-    var body: some View {
-        Button(action: action) {
-            Text(label)
-                .siraStyle(.caption)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 11)
-        }
-        .foregroundStyle(isOn ? theme.background : theme.ink)
-        .background {
-            RoundedRectangle(cornerRadius: 13, style: .continuous)
-                .fill(isOn ? theme.accent2 : theme.surface)
-                .overlay {
-                    if !isOn {
-                        RoundedRectangle(cornerRadius: 13, style: .continuous)
-                            .stroke(theme.line, lineWidth: 1)
-                    }
-                }
-        }
-        .buttonStyle(.plain)
     }
 }
 

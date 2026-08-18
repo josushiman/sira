@@ -61,8 +61,8 @@ struct PlayView: View {
         .navigationDestination(isPresented: $showingKeypadEntry) {
             keypadRoundEntry(standings)
         }
-        .sheet(isPresented: $showingOkeyEntry) {
-            okeyStandardRoundEntrySheet
+        .navigationDestination(isPresented: $showingOkeyEntry) {
+            okeyStandardRoundEntry
         }
         .sheet(item: rejoinBinding) { entrant in
             RejoinSheet(entrant: entrant, onAccept: { acceptRejoin(for: entrant) })
@@ -137,8 +137,8 @@ struct PlayView: View {
         }
     }
 
-    private var okeyStandardRoundEntrySheet: some View {
-        OkeyStandardRoundEntryView(entrants: match.entrants) { losingEntrantID, gostergeFinds, cifte in
+    private var okeyStandardRoundEntry: some View {
+        OkeyStandardRoundEntryView(entrants: match.entrants, roundNumber: match.rounds.count + 1) { losingEntrantID, gostergeFinds, cifte in
             showingOkeyEntry = false
             DispatchQueue.main.async {
                 match.rounds.append(Round(
