@@ -59,9 +59,15 @@ struct PlayView: View {
         .navigationTitle(match.variant.label)
         .sheet(isPresented: $showingRoundEntry) {
             RoundEntryView(entrants: match.entrants) { deltas, cifte in
-                match.rounds.append(Round(deltas: deltas, cifte: cifte))
+                // Dismiss this sheet first and defer the Round append (which may
+                // present the Rejoin sheet) to the next run loop turn — presenting
+                // a new sheet in the same update as this one's dismissal is a race
+                // UIKit can lose, silently dropping the Rejoin sheet.
                 showingRoundEntry = false
-                rejoinQueue.append(contentsOf: engine.newlyOutEntrantIDs(for: match))
+                DispatchQueue.main.async {
+                    match.rounds.append(Round(deltas: deltas, cifte: cifte))
+                    rejoinQueue.append(contentsOf: engine.newlyOutEntrantIDs(for: match))
+                }
             }
         }
         .sheet(item: rejoinBinding) { entrant in
