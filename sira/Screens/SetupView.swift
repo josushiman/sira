@@ -180,10 +180,7 @@ private struct NameRow: View {
 
     private var placeholder: String { "\(label) \(index + 1)" }
 
-    private var initial: String {
-        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? "?" : String(trimmed.prefix(1)).uppercased()
-    }
+    private var initial: String { name.dotBadgeInitial }
 }
 
 #Preview {
