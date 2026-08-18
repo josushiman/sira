@@ -2,6 +2,9 @@ import SwiftUI
 
 struct RoundEntryView: View {
     let entrants: [Entrant]
+    /// The keypad's "never laid down" quick-entry shortcut value (Okey 101:
+    /// 101). `nil` hides that shortcut for Variants that don't offer it.
+    var neverLaidDownValue: Int? = nil
     let onSave: ([Entrant.ID: Int], Bool) -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -28,6 +31,8 @@ struct RoundEntryView: View {
                         .foregroundStyle(.orange)
                 }
 
+                quickEntryShortcuts
+
                 keypad
 
                 HStack {
@@ -50,6 +55,16 @@ struct RoundEntryView: View {
                 }
             }
         }
+    }
+
+    private var quickEntryShortcuts: some View {
+        HStack {
+            Button("Won round (0)") { digits = "0" }
+            if let neverLaidDownValue {
+                Button("Never laid down (\(neverLaidDownValue))") { digits = "\(neverLaidDownValue)" }
+            }
+        }
+        .buttonStyle(.bordered)
     }
 
     private var keypad: some View {
@@ -85,4 +100,11 @@ struct RoundEntryView: View {
 
 #Preview {
     RoundEntryView(entrants: [Entrant(name: "Alice"), Entrant(name: "Bob")]) { _, _ in }
+}
+
+#Preview("Okey 101") {
+    RoundEntryView(
+        entrants: [Entrant(name: "Alice"), Entrant(name: "Bob")],
+        neverLaidDownValue: 101
+    ) { _, _ in }
 }

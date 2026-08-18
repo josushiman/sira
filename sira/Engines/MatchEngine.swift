@@ -13,7 +13,7 @@ extension WinCondition {
         switch self {
         case .survival: return SurvivalEngine()
         case .elimination: return EliminationEngine()
-        case .fixedRounds: fatalError("FixedRoundsEngine not implemented yet")
+        case .fixedRounds: return FixedRoundsEngine()
         }
     }
 }

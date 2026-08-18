@@ -65,7 +65,7 @@ struct PlayView: View {
     private var roundEntrySheet: some View {
         switch match.variant.entryStyle {
         case .keypad:
-            RoundEntryView(entrants: match.entrants) { deltas, cifte in
+            RoundEntryView(entrants: match.entrants, neverLaidDownValue: match.variant.neverLaidDownValue) { deltas, cifte in
                 // Dismiss this sheet first and defer the Round append (which may
                 // present the Rejoin sheet) to the next run loop turn — presenting
                 // a new sheet in the same update as this one's dismissal is a race
@@ -197,6 +197,17 @@ struct MatchOverBanner: View {
             variant: .okeyStandard,
             mode: .teams,
             entrants: [Entrant(name: "Team A"), Entrant(name: "Team B")]
+        )))
+    }
+}
+
+#Preview("Okey 101") {
+    NavigationStack {
+        PlayView(match: .constant(Match(
+            game: .okey,
+            variant: .okey101,
+            mode: .players,
+            entrants: [Entrant(name: "Alice"), Entrant(name: "Bob")]
         )))
     }
 }

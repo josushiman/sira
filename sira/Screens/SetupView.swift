@@ -5,17 +5,20 @@ struct SetupView: View {
 
     @Environment(MatchStore.self) private var store
     @State private var entrantNames: [String]
+    @State private var roundCount: Int
     @State private var startedMatchID: Match.ID?
 
     init(variant: Variant) {
         self.variant = variant
         _entrantNames = State(initialValue: Array(repeating: "", count: 2))
+        _roundCount = State(initialValue: variant.roundCount ?? 8)
     }
 
     private var mode: EntrantMode { variant.teamsOnly ? .teams : .players }
     private var entrantLabel: String { variant.teamsOnly ? "Team" : "Entrant" }
     private var canAddEntrant: Bool { !variant.teamsOnly && entrantNames.count < 4 }
     private var canRemoveEntrant: Bool { !variant.teamsOnly && entrantNames.count > 2 }
+    private var offersRoundCountChoice: Bool { variant.winCondition == .fixedRounds }
 
     var body: some View {
         Form {
@@ -28,6 +31,15 @@ struct SetupView: View {
                 }
                 if canRemoveEntrant {
                     Button("Remove Entrant", role: .destructive) { entrantNames.removeLast() }
+                }
+            }
+            if offersRoundCountChoice {
+                Section("Rounds") {
+                    Picker("Round count", selection: $roundCount) {
+                        Text("8").tag(8)
+                        Text("12").tag(12)
+                    }
+                    .pickerStyle(.segmented)
                 }
             }
             Section {
@@ -45,7 +57,8 @@ struct SetupView: View {
             let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
             return Entrant(name: trimmed.isEmpty ? "\(entrantLabel) \(index + 1)" : trimmed)
         }
-        let match = Match(game: variant.game, variant: variant, mode: mode, entrants: entrants)
+        let matchVariant = offersRoundCountChoice ? variant.choosingRoundCount(roundCount) : variant
+        let match = Match(game: matchVariant.game, variant: matchVariant, mode: mode, entrants: entrants)
         store.add(match)
         startedMatchID = match.id
     }
@@ -61,6 +74,13 @@ struct SetupView: View {
 #Preview("Okey standard") {
     NavigationStack {
         SetupView(variant: .okeyStandard)
+    }
+    .environment(MatchStore())
+}
+
+#Preview("Okey 101") {
+    NavigationStack {
+        SetupView(variant: .okey101)
     }
     .environment(MatchStore())
 }
