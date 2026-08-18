@@ -64,9 +64,13 @@ struct SurvivalEngine: MatchEngine {
     }
 
     /// The total a rejoining Entrant should be set to: the highest total currently
-    /// held by any Entrant still in.
+    /// held by any Entrant still in. If everyone busted in the same Round (nobody
+    /// is still in), falls back to the highest total among all Entrants, since
+    /// that's the only reference point available.
     func rejoinTarget(for match: Match) -> Int {
-        standings(for: match).ranked.filter { !$0.isOut }.map(\.total).max() ?? 0
+        let ranked = standings(for: match).ranked
+        let stillIn = ranked.filter { !$0.isOut }.map(\.total).max()
+        return stillIn ?? ranked.map(\.total).max() ?? 0
     }
 
     /// IDs of Entrants who are Out after the last Round but were not Out before it,

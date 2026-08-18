@@ -29,4 +29,12 @@ struct Match: Identifiable, Hashable {
         self.archived = archived
         self.updatedAt = updatedAt
     }
+
+    /// Removes the most recently added Round, including any Rejoin attached to it.
+    /// Every downstream Standing recomputes from `rounds`, so this alone reverses
+    /// totals, Out status, and Rejoins for any Engine.
+    mutating func undoLastRound() {
+        guard !rounds.isEmpty else { return }
+        rounds.removeLast()
+    }
 }
