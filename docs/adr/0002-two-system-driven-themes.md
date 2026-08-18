@@ -1,0 +1,3 @@
+# Two themes only, driven by system appearance
+
+The prototype ships four hand-picked palettes (Paper, Felt, Night, Clay) with an in-app swatch picker, independent of iOS light/dark mode. We decided to keep only two — Paper mapped to system light, Felt mapped to system dark — dropping Night and Clay, and to drive the choice purely from the system Appearance setting with no in-app override or picker UI. This trades the prototype's exact theming feature for the simpler, more idiomatic iOS pattern users already expect. Consequence: Night and Clay's tokens are not implemented; reintroducing user-selectable themes later means adding back a picker and a stored preference.

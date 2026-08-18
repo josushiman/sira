@@ -1,0 +1,3 @@
+# Bundle Bricolage Grotesque and IBM Plex Mono as app fonts
+
+The Claude Design prototype (`Card Scores.dc.html`) sets its entire visual identity in Bricolage Grotesque (display) and IBM Plex Mono (labels/numbers), loaded from Google Fonts. Neither ships on iOS. We decided to bundle the actual font files into the app (both are OFL-licensed) rather than substitute native equivalents like SF Rounded/SF Mono, because the user asked for the prototype's "exact look and feel," and a substitution would visibly drift from it. Consequence: the app now carries and maintains embedded font assets instead of relying purely on system fonts.
