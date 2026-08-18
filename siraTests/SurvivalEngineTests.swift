@@ -122,4 +122,101 @@ final class SurvivalEngineTests: XCTestCase {
         XCTAssertEqual(standings.result, "Alice wins!")
         XCTAssertTrue(standings.ranked.allSatisfy(\.isOut))
     }
+
+    // MARK: - Rejoin
+
+    func test_acceptingRejoinResetsTotalToHighestAmongEntrantsStillInAndClearsOut() {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        let c = Entrant(name: "Cara")
+        let match = makeMatch(
+            entrants: [a, b, c],
+            rounds: [
+                Round(deltas: [a.id: 110, b.id: 20, c.id: 40]),
+                Round(id: UUID(), deltas: [a.id: 110, b.id: 20, c.id: 40], rejoins: [RejoinEvent(id: a.id, to: 40)]),
+            ]
+        )
+
+        let standings = SurvivalEngine().standings(for: match)
+
+        let alice = standings.ranked.first { $0.entrantID == a.id }!
+        XCTAssertFalse(alice.isOut)
+        XCTAssertEqual(alice.total, 40)
+    }
+
+    func test_decliningRejoinLeavesEntrantOutForRestOfMatch() {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        let match = makeMatch(
+            entrants: [a, b],
+            rounds: [
+                Round(deltas: [a.id: 110, b.id: 20]),
+                Round(deltas: [a.id: 0, b.id: 30]),
+            ]
+        )
+
+        let standings = SurvivalEngine().standings(for: match)
+
+        let alice = standings.ranked.first { $0.entrantID == a.id }!
+        XCTAssertTrue(alice.isOut)
+        XCTAssertEqual(alice.total, 110)
+    }
+
+    func test_newlyOutEntrantIDsReportsOnlyEntrantsThatBustedInTheLastRound() {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        let match = makeMatch(
+            entrants: [a, b],
+            rounds: [
+                Round(deltas: [a.id: 110, b.id: 20]),
+                Round(deltas: [a.id: 0, b.id: 90]),
+            ]
+        )
+
+        let newlyOut = SurvivalEngine().newlyOutEntrantIDs(for: match)
+
+        XCTAssertEqual(newlyOut, [b.id])
+    }
+
+    func test_newlyOutEntrantIDsAfterRejoinAndSecondBustOffersRejoinAgain() {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        let match = makeMatch(
+            entrants: [a, b],
+            rounds: [
+                Round(deltas: [a.id: 110, b.id: 20]),
+                Round(deltas: [a.id: 0, b.id: 0], rejoins: [RejoinEvent(id: a.id, to: 20)]),
+                Round(deltas: [a.id: 100, b.id: 10]),
+            ]
+        )
+
+        let newlyOut = SurvivalEngine().newlyOutEntrantIDs(for: match)
+
+        XCTAssertEqual(newlyOut, [a.id])
+    }
+
+    func test_multipleRejoinsInTheSameRoundBothTakeEffect() {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        let c = Entrant(name: "Cara")
+        let match = makeMatch(
+            entrants: [a, b, c],
+            rounds: [
+                Round(deltas: [a.id: 110, b.id: 120, c.id: 40]),
+                Round(
+                    deltas: [a.id: 0, b.id: 0, c.id: 0],
+                    rejoins: [RejoinEvent(id: a.id, to: 40), RejoinEvent(id: b.id, to: 40)]
+                ),
+            ]
+        )
+
+        let standings = SurvivalEngine().standings(for: match)
+
+        let alice = standings.ranked.first { $0.entrantID == a.id }!
+        let bob = standings.ranked.first { $0.entrantID == b.id }!
+        XCTAssertFalse(alice.isOut)
+        XCTAssertEqual(alice.total, 40)
+        XCTAssertFalse(bob.isOut)
+        XCTAssertEqual(bob.total, 40)
+    }
 }
