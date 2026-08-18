@@ -1,9 +1,17 @@
 import SwiftUI
 
+enum PlayTab: String, CaseIterable, Identifiable {
+    case standings = "Standings"
+    case scoresheet = "Scoresheet"
+
+    var id: String { rawValue }
+}
+
 struct PlayView: View {
     @State private var match: Match
     @State private var showingRoundEntry = false
     @State private var rejoinQueue: [Entrant.ID] = []
+    @State private var selectedTab: PlayTab = .standings
 
     private let engine = SurvivalEngine()
 
@@ -19,10 +27,23 @@ struct PlayView: View {
                 MatchOverBanner(text: standings.result ?? "Match over")
             }
 
-            List(standings.ranked) { standing in
-                StandingRow(standing: standing)
+            Picker("View", selection: $selectedTab) {
+                ForEach(PlayTab.allCases) { tab in
+                    Text(tab.rawValue).tag(tab)
+                }
             }
-            .listStyle(.plain)
+            .pickerStyle(.segmented)
+            .padding([.horizontal, .top])
+
+            switch selectedTab {
+            case .standings:
+                List(standings.ranked) { standing in
+                    StandingRow(standing: standing)
+                }
+                .listStyle(.plain)
+            case .scoresheet:
+                ScoresheetView(match: match, engine: engine)
+            }
 
             HStack {
                 Button("Undo") { undoLastRound() }
@@ -38,9 +59,15 @@ struct PlayView: View {
         .navigationTitle(match.variant.label)
         .sheet(isPresented: $showingRoundEntry) {
             RoundEntryView(entrants: match.entrants) { deltas, cifte in
-                match.rounds.append(Round(deltas: deltas, cifte: cifte))
+                // Dismiss this sheet first and defer the Round append (which may
+                // present the Rejoin sheet) to the next run loop turn — presenting
+                // a new sheet in the same update as this one's dismissal is a race
+                // UIKit can lose, silently dropping the Rejoin sheet.
                 showingRoundEntry = false
-                rejoinQueue.append(contentsOf: engine.newlyOutEntrantIDs(for: match))
+                DispatchQueue.main.async {
+                    match.rounds.append(Round(deltas: deltas, cifte: cifte))
+                    rejoinQueue.append(contentsOf: engine.newlyOutEntrantIDs(for: match))
+                }
             }
         }
         .sheet(item: rejoinBinding) { entrant in
