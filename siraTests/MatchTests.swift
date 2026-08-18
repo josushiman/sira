@@ -45,4 +45,43 @@ final class MatchTests: XCTestCase {
 
         XCTAssertTrue(match.rounds.isEmpty)
     }
+
+    func test_archiveSetsTheArchivedFlag() {
+        var match = Match(game: .gonga, variant: .gonga101, mode: .players, entrants: [Entrant(name: "Alice")])
+
+        match.archive()
+
+        XCTAssertTrue(match.archived)
+    }
+
+    func test_restoreClearsTheArchivedFlag() {
+        var match = Match(
+            game: .gonga,
+            variant: .gonga101,
+            mode: .players,
+            entrants: [Entrant(name: "Alice")],
+            archived: true
+        )
+
+        match.restore()
+
+        XCTAssertFalse(match.archived)
+    }
+
+    func test_archivingAndRestoringPreservesRoundsAndStandings() {
+        let a = Entrant(name: "Alice")
+        let round = Round(deltas: [a.id: 10])
+        var match = Match(
+            game: .gonga,
+            variant: .gonga101,
+            mode: .players,
+            entrants: [a],
+            rounds: [round]
+        )
+
+        match.archive()
+        match.restore()
+
+        XCTAssertEqual(match.rounds, [round])
+    }
 }

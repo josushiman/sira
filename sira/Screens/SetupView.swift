@@ -1,8 +1,9 @@
 import SwiftUI
 
 struct SetupView: View {
+    @Environment(MatchStore.self) private var store
     @State private var entrantNames: [String] = ["", ""]
-    @State private var startedMatch: Match?
+    @State private var startedMatchID: Match.ID?
 
     private var canAddEntrant: Bool { entrantNames.count < 4 }
     private var canRemoveEntrant: Bool { entrantNames.count > 2 }
@@ -25,8 +26,8 @@ struct SetupView: View {
             }
         }
         .navigationTitle(Variant.gonga101.label)
-        .navigationDestination(item: $startedMatch) { match in
-            PlayView(initialMatch: match)
+        .navigationDestination(item: $startedMatchID) { id in
+            PlayView(match: store.binding(for: id))
         }
     }
 
@@ -35,7 +36,9 @@ struct SetupView: View {
             let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
             return Entrant(name: trimmed.isEmpty ? "Entrant \(index + 1)" : trimmed)
         }
-        startedMatch = Match(game: .gonga, variant: .gonga101, mode: .players, entrants: entrants)
+        let match = Match(game: .gonga, variant: .gonga101, mode: .players, entrants: entrants)
+        store.add(match)
+        startedMatchID = match.id
     }
 }
 
@@ -43,4 +46,5 @@ struct SetupView: View {
     NavigationStack {
         SetupView()
     }
+    .environment(MatchStore())
 }

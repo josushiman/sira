@@ -37,4 +37,15 @@ struct Match: Identifiable, Hashable {
         guard !rounds.isEmpty else { return }
         rounds.removeLast()
     }
+
+    /// Hides this Match from the Active filter without locking it — Rounds can
+    /// still be added and standings still recompute normally.
+    mutating func archive() {
+        archived = true
+    }
+
+    /// Returns an archived Match to the Active filter.
+    mutating func restore() {
+        archived = false
+    }
 }
