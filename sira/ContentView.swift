@@ -15,6 +15,7 @@ struct ContentView: View {
             HomeView()
         }
         .environment(store)
+        .themed()
     }
 }
 

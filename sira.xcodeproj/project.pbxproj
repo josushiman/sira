@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		4EBCB6C0ED27003EEF0C542E /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9A0839C1DDAE91B5EA858333 /* Foundation.framework */; };
+		51F98E4EE6AA445F918EB523 /* SnapshotTesting in Frameworks */ = {isa = PBXBuildFile; productRef = 3CD3B5C42CB4DCCF5BE8FC7B /* SnapshotTesting */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -34,10 +35,23 @@
 		};
 		B318B225303478DC002BEDC5 /* sira */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				75FCF4CA8377AC3603FECF65 /* PBXFileSystemSynchronizedBuildFileExceptionSet */,
+			);
 			path = sira;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		75FCF4CA8377AC3603FECF65 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = B318B222303478DC002BEDC5 /* sira */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		9426F09ADC33B8FAEB6E58AD /* Frameworks */ = {
@@ -45,6 +59,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				4EBCB6C0ED27003EEF0C542E /* Foundation.framework in Frameworks */,
+				51F98E4EE6AA445F918EB523 /* SnapshotTesting in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -113,6 +128,9 @@
 				7A2888699D3BBF8C559EBCFE /* siraTests */,
 			);
 			name = siraTests;
+			packageProductDependencies = (
+				3CD3B5C42CB4DCCF5BE8FC7B /* SnapshotTesting */,
+			);
 			productName = siraTests;
 			productReference = 12AD9D5B98205F2B4A50855F /* siraTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
@@ -161,6 +179,9 @@
 			);
 			mainGroup = B318B21A303478DC002BEDC5;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				CB519557D462C9019629C329 /* XCRemoteSwiftPackageReference "swift-snapshot-testing" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = B318B224303478DC002BEDC5 /* Products */;
 			projectDirPath = "";
@@ -205,6 +226,25 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		CB519557D462C9019629C329 /* XCRemoteSwiftPackageReference "swift-snapshot-testing" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/pointfreeco/swift-snapshot-testing";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.15.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		3CD3B5C42CB4DCCF5BE8FC7B /* SnapshotTesting */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = CB519557D462C9019629C329 /* XCRemoteSwiftPackageReference "swift-snapshot-testing" */;
+			productName = SnapshotTesting;
+		};
+/* End XCSwiftPackageProductDependency section */
 
 /* Begin PBXTargetDependency section */
 		5B5145968F95410050A9AE9E /* PBXTargetDependency */ = {
@@ -382,6 +422,7 @@
 				DEVELOPMENT_TEAM = 43J4ZJDT47;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = sira/Info.plist;
 				"INFOPLIST_KEY_CFBundleDisplayName[sdk=*]" = "Sıra";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -415,6 +456,7 @@
 				DEVELOPMENT_TEAM = 43J4ZJDT47;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = sira/Info.plist;
 				"INFOPLIST_KEY_CFBundleDisplayName[sdk=*]" = "Sıra";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
