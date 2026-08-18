@@ -144,19 +144,22 @@ final class SurvivalEngineTests: XCTestCase {
         XCTAssertEqual(alice.total, 40)
     }
 
-    func test_rejoinTargetFallsBackToHighestTotalAmongAllEntrantsWhenEveryoneIsOut() {
+    func test_rejoinTargetFallsBackToTheVariantsLimitWhenEveryoneIsOut() {
+        // Being Out means a total above the limit, so falling back to the highest
+        // total among all Entrants would itself be above the limit; the fallback
+        // must clamp to the limit instead of resuming someone already-busted.
         let a = Entrant(name: "Alice")
         let b = Entrant(name: "Bob")
         let match = makeMatch(
             entrants: [a, b],
             rounds: [
-                Round(deltas: [a.id: 110, b.id: 120]),
+                Round(deltas: [a.id: 110, b.id: 130]),
             ]
         )
 
         let target = SurvivalEngine().rejoinTarget(for: match)
 
-        XCTAssertEqual(target, 120)
+        XCTAssertEqual(target, variant.limit ?? .max)
     }
 
     func test_decliningRejoinLeavesEntrantOutForRestOfMatch() {
@@ -210,6 +213,45 @@ final class SurvivalEngineTests: XCTestCase {
         XCTAssertEqual(newlyOut, [a.id])
     }
 
+    // MARK: - Çifte
+
+    func test_cifteDoublesEveryEntrantsDeltaForThatRound() {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        let match = makeMatch(
+            entrants: [a, b],
+            rounds: [
+                Round(deltas: [a.id: 10, b.id: 5], cifte: true),
+            ]
+        )
+
+        let standings = SurvivalEngine().standings(for: match)
+
+        let alice = standings.ranked.first { $0.entrantID == a.id }!
+        let bob = standings.ranked.first { $0.entrantID == b.id }!
+        XCTAssertEqual(alice.total, 20)
+        XCTAssertEqual(alice.deltaFromLastRound, 20)
+        XCTAssertEqual(bob.total, 10)
+        XCTAssertEqual(bob.deltaFromLastRound, 10)
+    }
+
+    func test_cifteRoundThatBustsAnEntrantAppliesTheDoubledTotal() {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        let match = makeMatch(
+            entrants: [a, b],
+            rounds: [
+                Round(deltas: [a.id: 60, b.id: 5], cifte: true),
+            ]
+        )
+
+        let standings = SurvivalEngine().standings(for: match)
+
+        let alice = standings.ranked.first { $0.entrantID == a.id }!
+        XCTAssertEqual(alice.total, 120)
+        XCTAssertTrue(alice.isOut)
+    }
+
     // MARK: - Undo
 
     func test_standingsAfterAppendingThenUndoingARoundMatchStandingsBeforeAppending() {
@@ -242,6 +284,24 @@ final class SurvivalEngineTests: XCTestCase {
 
         let standings = SurvivalEngine().standings(for: match)
         XCTAssertTrue(standings.ranked.allSatisfy { !$0.isOut })
+    }
+
+    func test_undoReversesADoubledCifteRound() {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        var match = makeMatch(
+            entrants: [a, b],
+            rounds: [Round(deltas: [a.id: 20, b.id: 5])]
+        )
+
+        let before = SurvivalEngine().standings(for: match)
+
+        match.rounds.append(Round(deltas: [a.id: 10, b.id: 15], cifte: true))
+        match.undoLastRound()
+
+        let after = SurvivalEngine().standings(for: match)
+
+        XCTAssertEqual(before, after)
     }
 
     func test_undoOfRoundThatTriggeredARejoinReversesTheRejoin() {

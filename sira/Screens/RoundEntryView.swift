@@ -2,12 +2,13 @@ import SwiftUI
 
 struct RoundEntryView: View {
     let entrants: [Entrant]
-    let onSave: ([Entrant.ID: Int]) -> Void
+    let onSave: ([Entrant.ID: Int], Bool) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var index = 0
     @State private var digits = ""
     @State private var deltas: [Entrant.ID: Int] = [:]
+    @State private var cifteOn = false
 
     private var currentEntrant: Entrant { entrants[index] }
     private var currentValue: Int { Int(digits) ?? 0 }
@@ -21,6 +22,11 @@ struct RoundEntryView: View {
                 Text(digits.isEmpty ? "0" : digits)
                     .font(.system(size: 56, weight: .bold, design: .rounded))
                     .monospacedDigit()
+                if cifteOn {
+                    Text("Çifte \u{2014} saves as \(currentValue * 2)")
+                        .font(.headline)
+                        .foregroundStyle(.orange)
+                }
 
                 keypad
 
@@ -36,6 +42,11 @@ struct RoundEntryView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Toggle("Çifte", isOn: $cifteOn)
+                        .toggleStyle(.button)
+                        .tint(.orange)
                 }
             }
         }
@@ -65,7 +76,7 @@ struct RoundEntryView: View {
         deltas[currentEntrant.id] = currentValue
         digits = ""
         if isLastEntrant {
-            onSave(deltas)
+            onSave(deltas, cifteOn)
         } else {
             index += 1
         }
@@ -73,5 +84,5 @@ struct RoundEntryView: View {
 }
 
 #Preview {
-    RoundEntryView(entrants: [Entrant(name: "Alice"), Entrant(name: "Bob")]) { _ in }
+    RoundEntryView(entrants: [Entrant(name: "Alice"), Entrant(name: "Bob")]) { _, _ in }
 }

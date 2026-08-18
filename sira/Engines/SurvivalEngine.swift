@@ -17,11 +17,13 @@ struct SurvivalEngine: MatchEngine {
 
         for round in match.rounds {
             lastRoundDeltas = [:]
+            let multiplier = round.cifte ? 2 : 1
             for entrant in match.entrants {
                 guard isOut[entrant.id] == false, let delta = round.deltas[entrant.id] else { continue }
-                let newTotal = (totals[entrant.id] ?? 0) + delta
+                let appliedDelta = delta * multiplier
+                let newTotal = (totals[entrant.id] ?? 0) + appliedDelta
                 totals[entrant.id] = newTotal
-                lastRoundDeltas[entrant.id] = delta
+                lastRoundDeltas[entrant.id] = appliedDelta
                 if newTotal > limit {
                     isOut[entrant.id] = true
                 }
@@ -65,12 +67,15 @@ struct SurvivalEngine: MatchEngine {
 
     /// The total a rejoining Entrant should be set to: the highest total currently
     /// held by any Entrant still in. If everyone busted in the same Round (nobody
-    /// is still in), falls back to the highest total among all Entrants, since
-    /// that's the only reference point available.
+    /// is still in), falls back to the highest total among all Entrants, capped at
+    /// the Variant's limit so a Rejoin can never resume an Entrant already Out by
+    /// the game's own rule.
     func rejoinTarget(for match: Match) -> Int {
+        let limit = match.variant.limit ?? .max
         let ranked = standings(for: match).ranked
         let stillIn = ranked.filter { !$0.isOut }.map(\.total).max()
-        return stillIn ?? ranked.map(\.total).max() ?? 0
+        let target = stillIn ?? ranked.map(\.total).max() ?? 0
+        return min(target, limit)
     }
 
     /// IDs of Entrants who are Out after the last Round but were not Out before it,
