@@ -1,60 +1,293 @@
 import SwiftUI
 
+/// The Okey-standard Round-entry screen: the losing-team choice renders as
+/// two full-width team cards (checkmark on the winner), and Gösterge finds
+/// render as a per-team `–`/count/`+` stepper row. Pushed full-screen from
+/// Play with the prototype's Cancel/Save top bar, matching the keypad Round
+/// entry screen's chrome (`docs/adr/0003`).
+///
+/// Restyle only — the underlying `losingEntrantID` + per-Entrant Gösterge
+/// find counts + Çifte model is unchanged from the segmented-Picker/Stepper
+/// version this replaces.
 struct OkeyStandardRoundEntryView: View {
     let entrants: [Entrant]
+    /// This round's number, shown in the top bar ("Round 3").
+    let roundNumber: Int
     let onSave: (_ losingEntrantID: Entrant.ID?, _ gostergeFinds: [Entrant.ID: Int], _ cifte: Bool) -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.theme) private var theme
     @State private var losingEntrantID: Entrant.ID?
-    @State private var gostergeFinds: [Entrant.ID: Int] = [:]
-    @State private var cifteOn = false
+    @State private var gostergeFinds: [Entrant.ID: Int]
+    @State private var cifteOn: Bool
+
+    /// - Parameters:
+    ///   - losingEntrantID, gostergeFinds, cifteOn: Seed the screen's interactive
+    ///     state directly — used by snapshot tests to capture a specific
+    ///     in-progress state without driving the view through taps.
+    ///     Production callers omit them and get nothing selected.
+    init(
+        entrants: [Entrant],
+        roundNumber: Int,
+        losingEntrantID: Entrant.ID? = nil,
+        gostergeFinds: [Entrant.ID: Int] = [:],
+        cifteOn: Bool = false,
+        onSave: @escaping (_ losingEntrantID: Entrant.ID?, _ gostergeFinds: [Entrant.ID: Int], _ cifte: Bool) -> Void
+    ) {
+        self.entrants = entrants
+        self.roundNumber = roundNumber
+        self.onSave = onSave
+        _losingEntrantID = State(initialValue: losingEntrantID)
+        _gostergeFinds = State(initialValue: gostergeFinds)
+        _cifteOn = State(initialValue: cifteOn)
+    }
+
+    private var isReadyToSave: Bool { losingEntrantID != nil }
 
     var body: some View {
-        NavigationStack {
-            Form {
-                Section("Who lost the Round?") {
-                    Picker("Losing team", selection: $losingEntrantID) {
-                        Text("Nobody").tag(Entrant.ID?.none)
-                        ForEach(entrants) { entrant in
-                            Text(entrant.name).tag(Optional(entrant.id))
+        VStack(spacing: 0) {
+            EntryTopBar(
+                roundNumber: roundNumber,
+                isReadyToSave: isReadyToSave,
+                onCancel: { dismiss() },
+                onSave: save
+            )
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Who won the round?")
+                        .siraStyle(.displayTitle)
+                    Text("The losing team drops 2. First team to 0 loses.")
+                        .siraStyle(.body)
+                        .foregroundStyle(theme.ink.opacity(0.55))
+                }
+                .padding(.top, 16)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                VStack(spacing: 10) {
+                    ForEach(entrants) { entrant in
+                        TeamPickCard(
+                            entrant: entrant,
+                            badgeIndex: badgeIndex(for: entrant.id),
+                            otherName: otherEntrant(for: entrant)?.name,
+                            isWinner: isWinner(entrant)
+                        ) {
+                            pickWinner(entrant)
                         }
                     }
-                    .pickerStyle(.segmented)
                 }
+                .padding(.top, 18)
 
-                Section("Gösterge") {
-                    ForEach(entrants) { entrant in
-                        Stepper(
-                            "\(entrant.name): \(gostergeFinds[entrant.id] ?? 0)",
-                            value: Binding(
-                                get: { gostergeFinds[entrant.id] ?? 0 },
-                                set: { gostergeFinds[entrant.id] = $0 }
-                            ),
-                            in: 0...1
-                        )
+                CardSurface(cornerRadius: 22, padding: 19) {
+                    VStack(alignment: .leading, spacing: 15) {
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text("Gösterge found")
+                                .siraStyle(.headline)
+                            Text("Each find takes 1 off the other team.")
+                                .siraStyle(.body)
+                                .foregroundStyle(theme.ink.opacity(0.55))
+                        }
+
+                        VStack(spacing: 10) {
+                            ForEach(entrants) { entrant in
+                                GostergeStepperRow(
+                                    name: entrant.name,
+                                    count: gostergeFinds[entrant.id] ?? 0,
+                                    onDecrement: { adjustGosterge(entrant.id, by: -1) },
+                                    onIncrement: { adjustGosterge(entrant.id, by: 1) }
+                                )
+                            }
+                        }
                     }
                 }
+                .padding(.top, 24)
 
-                Section {
-                    Toggle("Çifte", isOn: $cifteOn)
-                        .tint(.orange)
+                EntryChip(label: "\u{c7}ifte \u{2014} double all \u{d7}2", isOn: cifteOn) {
+                    cifteOn.toggle()
+                }
+                .padding(.top, 18)
+            }
+            .padding(.horizontal, 22)
+            .padding(.bottom, 34)
+        }
+        .background(theme.background)
+        .foregroundStyle(theme.ink)
+    }
+
+    private func badgeIndex(for id: Entrant.ID) -> Int {
+        entrants.firstIndex { $0.id == id } ?? 0
+    }
+
+    /// The other team in this two-team Elimination Match — Okey standard is
+    /// always exactly two Entrants (Teams of 2), so "the other one" is
+    /// unambiguous, matching the prototype's team-pick model.
+    private func otherEntrant(for entrant: Entrant) -> Entrant? {
+        entrants.first { $0.id != entrant.id }
+    }
+
+    /// A card reads as the winner when the *other* Entrant is the recorded
+    /// loser — tapping a card picks that Entrant as the winner by setting
+    /// `losingEntrantID` to the other team, mirroring the prototype's
+    /// "{team} won" framing.
+    private func isWinner(_ entrant: Entrant) -> Bool {
+        guard let losingEntrantID else { return false }
+        return losingEntrantID == otherEntrant(for: entrant)?.id
+    }
+
+    private func pickWinner(_ winner: Entrant) {
+        losingEntrantID = otherEntrant(for: winner)?.id ?? winner.id
+    }
+
+    private func adjustGosterge(_ id: Entrant.ID, by delta: Int) {
+        let current = gostergeFinds[id] ?? 0
+        gostergeFinds[id] = max(0, min(1, current + delta))
+    }
+
+    private func save() {
+        guard isReadyToSave else { return }
+        onSave(losingEntrantID, gostergeFinds, cifteOn)
+    }
+}
+
+/// One team-pick card: dot badge, "{team} won", a sub-line naming the
+/// consequence, and a checkmark on the selected (winning) card. Selecting a
+/// card inverts it to the ink/background pairing, matching the prototype.
+private struct TeamPickCard: View {
+    let entrant: Entrant
+    let badgeIndex: Int
+    let otherName: String?
+    let isWinner: Bool
+    let onTap: () -> Void
+
+    @Environment(\.theme) private var theme
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 13) {
+                DotBadge(text: entrant.initial, index: badgeIndex, size: 38)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("\(entrant.name) won")
+                        .siraStyle(.headline)
+                        .lineLimit(1)
+                    Text(subtitle)
+                        .siraStyle(.body)
+                        .opacity(0.6)
+                }
+
+                Spacer(minLength: 0)
+
+                checkmark
+            }
+            .padding(.horizontal, 19)
+            .padding(.vertical, 17)
+            .background {
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(isWinner ? theme.ink : theme.surface)
+            }
+            .overlay {
+                if !isWinner {
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .stroke(theme.line, lineWidth: 1)
                 }
             }
-            .navigationTitle("Okey Round")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save Round") {
-                        onSave(losingEntrantID, gostergeFinds, cifteOn)
+        }
+        .foregroundStyle(isWinner ? theme.background : theme.ink)
+        .buttonStyle(.plain)
+    }
+
+    private var subtitle: String {
+        guard let otherName else { return "the other side drops 2" }
+        return isWinner ? "\(otherName) drops 2" : "the other side drops 2"
+    }
+
+    private var checkmark: some View {
+        ZStack {
+            Circle()
+                .fill(isWinner ? theme.accent : Color.clear)
+                .overlay {
+                    if !isWinner {
+                        Circle().stroke(theme.line, lineWidth: 1)
                     }
                 }
+            if isWinner {
+                Text("\u{2713}")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(theme.onAccent)
             }
+        }
+        .frame(width: 24, height: 24)
+    }
+}
+
+/// A per-team Gösterge count: name, then a `–`/count/`+` stepper on a track
+/// pill — the prototype's stepper row in place of a native `Stepper`.
+private struct GostergeStepperRow: View {
+    let name: String
+    let count: Int
+    let onDecrement: () -> Void
+    let onIncrement: () -> Void
+
+    @Environment(\.theme) private var theme
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Text(name)
+                .siraStyle(.subheadline)
+                .lineLimit(1)
+
+            Spacer(minLength: 0)
+
+            HStack(spacing: 12) {
+                StepButton(label: "\u{2013}", action: onDecrement)
+                Text("\(count)")
+                    .siraStyle(.monoValue)
+                    .frame(minWidth: 16)
+                    .multilineTextAlignment(.center)
+                StepButton(label: "+", action: onIncrement)
+            }
+            .padding(.horizontal, 6)
+            .padding(.vertical, 5)
+            .background(theme.track, in: Capsule())
         }
     }
 }
 
-#Preview {
-    OkeyStandardRoundEntryView(entrants: [Entrant(name: "Team A"), Entrant(name: "Team B")]) { _, _, _ in }
+private struct StepButton: View {
+    let label: String
+    let action: () -> Void
+
+    @Environment(\.theme) private var theme
+
+    var body: some View {
+        Button(action: action) {
+            Text(label)
+                .siraStyle(.subheadline)
+                .frame(width: 30, height: 30)
+        }
+        .foregroundStyle(theme.ink)
+        .background(theme.surface, in: Circle())
+        .overlay { Circle().stroke(theme.line, lineWidth: 1) }
+        .buttonStyle(.plain)
+    }
+}
+
+#Preview("No team selected") {
+    let a = Entrant(name: "Ekrem & Su")
+    let b = Entrant(name: "Ada & Barış")
+    return OkeyStandardRoundEntryView(entrants: [a, b], roundNumber: 3) { _, _, _ in }
+        .themed()
+}
+
+#Preview("Team selected, Gösterge, Çifte") {
+    let a = Entrant(name: "Ekrem & Su")
+    let b = Entrant(name: "Ada & Barış")
+    return OkeyStandardRoundEntryView(
+        entrants: [a, b],
+        roundNumber: 3,
+        losingEntrantID: b.id,
+        gostergeFinds: [a.id: 1],
+        cifteOn: true
+    ) { _, _, _ in }
+    .themed()
 }
