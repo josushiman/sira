@@ -65,7 +65,15 @@ struct PlayView: View {
             okeyStandardRoundEntry
         }
         .sheet(item: rejoinBinding) { entrant in
-            RejoinSheet(entrant: entrant, onAccept: { acceptRejoin(for: entrant) })
+            if let survivalEngine = engine as? SurvivalEngine {
+                RejoinSheet(
+                    entrant: entrant,
+                    score: standings.ranked.first { $0.entrantID == entrant.id }?.total ?? 0,
+                    limit: match.variant.limit ?? 0,
+                    target: survivalEngine.rejoinTarget(for: match),
+                    onAccept: { acceptRejoin(for: entrant) }
+                )
+            }
         }
     }
 
@@ -376,32 +384,71 @@ private struct StatTile: View {
     }
 }
 
+/// The Rejoin offer shown when an Entrant busts, styled as the prototype's
+/// slide-up bottom sheet (`BottomSheetContent`) via native `.sheet(item:)`.
 struct RejoinSheet: View {
     let entrant: Entrant
+    let score: Int
+    let limit: Int
+    let target: Int
     let onAccept: () -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.theme) private var theme
 
     var body: some View {
-        VStack(spacing: 24) {
-            Text("\(entrant.name) is Out")
-                .font(.title2.bold())
-            Text("Offer a Rejoin? They'll come back in at the highest score still held by anyone still in.")
-                .multilineTextAlignment(.center)
-                .foregroundStyle(.secondary)
-
-            VStack(spacing: 12) {
-                Button("Rejoin") {
-                    onAccept()
-                    dismiss()
-                }
-                .buttonStyle(.borderedProminent)
-                Button("They're out") { dismiss() }
-                    .buttonStyle(.bordered)
-            }
+        VStack(spacing: 0) {
+            Spacer(minLength: 0)
+            bottomSheet
         }
-        .padding()
         .presentationDetents([.medium])
+        .presentationDragIndicator(.hidden)
+        .presentationBackground(.clear)
+    }
+
+    private var bottomSheet: some View {
+        BottomSheetContent {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("\(entrant.name) is Out")
+                    .siraStyle(.displayTitle)
+                Text("\(entrant.name) passed \(limit) on \(score). They can rejoin at the highest score still on the table.")
+                    .siraStyle(.body)
+                    .foregroundStyle(theme.ink.opacity(0.6))
+
+                VStack(spacing: 9) {
+                    Button {
+                        onAccept()
+                        dismiss()
+                    } label: {
+                        Text("Rejoin at \(target)")
+                            .siraStyle(.subheadline)
+                            .fontWeight(.semibold)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 52)
+                    }
+                    .foregroundStyle(theme.background)
+                    .background(theme.ink, in: RoundedRectangle(cornerRadius: 17, style: .continuous))
+                    .buttonStyle(.plain)
+
+                    Button {
+                        dismiss()
+                    } label: {
+                        Text("They're out")
+                            .siraStyle(.subheadline)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 52)
+                    }
+                    .foregroundStyle(theme.ink.opacity(0.75))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 17, style: .continuous)
+                            .stroke(theme.line, lineWidth: 1)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.top, 12)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
     }
 }
 
