@@ -195,6 +195,59 @@ final class SurvivalEngineTests: XCTestCase {
         XCTAssertEqual(newlyOut, [a.id])
     }
 
+    // MARK: - Undo
+
+    func test_standingsAfterAppendingThenUndoingARoundMatchStandingsBeforeAppending() {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        var match = makeMatch(
+            entrants: [a, b],
+            rounds: [Round(deltas: [a.id: 20, b.id: 5])]
+        )
+
+        let before = SurvivalEngine().standings(for: match)
+
+        match.rounds.append(Round(deltas: [a.id: 10, b.id: 15]))
+        match.undoLastRound()
+
+        let after = SurvivalEngine().standings(for: match)
+
+        XCTAssertEqual(before, after)
+    }
+
+    func test_undoReversesAnEntrantGoingOut() {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        var match = makeMatch(
+            entrants: [a, b],
+            rounds: [Round(deltas: [a.id: 105, b.id: 20])]
+        )
+
+        match.undoLastRound()
+
+        let standings = SurvivalEngine().standings(for: match)
+        XCTAssertTrue(standings.ranked.allSatisfy { !$0.isOut })
+    }
+
+    func test_undoOfRoundThatTriggeredARejoinReversesTheRejoin() {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        var match = makeMatch(
+            entrants: [a, b],
+            rounds: [
+                Round(deltas: [a.id: 110, b.id: 20]),
+                Round(deltas: [a.id: 0, b.id: 0], rejoins: [RejoinEvent(id: a.id, to: 20)]),
+            ]
+        )
+
+        match.undoLastRound()
+
+        let standings = SurvivalEngine().standings(for: match)
+        let alice = standings.ranked.first { $0.entrantID == a.id }!
+        XCTAssertTrue(alice.isOut)
+        XCTAssertEqual(alice.total, 110)
+    }
+
     func test_multipleRejoinsInTheSameRoundBothTakeEffect() {
         let a = Entrant(name: "Alice")
         let b = Entrant(name: "Bob")

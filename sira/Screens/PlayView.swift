@@ -24,10 +24,16 @@ struct PlayView: View {
             }
             .listStyle(.plain)
 
-            Button("Add Round") { showingRoundEntry = true }
-                .buttonStyle(.borderedProminent)
-                .disabled(standings.isOver)
-                .padding()
+            HStack {
+                Button("Undo") { undoLastRound() }
+                    .buttonStyle(.bordered)
+                    .disabled(match.rounds.isEmpty)
+
+                Button("Add Round") { showingRoundEntry = true }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(standings.isOver)
+            }
+            .padding()
         }
         .navigationTitle(match.variant.label)
         .sheet(isPresented: $showingRoundEntry) {
@@ -56,6 +62,11 @@ struct PlayView: View {
     private func acceptRejoin(for entrant: Entrant) {
         let target = engine.rejoinTarget(for: match)
         match.rounds[match.rounds.count - 1].rejoins.append(RejoinEvent(id: entrant.id, to: target))
+    }
+
+    private func undoLastRound() {
+        rejoinQueue.removeAll()
+        match.undoLastRound()
     }
 }
 
