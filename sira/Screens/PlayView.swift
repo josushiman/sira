@@ -13,7 +13,7 @@ struct PlayView: View {
     @State private var rejoinQueue: [Entrant.ID] = []
     @State private var selectedTab: PlayTab = .standings
 
-    private let engine = SurvivalEngine()
+    private var engine: MatchEngine { match.variant.winCondition.engine }
 
     var body: some View {
         let standings = engine.standings(for: match)
@@ -54,6 +54,17 @@ struct PlayView: View {
         }
         .navigationTitle(match.variant.label)
         .sheet(isPresented: $showingRoundEntry) {
+            roundEntrySheet
+        }
+        .sheet(item: rejoinBinding) { entrant in
+            RejoinSheet(entrant: entrant, onAccept: { acceptRejoin(for: entrant) })
+        }
+    }
+
+    @ViewBuilder
+    private var roundEntrySheet: some View {
+        switch match.variant.entryStyle {
+        case .keypad:
             RoundEntryView(entrants: match.entrants) { deltas, cifte in
                 // Dismiss this sheet first and defer the Round append (which may
                 // present the Rejoin sheet) to the next run loop turn — presenting
@@ -62,12 +73,22 @@ struct PlayView: View {
                 showingRoundEntry = false
                 DispatchQueue.main.async {
                     match.rounds.append(Round(deltas: deltas, cifte: cifte))
-                    rejoinQueue.append(contentsOf: engine.newlyOutEntrantIDs(for: match))
+                    if let survivalEngine = engine as? SurvivalEngine {
+                        rejoinQueue.append(contentsOf: survivalEngine.newlyOutEntrantIDs(for: match))
+                    }
                 }
             }
-        }
-        .sheet(item: rejoinBinding) { entrant in
-            RejoinSheet(entrant: entrant, onAccept: { acceptRejoin(for: entrant) })
+        case .okeyStandard:
+            OkeyStandardRoundEntryView(entrants: match.entrants) { losingEntrantID, gostergeFinds, cifte in
+                showingRoundEntry = false
+                DispatchQueue.main.async {
+                    match.rounds.append(Round(
+                        cifte: cifte,
+                        losingEntrantID: losingEntrantID,
+                        gostergeFinds: gostergeFinds
+                    ))
+                }
+            }
         }
     }
 
@@ -83,7 +104,8 @@ struct PlayView: View {
     }
 
     private func acceptRejoin(for entrant: Entrant) {
-        let target = engine.rejoinTarget(for: match)
+        guard let survivalEngine = engine as? SurvivalEngine else { return }
+        let target = survivalEngine.rejoinTarget(for: match)
         match.rounds[match.rounds.count - 1].rejoins.append(RejoinEvent(id: entrant.id, to: target))
     }
 
@@ -164,6 +186,17 @@ struct MatchOverBanner: View {
             variant: .gonga101,
             mode: .players,
             entrants: [Entrant(name: "Alice"), Entrant(name: "Bob")]
+        )))
+    }
+}
+
+#Preview("Okey standard") {
+    NavigationStack {
+        PlayView(match: .constant(Match(
+            game: .okey,
+            variant: .okeyStandard,
+            mode: .teams,
+            entrants: [Entrant(name: "Team A"), Entrant(name: "Team B")]
         )))
     }
 }

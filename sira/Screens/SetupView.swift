@@ -1,18 +1,27 @@
 import SwiftUI
 
 struct SetupView: View {
+    let variant: Variant
+
     @Environment(MatchStore.self) private var store
-    @State private var entrantNames: [String] = ["", ""]
+    @State private var entrantNames: [String]
     @State private var startedMatchID: Match.ID?
 
-    private var canAddEntrant: Bool { entrantNames.count < 4 }
-    private var canRemoveEntrant: Bool { entrantNames.count > 2 }
+    init(variant: Variant) {
+        self.variant = variant
+        _entrantNames = State(initialValue: Array(repeating: "", count: 2))
+    }
+
+    private var mode: EntrantMode { variant.teamsOnly ? .teams : .players }
+    private var entrantLabel: String { variant.teamsOnly ? "Team" : "Entrant" }
+    private var canAddEntrant: Bool { !variant.teamsOnly && entrantNames.count < 4 }
+    private var canRemoveEntrant: Bool { !variant.teamsOnly && entrantNames.count > 2 }
 
     var body: some View {
         Form {
-            Section("Entrants") {
+            Section(variant.teamsOnly ? "Teams" : "Entrants") {
                 ForEach(entrantNames.indices, id: \.self) { index in
-                    TextField("Entrant \(index + 1)", text: $entrantNames[index])
+                    TextField("\(entrantLabel) \(index + 1)", text: $entrantNames[index])
                 }
                 if canAddEntrant {
                     Button("Add Entrant") { entrantNames.append("") }
@@ -25,7 +34,7 @@ struct SetupView: View {
                 Button("Start Match") { startMatch() }
             }
         }
-        .navigationTitle(Variant.gonga101.label)
+        .navigationTitle(variant.label)
         .navigationDestination(item: $startedMatchID) { id in
             PlayView(match: store.binding(for: id))
         }
@@ -34,9 +43,9 @@ struct SetupView: View {
     private func startMatch() {
         let entrants = entrantNames.enumerated().map { index, name -> Entrant in
             let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-            return Entrant(name: trimmed.isEmpty ? "Entrant \(index + 1)" : trimmed)
+            return Entrant(name: trimmed.isEmpty ? "\(entrantLabel) \(index + 1)" : trimmed)
         }
-        let match = Match(game: .gonga, variant: .gonga101, mode: .players, entrants: entrants)
+        let match = Match(game: variant.game, variant: variant, mode: mode, entrants: entrants)
         store.add(match)
         startedMatchID = match.id
     }
@@ -44,7 +53,14 @@ struct SetupView: View {
 
 #Preview {
     NavigationStack {
-        SetupView()
+        SetupView(variant: .gonga101)
+    }
+    .environment(MatchStore())
+}
+
+#Preview("Okey standard") {
+    NavigationStack {
+        SetupView(variant: .okeyStandard)
     }
     .environment(MatchStore())
 }
