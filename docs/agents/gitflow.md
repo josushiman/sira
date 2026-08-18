@@ -9,6 +9,7 @@ Lightweight trunk-based flow. No `develop` branch, no long-lived release branche
 - Open a PR into `main` for every change, even solo work — it gives a review checkpoint and a record of why.
 - Merge PRs with **squash merge** so `main` stays one commit per change.
 - Delete the branch after merge.
+- After merging, run `git pull` on your local `main` checkout before rebuilding in Xcode — a stale local `main` is the most common reason a merged change doesn't show up in the simulator.
 - Tag releases directly on `main` (`v0.1.0`, `v0.2.0`, ...). No separate release branches.
 
 ## Hotfixes
