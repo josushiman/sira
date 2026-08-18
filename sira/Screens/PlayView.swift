@@ -3,6 +3,7 @@ import SwiftUI
 struct PlayView: View {
     @State private var match: Match
     @State private var showingRoundEntry = false
+    @State private var rejoinQueue: [Entrant.ID] = []
 
     private let engine = SurvivalEngine()
 
@@ -33,8 +34,29 @@ struct PlayView: View {
             RoundEntryView(entrants: match.entrants) { deltas in
                 match.rounds.append(Round(deltas: deltas))
                 showingRoundEntry = false
+                rejoinQueue.append(contentsOf: engine.newlyOutEntrantIDs(for: match))
             }
         }
+        .sheet(item: rejoinBinding) { entrant in
+            RejoinSheet(
+                entrant: entrant,
+                onAccept: { acceptRejoin(for: entrant) },
+                onDecline: { rejoinQueue.removeFirst() }
+            )
+        }
+    }
+
+    private var rejoinBinding: Binding<Entrant?> {
+        Binding(
+            get: { rejoinQueue.first.flatMap { id in match.entrants.first { $0.id == id } } },
+            set: { if $0 == nil { rejoinQueue.removeFirst() } }
+        )
+    }
+
+    private func acceptRejoin(for entrant: Entrant) {
+        let target = engine.rejoinTarget(for: match)
+        match.rounds[match.rounds.count - 1].rejoins.append(RejoinEvent(id: entrant.id, to: target))
+        rejoinQueue.removeFirst()
     }
 }
 
@@ -58,6 +80,31 @@ struct StandingRow: View {
                 .font(.title3.monospacedDigit())
         }
         .opacity(standing.isOut ? 0.6 : 1)
+    }
+}
+
+struct RejoinSheet: View {
+    let entrant: Entrant
+    let onAccept: () -> Void
+    let onDecline: () -> Void
+
+    var body: some View {
+        VStack(spacing: 24) {
+            Text("\(entrant.name) is Out")
+                .font(.title2.bold())
+            Text("Offer a Rejoin? They'll come back in at the highest score still held by anyone still in.")
+                .multilineTextAlignment(.center)
+                .foregroundStyle(.secondary)
+
+            VStack(spacing: 12) {
+                Button("Rejoin") { onAccept() }
+                    .buttonStyle(.borderedProminent)
+                Button("They're out") { onDecline() }
+                    .buttonStyle(.bordered)
+            }
+        }
+        .padding()
+        .presentationDetents([.medium])
     }
 }
 

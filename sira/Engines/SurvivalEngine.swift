@@ -26,6 +26,10 @@ struct SurvivalEngine: MatchEngine {
                     isOut[entrant.id] = true
                 }
             }
+            for rejoin in round.rejoins {
+                totals[rejoin.id] = rejoin.to
+                isOut[rejoin.id] = false
+            }
         }
 
         let stillIn = match.entrants.filter { isOut[$0.id] == false }
@@ -57,5 +61,28 @@ struct SurvivalEngine: MatchEngine {
             }
 
         return Standings(ranked: ranked, isOver: isOver, result: result)
+    }
+
+    /// The total a rejoining Entrant should be set to: the highest total currently
+    /// held by any Entrant still in.
+    func rejoinTarget(for match: Match) -> Int {
+        standings(for: match).ranked.filter { !$0.isOut }.map(\.total).max() ?? 0
+    }
+
+    /// IDs of Entrants who are Out after the last Round but were not Out before it,
+    /// i.e. entrants a Rejoin sheet should be offered to right now.
+    func newlyOutEntrantIDs(for match: Match) -> [Entrant.ID] {
+        guard !match.rounds.isEmpty else { return [] }
+
+        var priorMatch = match
+        priorMatch.rounds.removeLast()
+
+        let before = standings(for: priorMatch)
+        let after = standings(for: match)
+
+        let outBefore = Set(before.ranked.filter(\.isOut).map(\.entrantID))
+        return after.ranked
+            .filter { $0.isOut && !outBefore.contains($0.entrantID) }
+            .map(\.entrantID)
     }
 }
