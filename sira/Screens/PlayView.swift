@@ -38,25 +38,24 @@ struct PlayView: View {
             }
         }
         .sheet(item: rejoinBinding) { entrant in
-            RejoinSheet(
-                entrant: entrant,
-                onAccept: { acceptRejoin(for: entrant) },
-                onDecline: { rejoinQueue.removeFirst() }
-            )
+            RejoinSheet(entrant: entrant, onAccept: { acceptRejoin(for: entrant) })
         }
     }
 
     private var rejoinBinding: Binding<Entrant?> {
         Binding(
             get: { rejoinQueue.first.flatMap { id in match.entrants.first { $0.id == id } } },
-            set: { if $0 == nil { rejoinQueue.removeFirst() } }
+            set: { newValue in
+                if newValue == nil, !rejoinQueue.isEmpty {
+                    rejoinQueue.removeFirst()
+                }
+            }
         )
     }
 
     private func acceptRejoin(for entrant: Entrant) {
         let target = engine.rejoinTarget(for: match)
         match.rounds[match.rounds.count - 1].rejoins.append(RejoinEvent(id: entrant.id, to: target))
-        rejoinQueue.removeFirst()
     }
 }
 
@@ -86,7 +85,8 @@ struct StandingRow: View {
 struct RejoinSheet: View {
     let entrant: Entrant
     let onAccept: () -> Void
-    let onDecline: () -> Void
+
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         VStack(spacing: 24) {
@@ -97,9 +97,12 @@ struct RejoinSheet: View {
                 .foregroundStyle(.secondary)
 
             VStack(spacing: 12) {
-                Button("Rejoin") { onAccept() }
-                    .buttonStyle(.borderedProminent)
-                Button("They're out") { onDecline() }
+                Button("Rejoin") {
+                    onAccept()
+                    dismiss()
+                }
+                .buttonStyle(.borderedProminent)
+                Button("They're out") { dismiss() }
                     .buttonStyle(.bordered)
             }
         }
