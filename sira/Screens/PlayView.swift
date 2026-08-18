@@ -37,8 +37,8 @@ struct PlayView: View {
         }
         .navigationTitle(match.variant.label)
         .sheet(isPresented: $showingRoundEntry) {
-            RoundEntryView(entrants: match.entrants) { deltas in
-                match.rounds.append(Round(deltas: deltas))
+            RoundEntryView(entrants: match.entrants) { deltas, cifte in
+                match.rounds.append(Round(deltas: deltas, cifte: cifte))
                 showingRoundEntry = false
                 rejoinQueue.append(contentsOf: engine.newlyOutEntrantIDs(for: match))
             }
