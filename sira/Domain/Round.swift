@@ -12,7 +12,7 @@ struct Round: Identifiable, Hashable {
     /// Çifte, Okey atmak or any other Round modifier. The Engines are the only
     /// place a multiplier is applied (`docs/adr/0005`). Unused by Elimination
     /// Rounds, which are described instead by `losingEntrantID` and
-    /// `gostergeFinds`.
+    /// `gostergeFinderID`.
     var deltas: [Entrant.ID: Int]
     var rejoins: [RejoinEvent]
     /// The Entrants who called Çifte this Round. A fact, not an instruction:
@@ -24,8 +24,10 @@ struct Round: Identifiable, Hashable {
     var okeyAtanID: Entrant.ID?
     /// Elimination only: the Entrant that lost this Round, taking the −2 penalty.
     var losingEntrantID: Entrant.ID?
-    /// Elimination only: Gösterge finds per Entrant this Round, capped at 1 each.
-    var gostergeFinds: [Entrant.ID: Int]
+    /// Elimination only: the Entrant that found the Gösterge this Round, or
+    /// `nil` if nobody did. There is one Gösterge per Round, so at most one
+    /// Entrant can find it.
+    var gostergeFinderID: Entrant.ID?
 
     init(
         id: UUID = UUID(),
@@ -34,7 +36,7 @@ struct Round: Identifiable, Hashable {
         cifteCallers: Set<Entrant.ID> = [],
         okeyAtanID: Entrant.ID? = nil,
         losingEntrantID: Entrant.ID? = nil,
-        gostergeFinds: [Entrant.ID: Int] = [:]
+        gostergeFinderID: Entrant.ID? = nil
     ) {
         self.id = id
         self.deltas = deltas
@@ -42,7 +44,7 @@ struct Round: Identifiable, Hashable {
         self.cifteCallers = cifteCallers
         self.okeyAtanID = okeyAtanID
         self.losingEntrantID = losingEntrantID
-        self.gostergeFinds = gostergeFinds
+        self.gostergeFinderID = gostergeFinderID
     }
 }
 

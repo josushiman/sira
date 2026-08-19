@@ -40,7 +40,7 @@ final class EliminationEngineTests: XCTestCase {
         let b = Entrant(name: "Team B")
         let match = makeMatch(
             entrants: [a, b],
-            rounds: [Round(gostergeFinds: [a.id: 1])]
+            rounds: [Round(gostergeFinderID: a.id)]
         )
 
         let standings = EliminationEngine().standings(for: match)
@@ -49,31 +49,20 @@ final class EliminationEngineTests: XCTestCase {
         XCTAssertEqual(standings.ranked.first { $0.entrantID == b.id }!.total, 20)
     }
 
-    func test_gostergeFindsAreCappedAtOnePerEntrantEvenIfMoreAreSent() {
+    /// A finder that isn't in this Match deducts from nobody — otherwise a
+    /// stale ID would quietly take a point off every team at the table.
+    func test_gostergeFindByAnEntrantOutsideTheMatchDeductsNothing() {
         let a = Entrant(name: "Team A")
         let b = Entrant(name: "Team B")
         let match = makeMatch(
             entrants: [a, b],
-            rounds: [Round(gostergeFinds: [a.id: 3])]
+            rounds: [Round(gostergeFinderID: Entrant(name: "Team C").id)]
         )
 
         let standings = EliminationEngine().standings(for: match)
 
-        XCTAssertEqual(standings.ranked.first { $0.entrantID == b.id }!.total, 20)
-    }
-
-    func test_bothTeamsCanFindGostergeInTheSameRound() {
-        let a = Entrant(name: "Team A")
-        let b = Entrant(name: "Team B")
-        let match = makeMatch(
-            entrants: [a, b],
-            rounds: [Round(gostergeFinds: [a.id: 1, b.id: 1])]
-        )
-
-        let standings = EliminationEngine().standings(for: match)
-
-        XCTAssertEqual(standings.ranked.first { $0.entrantID == a.id }!.total, 20)
-        XCTAssertEqual(standings.ranked.first { $0.entrantID == b.id }!.total, 20)
+        XCTAssertEqual(standings.ranked.first { $0.entrantID == a.id }!.total, 21)
+        XCTAssertEqual(standings.ranked.first { $0.entrantID == b.id }!.total, 21)
     }
 
     func test_penaltyAndGostergeCombineInTheSameRound() {
@@ -81,7 +70,7 @@ final class EliminationEngineTests: XCTestCase {
         let b = Entrant(name: "Team B")
         let match = makeMatch(
             entrants: [a, b],
-            rounds: [Round(losingEntrantID: a.id, gostergeFinds: [b.id: 1])]
+            rounds: [Round(losingEntrantID: a.id, gostergeFinderID: b.id)]
         )
 
         let standings = EliminationEngine().standings(for: match)
@@ -99,7 +88,7 @@ final class EliminationEngineTests: XCTestCase {
         let b = Entrant(name: "Team B")
         let match = makeMatch(
             entrants: [a, b],
-            rounds: [Round(cifteCallers: [a.id], losingEntrantID: a.id, gostergeFinds: [b.id: 1])]
+            rounds: [Round(cifteCallers: [a.id], losingEntrantID: a.id, gostergeFinderID: b.id)]
         )
 
         let standings = EliminationEngine().standings(for: match)
@@ -110,8 +99,24 @@ final class EliminationEngineTests: XCTestCase {
     }
 
     /// With a single loser, Çifte's two branches collapse: called by the team
-    /// that lost or by the team that won, the −4 lands on the same team. This
-    /// is why Okey 21's screen can keep a Round-wide toggle.
+    /// that lost or by the team that won, the −4 lands on the same team. The
+    /// entry screen still records which team called, because the scoresheet
+    /// shows it — the totals just don't turn on it.
+    func test_cifteCalledByBothTeamsStillDoublesOnlyOnce() {
+        let a = Entrant(name: "Team A")
+        let b = Entrant(name: "Team B")
+        let match = makeMatch(
+            entrants: [a, b],
+            rounds: [Round(cifteCallers: [a.id, b.id], losingEntrantID: a.id)]
+        )
+
+        let standings = EliminationEngine().standings(for: match)
+
+        // −4, the same as one caller: Çifte never contributes more than ×2.
+        XCTAssertEqual(standings.ranked.first { $0.entrantID == a.id }!.total, 17)
+        XCTAssertEqual(standings.ranked.first { $0.entrantID == b.id }!.total, 21)
+    }
+
     func test_cifteCalledByTheWinningTeamDoublesTheSamePenalty() {
         let a = Entrant(name: "Team A")
         let b = Entrant(name: "Team B")
@@ -131,7 +136,7 @@ final class EliminationEngineTests: XCTestCase {
         let b = Entrant(name: "Team B")
         let match = makeMatch(
             entrants: [a, b],
-            rounds: [Round(okeyAtanID: b.id, losingEntrantID: a.id, gostergeFinds: [b.id: 1])]
+            rounds: [Round(okeyAtanID: b.id, losingEntrantID: a.id, gostergeFinderID: b.id)]
         )
 
         let standings = EliminationEngine().standings(for: match)
@@ -146,7 +151,7 @@ final class EliminationEngineTests: XCTestCase {
         let b = Entrant(name: "Team B")
         let match = makeMatch(
             entrants: [a, b],
-            rounds: [Round(cifteCallers: [b.id], okeyAtanID: b.id, losingEntrantID: a.id, gostergeFinds: [b.id: 1])]
+            rounds: [Round(cifteCallers: [b.id], okeyAtanID: b.id, losingEntrantID: a.id, gostergeFinderID: b.id)]
         )
 
         let standings = EliminationEngine().standings(for: match)
@@ -164,7 +169,7 @@ final class EliminationEngineTests: XCTestCase {
         let a = Entrant(name: "Team A")
         let b = Entrant(name: "Team B")
         var rounds = (0..<10).map { _ in Round(losingEntrantID: a.id) }
-        rounds.append(Round(gostergeFinds: [b.id: 1]))
+        rounds.append(Round(gostergeFinderID: b.id))
         let match = makeMatch(entrants: [a, b], rounds: rounds)
 
         let standings = EliminationEngine().standings(for: match)
@@ -219,7 +224,7 @@ final class EliminationEngineTests: XCTestCase {
 
         let before = EliminationEngine().standings(for: match)
 
-        match.rounds.append(Round(losingEntrantID: b.id, gostergeFinds: [a.id: 1]))
+        match.rounds.append(Round(losingEntrantID: b.id, gostergeFinderID: a.id))
         match.undoLastRound()
 
         let after = EliminationEngine().standings(for: match)

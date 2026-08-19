@@ -1,49 +1,53 @@
 import SwiftUI
 
-/// The Okey-standard Round-entry screen: the losing-team choice renders as
-/// two full-width team cards (checkmark on the winner), and Gösterge finds
-/// render as a per-team `–`/count/`+` stepper row. Pushed full-screen from
-/// Play with the prototype's Cancel/Save top bar, matching the keypad Round
-/// entry screen's chrome (`docs/adr/0003`).
+/// The Okey-standard Round-entry screen. Everything this Round records is a
+/// question about *who*, so all three choices take the same shape — the
+/// losing-team choice as two full-width team cards (checkmark on the winner),
+/// then who found the Gösterge and who called Çifte as rows of team chips.
+/// Pushed full-screen from Play with the prototype's Cancel/Save top bar,
+/// matching the keypad Round entry screen's chrome (`docs/adr/0003`).
 ///
-/// Both Round modifiers are Round-level here rather than per-Entrant: with a
-/// single loser, Çifte's two branches collapse onto the same team, and Okey
-/// atmak is winning the Round, so the winning team is the Okey atan by
-/// construction. Either modifier alone doubles the loss to −4; both together
-/// take it to −8, and neither ever touches a Gösterge find.
+/// There is one Gösterge per Round, so finding it is a single pick — tapping
+/// the picked team again clears it back to nobody. Çifte is a multi-pick,
+/// because both teams can call it in the same Round; it doubles the loss only
+/// once however many called, so the chips record who did it rather than change
+/// the arithmetic. Okey atmak stays Round-level: doing it *is* winning the
+/// Round, so the winning team is the Okey atan by construction. Either
+/// modifier alone doubles the loss to −4, both together take it to −8, and
+/// neither ever touches the Gösterge deduction.
 struct OkeyStandardRoundEntryView: View {
     let entrants: [Entrant]
     /// This round's number, shown in the top bar ("Round 3").
     let roundNumber: Int
-    let onSave: (_ losingEntrantID: Entrant.ID?, _ gostergeFinds: [Entrant.ID: Int], _ cifte: Bool, _ okeyAtti: Bool) -> Void
+    let onSave: (_ losingEntrantID: Entrant.ID?, _ gostergeFinderID: Entrant.ID?, _ cifteCallers: Set<Entrant.ID>, _ okeyAtti: Bool) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.theme) private var theme
     @State private var losingEntrantID: Entrant.ID?
-    @State private var gostergeFinds: [Entrant.ID: Int]
-    @State private var cifteOn: Bool
+    @State private var gostergeFinderID: Entrant.ID?
+    @State private var cifteCallers: Set<Entrant.ID>
     @State private var okeyAttiOn: Bool
 
     /// - Parameters:
-    ///   - losingEntrantID, gostergeFinds, cifteOn, okeyAttiOn: Seed the screen's interactive
-    ///     state directly — used by snapshot tests to capture a specific
-    ///     in-progress state without driving the view through taps.
-    ///     Production callers omit them and get nothing selected.
+    ///   - losingEntrantID, gostergeFinderID, cifteCallers, okeyAttiOn: Seed the
+    ///     screen's interactive state directly — used by snapshot tests to
+    ///     capture a specific in-progress state without driving the view
+    ///     through taps. Production callers omit them and get nothing selected.
     init(
         entrants: [Entrant],
         roundNumber: Int,
         losingEntrantID: Entrant.ID? = nil,
-        gostergeFinds: [Entrant.ID: Int] = [:],
-        cifteOn: Bool = false,
+        gostergeFinderID: Entrant.ID? = nil,
+        cifteCallers: Set<Entrant.ID> = [],
         okeyAttiOn: Bool = false,
-        onSave: @escaping (_ losingEntrantID: Entrant.ID?, _ gostergeFinds: [Entrant.ID: Int], _ cifte: Bool, _ okeyAtti: Bool) -> Void
+        onSave: @escaping (_ losingEntrantID: Entrant.ID?, _ gostergeFinderID: Entrant.ID?, _ cifteCallers: Set<Entrant.ID>, _ okeyAtti: Bool) -> Void
     ) {
         self.entrants = entrants
         self.roundNumber = roundNumber
         self.onSave = onSave
         _losingEntrantID = State(initialValue: losingEntrantID)
-        _gostergeFinds = State(initialValue: gostergeFinds)
-        _cifteOn = State(initialValue: cifteOn)
+        _gostergeFinderID = State(initialValue: gostergeFinderID)
+        _cifteCallers = State(initialValue: cifteCallers)
         _okeyAttiOn = State(initialValue: okeyAttiOn)
     }
 
@@ -84,29 +88,23 @@ struct OkeyStandardRoundEntryView: View {
                 }
                 .padding(.top, 18)
 
-                CardSurface(cornerRadius: 22, padding: 19) {
-                    VStack(alignment: .leading, spacing: 15) {
-                        VStack(alignment: .leading, spacing: 5) {
-                            Text("Gösterge found")
-                                .siraStyle(.headline)
-                            Text("Each find takes 1 off the other team.")
-                                .siraStyle(.body)
-                                .foregroundStyle(theme.ink.opacity(0.55))
-                        }
-
-                        VStack(spacing: 10) {
-                            ForEach(entrants) { entrant in
-                                GostergeStepperRow(
-                                    name: entrant.name,
-                                    count: gostergeFinds[entrant.id] ?? 0,
-                                    onDecrement: { adjustGosterge(entrant.id, by: -1) },
-                                    onIncrement: { adjustGosterge(entrant.id, by: 1) }
-                                )
-                            }
-                        }
-                    }
-                }
+                TeamPickSection(
+                    title: "Who found the G\u{f6}sterge?",
+                    note: "One per round \u{2014} takes 1 off the other team.",
+                    entrants: entrants,
+                    isPicked: { $0 == gostergeFinderID },
+                    onPick: pickGostergeFinder
+                )
                 .padding(.top, 24)
+
+                TeamPickSection(
+                    title: "Who called \u{c7}ifte?",
+                    note: "Either team, or both \u{2014} it doubles the round once.",
+                    entrants: entrants,
+                    isPicked: cifteCallers.contains,
+                    onPick: toggleCifteCaller
+                )
+                .padding(.top, 14)
 
                 modifierChips
                     .padding(.top, 18)
@@ -118,20 +116,17 @@ struct OkeyStandardRoundEntryView: View {
         .foregroundStyle(theme.ink)
     }
 
-    /// The two Round modifiers, with the number they produce spelled out
-    /// underneath — either one alone doubles the loss, so the chips can't be
-    /// told apart by their effect and the player shouldn't have to work out
-    /// whether they're looking at −4 or −8.
+    /// Okey atmak — the one modifier that isn't a question about who, since
+    /// the winning team is the Okey atan by construction — with the number the
+    /// Round now produces spelled out underneath. Çifte and Okey atmak each
+    /// double the loss on their own, so neither can be read back off the score
+    /// and the player shouldn't have to work out whether they're looking at −4
+    /// or −8.
     private var modifierChips: some View {
         VStack(alignment: .leading, spacing: 9) {
-            HStack(spacing: 7) {
-                EntryChip(label: "\u{c7}ifte", isOn: cifteOn) {
-                    cifteOn.toggle()
-                }
-                // Okey 21 is an Okey Variant, so the label is always Okey's.
-                EntryChip(label: Game.okey.okeyAtmakLabel, isOn: okeyAttiOn) {
-                    okeyAttiOn.toggle()
-                }
+            // Okey 21 is an Okey Variant, so the label is always Okey's.
+            EntryChip(label: Game.okey.okeyAtmakLabel, isOn: okeyAttiOn) {
+                okeyAttiOn.toggle()
             }
             Text(consequence)
                 .siraStyle(.body)
@@ -144,15 +139,15 @@ struct OkeyStandardRoundEntryView: View {
     /// the same 2 the Engine starts from, scaled the same way. Gösterge finds
     /// are absent because the doubling never reaches them.
     private var penalty: Int {
-        2 * (cifteOn ? 2 : 1) * (okeyAttiOn ? 2 : 1)
+        2 * (cifteCallers.isEmpty ? 1 : 2) * (okeyAttiOn ? 2 : 1)
     }
 
-    /// Why the number on the cards is what it is. Neither chip can be read off
-    /// the score — each alone produces the same −4 — so the line names the
-    /// event rather than only its size.
+    /// Why the number on the cards is what it is. Neither modifier can be read
+    /// back off the score — each alone produces the same −4 — so the line names
+    /// the event rather than only its size.
     private var consequence: String {
         let drop = "the losing team drops \(penalty)"
-        switch (cifteOn, okeyAttiOn) {
+        switch (!cifteCallers.isEmpty, okeyAttiOn) {
         case (false, false):
             return "Either one doubles the round."
         case (true, false):
@@ -188,14 +183,24 @@ struct OkeyStandardRoundEntryView: View {
         losingEntrantID = otherEntrant(for: winner)?.id ?? winner.id
     }
 
-    private func adjustGosterge(_ id: Entrant.ID, by delta: Int) {
-        let current = gostergeFinds[id] ?? 0
-        gostergeFinds[id] = max(0, min(1, current + delta))
+    /// One Gösterge per Round means picking a team replaces whoever was there;
+    /// tapping the picked team again is how "nobody found it" is expressed,
+    /// since that is also where the Round starts.
+    private func pickGostergeFinder(_ id: Entrant.ID) {
+        gostergeFinderID = gostergeFinderID == id ? nil : id
+    }
+
+    private func toggleCifteCaller(_ id: Entrant.ID) {
+        if cifteCallers.contains(id) {
+            cifteCallers.remove(id)
+        } else {
+            cifteCallers.insert(id)
+        }
     }
 
     private func save() {
         guard isReadyToSave else { return }
-        onSave(losingEntrantID, gostergeFinds, cifteOn, okeyAttiOn)
+        onSave(losingEntrantID, gostergeFinderID, cifteCallers, okeyAttiOn)
     }
 }
 
@@ -273,56 +278,41 @@ private struct TeamPickCard: View {
     }
 }
 
-/// A per-team Gösterge count: name, then a `–`/count/`+` stepper on a track
-/// pill — the prototype's stepper row in place of a native `Stepper`.
-private struct GostergeStepperRow: View {
-    let name: String
-    let count: Int
-    let onDecrement: () -> Void
-    let onIncrement: () -> Void
+/// A carded "which team did this?" question: a heading, a note naming what
+/// the answer costs, and one chip per team. Single- or multi-pick is the
+/// caller's business — the section only reports taps and draws whatever
+/// `isPicked` says, so the Gösterge (one team at most) and Çifte (both teams
+/// allowed) questions read identically to the player.
+private struct TeamPickSection: View {
+    let title: String
+    let note: String
+    let entrants: [Entrant]
+    let isPicked: (Entrant.ID) -> Bool
+    let onPick: (Entrant.ID) -> Void
 
     @Environment(\.theme) private var theme
 
     var body: some View {
-        HStack(spacing: 12) {
-            Text(name)
-                .siraStyle(.subheadline)
-                .lineLimit(1)
+        CardSurface(cornerRadius: 22, padding: 19) {
+            VStack(alignment: .leading, spacing: 15) {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(title)
+                        .siraStyle(.headline)
+                    Text(note)
+                        .siraStyle(.body)
+                        .foregroundStyle(theme.ink.opacity(0.55))
+                }
 
-            Spacer(minLength: 0)
-
-            HStack(spacing: 12) {
-                StepButton(label: "\u{2013}", action: onDecrement)
-                Text("\(count)")
-                    .siraStyle(.monoValue)
-                    .frame(minWidth: 16)
-                    .multilineTextAlignment(.center)
-                StepButton(label: "+", action: onIncrement)
+                HStack(spacing: 7) {
+                    ForEach(entrants) { entrant in
+                        EntryChip(label: entrant.name, isOn: isPicked(entrant.id)) {
+                            onPick(entrant.id)
+                        }
+                    }
+                    Spacer(minLength: 0)
+                }
             }
-            .padding(.horizontal, 6)
-            .padding(.vertical, 5)
-            .background(theme.track, in: Capsule())
         }
-    }
-}
-
-private struct StepButton: View {
-    let label: String
-    let action: () -> Void
-
-    @Environment(\.theme) private var theme
-
-    var body: some View {
-        Button(action: action) {
-            Text(label)
-                .siraStyle(.subheadline)
-                .frame(width: 30, height: 30)
-                .contentShape(Circle())
-        }
-        .foregroundStyle(theme.ink)
-        .background(theme.surface, in: Circle())
-        .overlay { Circle().stroke(theme.line, lineWidth: 1) }
-        .buttonStyle(.plain)
     }
 }
 
@@ -340,8 +330,8 @@ private struct StepButton: View {
         entrants: [a, b],
         roundNumber: 3,
         losingEntrantID: b.id,
-        gostergeFinds: [a.id: 1],
-        cifteOn: true,
+        gostergeFinderID: a.id,
+        cifteCallers: [a.id, b.id],
         okeyAttiOn: true
     ) { _, _, _, _ in }
     .themed()
