@@ -36,12 +36,16 @@ extension MatchStore {
         let bob = Entrant(name: "Bob")
         let carol = Entrant(name: "Carol")
 
+        // Fixed creation dates: Home titles each card with its Match's date and
+        // orders the list by it, so seeded Matches can't use "now" without
+        // making previews and snapshot tests change from one day to the next.
         let inProgress = Match(
             game: .gonga,
             variant: .gonga101,
             mode: .players,
             entrants: [alice, bob],
-            rounds: [Round(deltas: [alice.id: 20, bob.id: 15])]
+            rounds: [Round(deltas: [alice.id: 20, bob.id: 15])],
+            createdAt: .fixture(year: 2026, month: 3, day: 14)
         )
 
         let finished = Match(
@@ -50,9 +54,24 @@ extension MatchStore {
             mode: .players,
             entrants: [alice, carol],
             rounds: [Round(deltas: [alice.id: 110, carol.id: 40])],
-            archived: true
+            archived: true,
+            createdAt: .fixture(year: 2026, month: 2, day: 2)
         )
 
         return MatchStore(matches: [inProgress, finished])
+    }
+}
+
+extension Date {
+    /// A fixed calendar date in UTC, for seeded/preview Matches that must look
+    /// the same on every run.
+    static func fixture(year: Int, month: Int, day: Int) -> Date {
+        var components = DateComponents()
+        components.year = year
+        components.month = month
+        components.day = day
+        components.hour = 12
+        components.timeZone = TimeZone(secondsFromGMT: 0)
+        return Calendar(identifier: .gregorian).date(from: components) ?? Date()
     }
 }

@@ -45,13 +45,23 @@ struct StatusPill: View {
     let text: String
     var foreground: Color
     var background: Color
+    /// Tighter tracking and padding, for rows that carry several pills at once
+    /// (Home's Match cards) rather than a single one.
+    var compact: Bool = false
 
     var body: some View {
-        Text(sira: .monoTag, text)
+        label
             .foregroundStyle(foreground)
-            .padding(.horizontal, 6)
+            .padding(.horizontal, compact ? 4 : 6)
             .padding(.vertical, 3)
             .background(background, in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+    }
+
+    /// `compact` overrides `monoTag`'s tracking, which is why the Text is built
+    /// here rather than inline — `.tracking` has to come after `siraStyle`.
+    private var label: Text {
+        let text = Text(sira: .monoTag, text)
+        return compact ? text.tracking(0.5) : text
     }
 }
 

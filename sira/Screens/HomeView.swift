@@ -7,7 +7,7 @@ struct HomeView: View {
     @State private var pickingVariantsFor: Game?
 
     private var filteredMatches: [Match] {
-        store.matches.filter { filter.includes($0) }
+        filter.apply(to: store.matches)
     }
 
     /// `.swipeActions` only has an effect on rows inside a `List` — a plain
@@ -259,17 +259,19 @@ private struct GameGlyphCard: View {
     private var subtitle: String {
         switch game {
         case .gonga: return "101 / 151"
-        case .okey: return "20 / 101"
+        case .okey: return "21 / 101"
         }
     }
 }
 
-/// A Match row on Home, styled as the prototype's card: game badge, title,
-/// status pill, a dashed divider, then the leader/result line.
+/// A Match row on Home, styled as the prototype's card: game badge, the date
+/// the Match was started, a row of meta pills (round, table size, Variant), a
+/// dashed divider, then the leader/result line.
 private struct MatchCard: View {
     let match: Match
 
     @Environment(\.theme) private var theme
+    @Environment(\.now) private var now
 
     private var standings: Standings {
         match.variant.winCondition.engine.standings(for: match)
@@ -279,10 +281,36 @@ private struct MatchCard: View {
         MatchSummary(match: match, engine: match.variant.winCondition.engine)
     }
 
+    /// The date the Match was started. The year is dropped for Matches started
+    /// this year — it's the common case, it's redundant, and the shorter title
+    /// is what lets the meta pills share the row at iPhone width.
+    private var title: String {
+        let calendar = Calendar.current
+        let isThisYear = calendar.component(.year, from: match.createdAt)
+            == calendar.component(.year, from: now)
+        return isThisYear
+            ? match.createdAt.formatted(.dateTime.day().month(.abbreviated))
+            : match.createdAt.formatted(.dateTime.day().month(.abbreviated).year())
+    }
+
     private var statusText: String {
         if standings.isOver { return "Finished" }
         if match.archived { return "Archived" }
         return "Round \(match.rounds.count + 1)"
+    }
+
+    /// Archived-but-unfinished is the one status that reads muted rather than
+    /// as the accent-coloured "where the Match is up to" pill.
+    private var statusIsMuted: Bool {
+        match.archived && !standings.isOver
+    }
+
+    private var entrantsText: String {
+        let count = match.entrants.count
+        switch match.mode {
+        case .players: return "\(count) \(count == 1 ? "player" : "players")"
+        case .teams: return "\(count) \(count == 1 ? "team" : "teams")"
+        }
     }
 
     var body: some View {
@@ -290,15 +318,18 @@ private struct MatchCard: View {
             VStack(alignment: .leading, spacing: 14) {
                 HStack(alignment: .top, spacing: 13) {
                     gameBadge
-                    VStack(alignment: .leading, spacing: 0) {
-                        HStack(alignment: .lastTextBaseline, spacing: 8) {
-                            Text(match.variant.label)
-                                .siraStyle(.headline)
-                            StatusPill(
-                                text: statusText,
-                                foreground: match.archived && !standings.isOver ? theme.ink.opacity(0.6) : theme.onAccent,
-                                background: match.archived && !standings.isOver ? theme.track : theme.accent
-                            )
+                    // The pills sit on the date's row when they fit, and drop to
+                    // their own line on narrow widths or at large Dynamic Type
+                    // sizes rather than truncating.
+                    ViewThatFits(in: .horizontal) {
+                        HStack(alignment: .lastTextBaseline, spacing: 6) {
+                            titleText
+                            pills
+                            Spacer(minLength: 0)
+                        }
+                        VStack(alignment: .leading, spacing: 8) {
+                            titleText
+                            pills
                         }
                     }
                 }
@@ -311,6 +342,35 @@ private struct MatchCard: View {
             }
         }
         .opacity(match.archived ? 0.62 : 1)
+    }
+
+    private var titleText: some View {
+        Text(title)
+            .siraStyle(.headline)
+            .fixedSize(horizontal: true, vertical: false)
+    }
+
+    private var pills: some View {
+        HStack(spacing: 3) {
+            StatusPill(
+                text: statusText,
+                foreground: statusIsMuted ? theme.ink.opacity(0.6) : theme.onAccent,
+                background: statusIsMuted ? theme.track : theme.accent,
+                compact: true
+            )
+            metaPill(entrantsText)
+            metaPill(match.variant.label)
+        }
+        .fixedSize(horizontal: true, vertical: false)
+    }
+
+    private func metaPill(_ text: String) -> some View {
+        StatusPill(
+            text: text,
+            foreground: theme.ink.opacity(0.6),
+            background: theme.track,
+            compact: true
+        )
     }
 
     @ViewBuilder
