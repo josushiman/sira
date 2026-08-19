@@ -45,7 +45,7 @@ extension MatchStore {
             mode: .players,
             entrants: [alice, bob],
             rounds: [Round(deltas: [alice.id: 20, bob.id: 15])],
-            createdAt: .fixture(year: 2026, month: 3, day: 14)
+            createdAt: .fixture(year: 2026, month: 3, day: 14, hour: 21)
         )
 
         let finished = Match(
@@ -55,7 +55,7 @@ extension MatchStore {
             entrants: [alice, carol],
             rounds: [Round(deltas: [alice.id: 110, carol.id: 40])],
             archived: true,
-            createdAt: .fixture(year: 2026, month: 2, day: 2)
+            createdAt: .fixture(year: 2026, month: 2, day: 2, hour: 19, minute: 45)
         )
 
         return MatchStore(matches: [inProgress, finished])
@@ -63,15 +63,17 @@ extension MatchStore {
 }
 
 extension Date {
-    /// A fixed calendar date in UTC, for seeded/preview Matches that must look
-    /// the same on every run.
-    static func fixture(year: Int, month: Int, day: Int) -> Date {
+    /// A fixed calendar date and time, for seeded/preview Matches that must
+    /// look the same on every run. Built in the current time zone so the
+    /// rendered clock time is the one asked for wherever the tests run.
+    static func fixture(year: Int, month: Int, day: Int, hour: Int = 12, minute: Int = 0) -> Date {
         var components = DateComponents()
         components.year = year
         components.month = month
         components.day = day
-        components.hour = 12
-        components.timeZone = TimeZone(secondsFromGMT: 0)
+        components.hour = hour
+        components.minute = minute
+        components.timeZone = .current
         return Calendar(identifier: .gregorian).date(from: components) ?? Date()
     }
 }

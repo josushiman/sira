@@ -271,7 +271,6 @@ private struct MatchCard: View {
     let match: Match
 
     @Environment(\.theme) private var theme
-    @Environment(\.now) private var now
 
     private var standings: Standings {
         match.variant.winCondition.engine.standings(for: match)
@@ -281,17 +280,34 @@ private struct MatchCard: View {
         MatchSummary(match: match, engine: match.variant.winCondition.engine)
     }
 
-    /// The date the Match was started. The year is dropped for Matches started
-    /// this year — it's the common case, it's redundant, and the shorter title
-    /// is what lets the meta pills share the row at iPhone width.
+    /// When the Match was started, as "14th March 2026 · 9pm" — the minutes
+    /// are only shown when there are any, so the common on-the-hour case stays
+    /// short.
     private var title: String {
         let calendar = Calendar.current
-        let isThisYear = calendar.component(.year, from: match.createdAt)
-            == calendar.component(.year, from: now)
-        return isThisYear
-            ? match.createdAt.formatted(.dateTime.day().month(.abbreviated))
-            : match.createdAt.formatted(.dateTime.day().month(.abbreviated).year())
+        let day = calendar.component(.day, from: match.createdAt)
+        let ordinalDay = Self.ordinalDayFormatter.string(from: NSNumber(value: day)) ?? "\(day)"
+        let monthAndYear = match.createdAt.formatted(.dateTime.month(.wide).year())
+        return "\(ordinalDay) \(monthAndYear) · \(time)"
     }
+
+    /// 12-hour clock, lowercase, minutes elided on the hour: "9pm", "9:15pm".
+    private var time: String {
+        let calendar = Calendar.current
+        let hour = calendar.component(.hour, from: match.createdAt)
+        let minute = calendar.component(.minute, from: match.createdAt)
+        let suffix = hour < 12 ? "am" : "pm"
+        let hour12 = hour % 12 == 0 ? 12 : hour % 12
+        return minute == 0
+            ? "\(hour12)\(suffix)"
+            : String(format: "%d:%02d%@", hour12, minute, suffix)
+    }
+
+    private static let ordinalDayFormatter: NumberFormatter = {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .ordinal
+        return formatter
+    }()
 
     private var statusText: String {
         if standings.isOver { return "Finished" }
@@ -318,19 +334,9 @@ private struct MatchCard: View {
             VStack(alignment: .leading, spacing: 14) {
                 HStack(alignment: .top, spacing: 13) {
                     gameBadge
-                    // The pills sit on the date's row when they fit, and drop to
-                    // their own line on narrow widths or at large Dynamic Type
-                    // sizes rather than truncating.
-                    ViewThatFits(in: .horizontal) {
-                        HStack(alignment: .lastTextBaseline, spacing: 6) {
-                            titleText
-                            pills
-                            Spacer(minLength: 0)
-                        }
-                        VStack(alignment: .leading, spacing: 8) {
-                            titleText
-                            pills
-                        }
+                    VStack(alignment: .leading, spacing: 8) {
+                        titleText
+                        pills
                     }
                 }
 
@@ -344,19 +350,21 @@ private struct MatchCard: View {
         .opacity(match.archived ? 0.62 : 1)
     }
 
+    /// Kept to one line — a long month plus minutes ("14th September 2026 ·
+    /// 10:15pm") shrinks slightly rather than wrapping the date in two.
     private var titleText: some View {
         Text(title)
             .siraStyle(.headline)
-            .fixedSize(horizontal: true, vertical: false)
+            .lineLimit(1)
+            .minimumScaleFactor(0.75)
     }
 
     private var pills: some View {
-        HStack(spacing: 3) {
+        HStack(spacing: 5) {
             StatusPill(
                 text: statusText,
                 foreground: statusIsMuted ? theme.ink.opacity(0.6) : theme.onAccent,
-                background: statusIsMuted ? theme.track : theme.accent,
-                compact: true
+                background: statusIsMuted ? theme.track : theme.accent
             )
             metaPill(entrantsText)
             metaPill(match.variant.label)
@@ -365,12 +373,7 @@ private struct MatchCard: View {
     }
 
     private func metaPill(_ text: String) -> some View {
-        StatusPill(
-            text: text,
-            foreground: theme.ink.opacity(0.6),
-            background: theme.track,
-            compact: true
-        )
+        StatusPill(text: text, foreground: theme.ink.opacity(0.6), background: theme.track)
     }
 
     @ViewBuilder
