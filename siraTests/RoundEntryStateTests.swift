@@ -230,22 +230,21 @@ final class RoundEntryStateTests: XCTestCase {
 
     // MARK: - Preview
 
-    func test_previewIsNilWhenNoModifierReachesTheEntrant() {
+    func test_noPreviewWhenNoModifierReachesTheEntrant() {
         var state = RoundEntryState(entrants: [Entrant(name: "Alice")])
         state.appendDigit("6")
 
-        XCTAssertEqual(state.multiplier(for: state.activeEntrantID!), 1)
-        XCTAssertNil(state.doubledPreview(for: state.activeEntrantID!))
+        XCTAssertNil(state.previews()[state.activeEntrantID!])
     }
 
-    func test_previewIsNilWhenNothingIsEnteredYet() {
+    func test_noPreviewWhenNothingIsEnteredYet() {
         let a = Entrant(name: "Alice")
         let b = Entrant(name: "Bob")
         var state = RoundEntryState(entrants: [a, b])
         state.selectActive(b.id)
         state.toggleCifteForActive()
 
-        XCTAssertNil(state.doubledPreview(for: b.id))
+        XCTAssertNil(state.previews()[b.id])
     }
 
     /// A caller who didn't win doubles only themselves, so the preview shows
@@ -260,8 +259,8 @@ final class RoundEntryStateTests: XCTestCase {
         state.selectActive(b.id)
         state.appendDigit("5")
 
-        XCTAssertEqual(state.doubledPreview(for: a.id), 24)
-        XCTAssertNil(state.doubledPreview(for: b.id))
+        XCTAssertEqual(state.previews()[a.id], .init(multiplier: 2, value: 24))
+        XCTAssertNil(state.previews()[b.id])
     }
 
     /// A caller who won doubles everyone else instead — the preview follows
@@ -275,8 +274,8 @@ final class RoundEntryStateTests: XCTestCase {
         state.selectActive(b.id)
         state.appendDigit("5")
 
-        XCTAssertNil(state.doubledPreview(for: a.id))
-        XCTAssertEqual(state.doubledPreview(for: b.id), 10)
+        XCTAssertNil(state.previews()[a.id])
+        XCTAssertEqual(state.previews()[b.id], .init(multiplier: 2, value: 10))
     }
 
     func test_previewShowsQuadrupleWhereBothModifiersReachTheSameEntrant() {
@@ -289,11 +288,29 @@ final class RoundEntryStateTests: XCTestCase {
         state.selectActive(b.id)
         state.toggleOkeyAtanForActive()
 
-        XCTAssertEqual(state.multiplier(for: a.id), 4)
-        XCTAssertEqual(state.doubledPreview(for: a.id), 80)
+        XCTAssertEqual(state.previews()[a.id], .init(multiplier: 4, value: 80))
         // The atan's own doubled 0 is still 0.
-        XCTAssertEqual(state.multiplier(for: b.id), 2)
-        XCTAssertEqual(state.doubledPreview(for: b.id), 0)
+        XCTAssertEqual(state.previews()[b.id], .init(multiplier: 2, value: 0))
+    }
+
+    /// Okey atmak *is* winning the Round, so a stray digit typed after the
+    /// marker went on mustn't quietly recast the atan as a loser — which would
+    /// flip every Çifte caller's effect for the whole Round.
+    func test_theOkeyAtanStillCountsAsWinningIfANonZeroValueIsTypedOverTheirZero() {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        var state = RoundEntryState(entrants: [a, b])
+        state.toggleOkeyAtanForActive()
+        state.toggleCifteForActive()
+        state.appendDigit("7")
+        state.selectActive(b.id)
+        state.appendDigit("5")
+
+        // Alice called and won, so Bob takes her Çifte on top of the uniform
+        // Okey atmak doubling — ×4. Alice takes only the uniform ×2, never her
+        // own call, exactly as if her value had stayed 0.
+        XCTAssertEqual(state.previews()[a.id], .init(multiplier: 2, value: 14))
+        XCTAssertEqual(state.previews()[b.id], .init(multiplier: 4, value: 20))
     }
 
     // MARK: - Raw output

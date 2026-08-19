@@ -73,15 +73,20 @@ extension Round {
     }
 
     /// The same derivation as the keypad Variants' Engines read it: winning
-    /// the Round is an entered 0, and nothing entered is not a win — that
-    /// Entrant takes no score this Round either, so no multiplier of theirs
-    /// is ever applied.
+    /// the Round is an entered 0 or being the Okey atan, and nothing entered
+    /// is not a win — that Entrant takes no score this Round either, so no
+    /// multiplier of theirs is ever applied.
     ///
     /// Exposed so the entry screen's live preview can share this body rather
     /// than restate the rules: what a row shows before saving is then the same
     /// arithmetic the Engine performs after, by construction.
     func keypadMultipliers(for entrantIDs: [Entrant.ID]) -> [Entrant.ID: Int] {
         multipliers(for: entrantIDs) { id in
+            // Okey atmak *is* winning the Round, so the atan counts as having
+            // won whatever value ends up recorded against them — otherwise a
+            // stray digit typed after the marker went on would quietly turn
+            // them into a loser and flip every Çifte caller's effect.
+            if id == okeyAtanID { return true }
             guard let delta = deltas[id] else { return false }
             return delta == 0
         }

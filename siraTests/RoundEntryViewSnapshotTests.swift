@@ -101,7 +101,7 @@ final class RoundEntryViewSnapshotTests: XCTestCase {
     }
 
     /// Gonga has no Çifte concept, so its entry screen hides that chip — but
-    /// the joker finish is played at every table, under a card-table name.
+    /// Okey atmak is played at every table, under a card-table name.
     func test_gongaShowsJokeriAttiWithoutACifteChip_paper() {
         assertEntry(supportsCifte: false, game: .gonga, theme: .paper)
     }
@@ -112,10 +112,18 @@ final class RoundEntryViewSnapshotTests: XCTestCase {
 
     /// The Gonga label applies to the marked row's meta line too, not just the
     /// chip.
-    func test_gongaOkeyAtanRow_paper() {
+    private var gongaOkeyAtanState: RoundEntryState {
         var state = RoundEntryState(entrants: entrants, supportsCifte: false)
         state.selectActive(bob.id)
         state.toggleOkeyAtanForActive()
-        assertEntry(initialState: state, supportsCifte: false, game: .gonga, theme: .paper)
+        return state
+    }
+
+    func test_gongaOkeyAtanRow_paper() {
+        assertEntry(initialState: gongaOkeyAtanState, supportsCifte: false, game: .gonga, theme: .paper)
+    }
+
+    func test_gongaOkeyAtanRow_felt() {
+        assertEntry(initialState: gongaOkeyAtanState, supportsCifte: false, game: .gonga, theme: .felt)
     }
 }

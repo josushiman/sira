@@ -21,7 +21,7 @@ struct RoundEntryView: View {
     /// Whether to offer the Çifte chip. Okey only — Gonga has no Çifte
     /// concept, so its entry screen hides the chip entirely.
     var supportsCifte: Bool = true
-    /// The Match's Game, which chooses the joker-finish chip's label: Okey
+    /// The Match's Game, which chooses the Okey atmak chip's label: Okey
     /// players say "Okey attı", Gonga players "Jokeri attı".
     var game: Game = .okey
     let onSave: (_ deltas: [Entrant.ID: Int], _ cifteCallers: Set<Entrant.ID>, _ okeyAtanID: Entrant.ID?) -> Void
@@ -93,6 +93,7 @@ struct RoundEntryView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
 
             ScrollView {
+                let previews = state.previews()
                 VStack(spacing: 7) {
                     ForEach(entrants) { entrant in
                         EntryRow(
@@ -101,8 +102,7 @@ struct RoundEntryView: View {
                             isActive: state.activeEntrantID == entrant.id,
                             total: totals[entrant.id] ?? 0,
                             enteredValue: state.enteredValue(for: entrant.id),
-                            multiplier: state.multiplier(for: entrant.id),
-                            doubledPreview: state.doubledPreview(for: entrant.id),
+                            preview: previews[entrant.id],
                             roleNote: roleNote(for: entrant.id)
                         ) {
                             state.selectActive(entrant.id)
@@ -137,12 +137,15 @@ struct RoundEntryView: View {
                     state.applyQuickEntry(neverLaidDownValue)
                 }
             }
-            if supportsCifte {
-                EntryChip(label: "\u{c7}ifte", isOn: isActiveRowACifteCaller) {
+            // Gated on the state's own flag, not the view's: those two can
+            // only disagree if a seeded state says otherwise, and the one that
+            // decides what gets recorded should decide what gets shown.
+            if state.supportsCifte {
+                EntryChip(label: "\u{c7}ifte", isOn: state.isActiveCifteCaller) {
                     state.toggleCifteForActive()
                 }
             }
-            EntryChip(label: game.okeyAtmakLabel, isOn: isActiveRowTheOkeyAtan) {
+            EntryChip(label: game.okeyAtmakLabel, isOn: state.isActiveOkeyAtan) {
                 state.toggleOkeyAtanForActive()
             }
         }
@@ -163,23 +166,14 @@ struct RoundEntryView: View {
         }
     }
 
-    /// Both chips act on the active row and light when that row already
-    /// carries the mark, so one chip reads as both "apply" and "applied."
-    private var isActiveRowACifteCaller: Bool {
-        state.activeEntrantID.map(state.isCifteCaller) ?? false
-    }
-
-    private var isActiveRowTheOkeyAtan: Bool {
-        state.okeyAtanID != nil && state.okeyAtanID == state.activeEntrantID
-    }
-
     /// What this row is marked as, for its meta line — so the record of who
     /// called is legible from the rows themselves and not only from whichever
-    /// chip happens to be lit for the active row.
+    /// chip happens to be lit for the active row. The labels are the view's
+    /// business; which rows carry the marks is the state's.
     private func roleNote(for id: Entrant.ID) -> String? {
         var parts: [String] = []
         if state.isCifteCaller(id) { parts.append("\u{c7}ifte") }
-        if state.okeyAtanID == id { parts.append(game.okeyAtmakLabel) }
+        if state.isOkeyAtan(id) { parts.append(game.okeyAtmakLabel) }
         return parts.isEmpty ? nil : parts.joined(separator: " \u{b7} ")
     }
 
@@ -204,9 +198,9 @@ private struct EntryRow: View {
     let isActive: Bool
     let total: Int
     let enteredValue: Int?
-    /// What this Entrant's entered value will be scored at: ×1, ×2 or ×4.
-    let multiplier: Int
-    let doubledPreview: Int?
+    /// What this Entrant's value will actually score and the multiplier that
+    /// gets it there, or `nil` when nothing scales it.
+    let preview: RoundEntryState.ScaledPreview?
     /// This Entrant's modifiers, already labelled for the Match's Game.
     let roleNote: String?
     let onTap: () -> Void
@@ -248,15 +242,15 @@ private struct EntryRow: View {
         .buttonStyle(.plain)
     }
 
-    private var isMarked: Bool { roleNote != nil || doubledPreview != nil }
+    private var isMarked: Bool { roleNote != nil || preview != nil }
 
     /// `now 34` on its own, growing to `now 34   Çifte   ×4 → 136` as the
     /// Round's modifiers reach this Entrant.
     private var metaText: String {
         var parts = ["now \(total)"]
         if let roleNote { parts.append(roleNote) }
-        if let doubledPreview {
-            parts.append("\u{d7}\(multiplier) \u{2192} \(doubledPreview)")
+        if let preview {
+            parts.append("\u{d7}\(preview.multiplier) \u{2192} \(preview.value)")
         }
         return parts.joined(separator: "   ")
     }

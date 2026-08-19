@@ -18,7 +18,8 @@ struct RoundEntryState: Equatable {
     private(set) var activeEntrantID: Entrant.ID?
     /// The Entrants marked as having called Çifte this Round.
     private(set) var cifteCallers: Set<Entrant.ID> = []
-    /// The Entrant marked as having finished this Round on the joker.
+    /// The Entrant marked as the Okey atan — the one who did Okey atmak this
+    /// Round.
     private(set) var okeyAtanID: Entrant.ID?
 
     init(entrants: [Entrant], supportsCifte: Bool = true) {
@@ -33,9 +34,32 @@ struct RoundEntryState: Equatable {
         return Int(digits)
     }
 
+    /// What one Entrant's entered value will actually score, and the
+    /// multiplier that gets it there — so a row can show `×4 → 96` rather
+    /// than leaving a surprising number unexplained.
+    struct ScaledPreview: Equatable {
+        let multiplier: Int
+        let value: Int
+    }
+
     /// Whether `id` is marked as a Çifte caller this Round.
     func isCifteCaller(_ id: Entrant.ID) -> Bool {
         cifteCallers.contains(id)
+    }
+
+    /// Whether `id` is marked as the Okey atan this Round.
+    func isOkeyAtan(_ id: Entrant.ID) -> Bool {
+        okeyAtanID == id
+    }
+
+    /// Whether the active row already carries each mark — what the chips light
+    /// from, so one chip reads as both "apply" and "applied".
+    var isActiveCifteCaller: Bool {
+        activeEntrantID.map(isCifteCaller) ?? false
+    }
+
+    var isActiveOkeyAtan: Bool {
+        activeEntrantID.map(isOkeyAtan) ?? false
     }
 
     /// Whether any modifier has been recorded this Round.
@@ -43,27 +67,27 @@ struct RoundEntryState: Equatable {
         !cifteCallers.isEmpty || okeyAtanID != nil
     }
 
-    /// The multiplier `id`'s entered value will be scored at: ×1, ×2 or ×4.
+    /// Every Entrant's live preview, in one pass — absent for anyone who has
+    /// entered nothing yet or whose value nothing scales.
     ///
     /// Derived by handing the Round this entry *would* save to the same
     /// derivation the Engines use, so the preview can't drift from the score.
     /// The rules live in `Round` and are never restated here.
-    func multiplier(for id: Entrant.ID) -> Int {
-        let round = Round(deltas: rawDeltas, cifteCallers: cifteCallers, okeyAtanID: okeyAtanID)
-        return round.keypadMultipliers(for: entrants.map(\.id))[id] ?? 1
-    }
-
-    /// The live multiplied preview for `id`'s entered value, or `nil` when
-    /// nothing's been entered yet or the value isn't scaled at all.
     ///
     /// Presentation only. This is the one place in the entry layer that
     /// multiplies, and what it produces never reaches the Round that gets
     /// saved — see `rawDeltas` and `docs/adr/0005`.
-    func doubledPreview(for id: Entrant.ID) -> Int? {
-        guard let value = enteredValue(for: id) else { return nil }
-        let multiplier = multiplier(for: id)
-        guard multiplier > 1 else { return nil }
-        return value * multiplier
+    func previews() -> [Entrant.ID: ScaledPreview] {
+        let round = Round(deltas: rawDeltas, cifteCallers: cifteCallers, okeyAtanID: okeyAtanID)
+        let multipliers = round.keypadMultipliers(for: entrants.map(\.id))
+        var result: [Entrant.ID: ScaledPreview] = [:]
+        for entrant in entrants {
+            guard let value = enteredValue(for: entrant.id) else { continue }
+            let multiplier = multipliers[entrant.id] ?? 1
+            guard multiplier > 1 else { continue }
+            result[entrant.id] = ScaledPreview(multiplier: multiplier, value: value * multiplier)
+        }
+        return result
     }
 
     /// Matches the prototype's "ready" check: enabled once any Entrant has a value.

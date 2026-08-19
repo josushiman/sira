@@ -191,7 +191,7 @@ final class FixedRoundsEngineTests: XCTestCase {
         )
         let standings = FixedRoundsEngine().standings(for: match)
 
-        XCTAssertEqual(entry.doubledPreview(for: a.id), 80)
+        XCTAssertEqual(entry.previews()[a.id], .init(multiplier: 4, value: 80))
         XCTAssertEqual(standings.ranked.first { $0.entrantID == a.id }!.total, 80)
         XCTAssertEqual(standings.ranked.first { $0.entrantID == b.id }!.total, 0)
     }

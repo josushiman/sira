@@ -251,9 +251,9 @@ final class SurvivalEngineTests: XCTestCase {
 
     // MARK: - Okey atmak
 
-    /// Gonga doesn't offer Çifte, so the joker finish is the only modifier
-    /// Survival ever sees — and it doubles everyone uniformly, the Okey atan's
-    /// own 0 included.
+    /// Gonga doesn't offer Çifte, so Okey atmak is the only modifier Survival
+    /// ever sees — and it doubles everyone uniformly, the Okey atan's own 0
+    /// included.
     func test_okeyAtmakDoublesEveryEntrantsDeltaForThatRound() {
         let a = Entrant(name: "Alice")
         let b = Entrant(name: "Bob")
