@@ -10,7 +10,7 @@ Default vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-
 
 ### Git workflow
 
-Lightweight trunk-based flow: short-lived `feature/`/`fix/`/`chore/` branches off `main`, PR + squash merge, tag releases on `main`. See `docs/agents/gitflow.md`.
+Trunk-based, Xcode-friendly: the repo root stays on `main` permanently. Human edits commit straight to `main`; agent work goes in a `git worktree` on a short-lived `feature/`/`fix/`/`chore/` branch, then PR + squash merge. Tag releases on `main`. See `docs/agents/gitflow.md`.
 
 ### Domain docs
 
