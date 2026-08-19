@@ -14,19 +14,19 @@ final class VariantPickerViewSnapshotTests: XCTestCase {
         assertSnapshot(of: view, as: .image(layout: .fixed(width: 402, height: 874)), testName: testName)
     }
 
-    func test_gonga_singleVariant_paper() {
+    func test_gonga_bothVariants_paper() {
         assertVariantPicker(.gonga, theme: .paper)
     }
 
-    func test_gonga_singleVariant_felt() {
+    func test_gonga_bothVariants_felt() {
         assertVariantPicker(.gonga, theme: .felt)
     }
 
-    func test_okey_teamsOnlyVariant_paper() {
+    func test_okey_bothVariants_paper() {
         assertVariantPicker(.okey, theme: .paper)
     }
 
-    func test_okey_teamsOnlyVariant_felt() {
+    func test_okey_bothVariants_felt() {
         assertVariantPicker(.okey, theme: .felt)
     }
 }

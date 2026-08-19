@@ -6,21 +6,24 @@ struct SetupView: View {
     @Environment(MatchStore.self) private var store
     @Environment(\.theme) private var theme
     @Environment(\.dismiss) private var dismiss
-    @State private var mode: EntrantMode
     @State private var entrantNames: [String]
     @State private var roundCount: Int
     @State private var startedMatchID: Match.ID?
 
     init(variant: Variant) {
         self.variant = variant
-        _mode = State(initialValue: variant.teamsOnly ? .teams : .players)
         _entrantNames = State(initialValue: Array(repeating: "", count: 2))
         _roundCount = State(initialValue: variant.roundCount ?? 8)
     }
 
-    private var modeChoosable: Bool { !variant.teamsOnly }
-    private var entrantLabel: String { mode == .teams ? "Team" : "Entrant" }
-    private var showsCountSelector: Bool { mode == .players }
+    /// Every Variant is fixed to one Entrant mode, so Setup records the
+    /// Variant's own mode instead of offering a Players/Teams choice.
+    private var mode: EntrantMode { variant.entrantMode }
+    private var entrantLabel: String { mode == .teams ? "Team" : "Player" }
+    /// Only worth showing when the Variant actually allows more than the
+    /// minimum — Okey standard is always exactly two teams.
+    private var showsCountSelector: Bool { variant.maxEntrants > 2 }
+    private var entrantCountOptions: [Int] { Array(2...variant.maxEntrants) }
     private var offersRoundCountChoice: Bool { variant.winCondition == .fixedRounds }
 
     private var entrantCount: Binding<Int> {
@@ -36,13 +39,9 @@ struct SetupView: View {
                 Text("Who's playing?")
                     .siraStyle(.displayTitle)
 
-                if modeChoosable {
-                    PillTrack(options: [.players, .teams], label: modeLabel, selection: $mode)
-                }
-
                 if showsCountSelector {
                     labeledSection("How many players") {
-                        ChipSelector(options: [2, 3, 4], label: { "\($0)" }, selection: entrantCount)
+                        ChipSelector(options: entrantCountOptions, label: { "\($0)" }, selection: entrantCount)
                     }
                 }
 
@@ -77,18 +76,8 @@ struct SetupView: View {
                 .padding(.vertical, 10)
                 .background(theme.background)
         }
-        .onChange(of: mode) { _, newMode in
-            if newMode == .teams { setEntrantCount(2) }
-        }
         .navigationDestination(item: $startedMatchID) { id in
             PlayView(match: store.binding(for: id))
-        }
-    }
-
-    private func modeLabel(_ mode: EntrantMode) -> String {
-        switch mode {
-        case .players: return "Players"
-        case .teams: return "Teams of 2"
         }
     }
 
@@ -129,10 +118,10 @@ struct SetupView: View {
                 .fontWeight(.semibold)
                 .frame(maxWidth: .infinity)
                 .frame(height: 54)
+                .contentShape(Rectangle())
         }
         .foregroundStyle(theme.background)
         .background(theme.ink, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .contentShape(Rectangle())
         .buttonStyle(.plain)
     }
 

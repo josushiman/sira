@@ -13,12 +13,12 @@ struct BackButton: View {
         Button(action: action) {
             Image(systemName: "chevron.left")
                 .font(.system(size: 17, weight: .semibold))
+                .frame(width: 44, height: 44)
+                .contentShape(Circle())
         }
-        .frame(width: 44, height: 44)
         .background(theme.surface, in: Circle())
         .overlay { Circle().stroke(theme.line, lineWidth: 1) }
         .foregroundStyle(theme.ink)
-        .contentShape(Circle())
         .buttonStyle(.plain)
     }
 }

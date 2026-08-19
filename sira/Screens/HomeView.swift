@@ -4,6 +4,7 @@ struct HomeView: View {
     @Environment(MatchStore.self) private var store
     @Environment(\.theme) private var theme
     @State private var filter: MatchFilter = .active
+    @State private var pickingVariantsFor: Game?
 
     private var filteredMatches: [Match] {
         store.matches.filter { filter.includes($0) }
@@ -48,7 +49,7 @@ struct HomeView: View {
         .foregroundStyle(theme.ink)
         .background(theme.background)
         .toolbar(.hidden, for: .navigationBar)
-        .navigationDestination(for: Game.self) { game in
+        .navigationDestination(item: $pickingVariantsFor) { game in
             VariantPickerView(game: game)
         }
     }
@@ -76,21 +77,22 @@ struct HomeView: View {
         }
     }
 
-    /// Same chevronless technique as `chevronlessLink(destination:)`, but
-    /// value-based: both Game cards resolve through the single
-    /// `.navigationDestination(for: Game.self)` below instead of each getting
-    /// its own eagerly-built `NavigationLink(destination:)`. Two such eager
-    /// links sharing one List row is what caused Back, after picking Okey, to
-    /// land on Gonga's Variant picker instead of Home.
+    /// The Game cards deliberately use a plain `Button` driving
+    /// `pickingVariantsFor` rather than a `NavigationLink`. Both cards live in
+    /// a single `List` row, and `List` binds row-level navigation to *a* link
+    /// inside that row — with two links sharing a row it resolves the wrong
+    /// one, which is what made Back, after picking Okey, land on Gonga's
+    /// Variant picker instead of Home. A Button carries no such row semantics,
+    /// so each card pushes exactly the Game it shows.
     @ViewBuilder
-    private func chevronlessLink(value: Game, @ViewBuilder label: () -> some View) -> some View {
-        ZStack {
-            NavigationLink(value: value) { EmptyView() }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .opacity(0)
+    private func gameCardButton(for game: Game, @ViewBuilder label: () -> some View) -> some View {
+        Button {
+            pickingVariantsFor = game
+        } label: {
             label()
-                .allowsHitTesting(false)
+                .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         }
+        .buttonStyle(.plain)
     }
 
     private var heroSection: some View {
@@ -106,7 +108,7 @@ struct HomeView: View {
     private var gameCardsRow: some View {
         HStack(spacing: 14) {
             ForEach(Game.allCases, id: \.self) { game in
-                chevronlessLink(value: game) {
+                gameCardButton(for: game) {
                     GameGlyphCard(game: game)
                 }
             }
@@ -257,7 +259,7 @@ private struct GameGlyphCard: View {
     private var subtitle: String {
         switch game {
         case .gonga: return "101 / 151"
-        case .okey: return "21 / 101"
+        case .okey: return "20 / 101"
         }
     }
 }

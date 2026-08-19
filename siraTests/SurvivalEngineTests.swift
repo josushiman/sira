@@ -28,6 +28,42 @@ final class SurvivalEngineTests: XCTestCase {
         XCTAssertFalse(standings.isOver)
     }
 
+    /// Gonga 151 is the same Survival engine with a higher limit — a total
+    /// that busts under 101 must still be in under 151.
+    func test_gonga151UsesItsOwnHigherLimit() {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        let match = Match(
+            game: .gonga,
+            variant: .gonga151,
+            mode: .players,
+            entrants: [a, b],
+            rounds: [Round(deltas: [a.id: 120, b.id: 10])]
+        )
+
+        let standings = SurvivalEngine().standings(for: match)
+
+        XCTAssertFalse(standings.ranked.first { $0.entrantID == a.id }!.isOut)
+        XCTAssertFalse(standings.isOver)
+    }
+
+    func test_gonga151EntrantCrossing151GoesOut() {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        let match = Match(
+            game: .gonga,
+            variant: .gonga151,
+            mode: .players,
+            entrants: [a, b],
+            rounds: [Round(deltas: [a.id: 160, b.id: 10])]
+        )
+
+        let standings = SurvivalEngine().standings(for: match)
+
+        XCTAssertTrue(standings.ranked.first { $0.entrantID == a.id }!.isOut)
+        XCTAssertTrue(standings.isOver)
+    }
+
     func test_entrantCrossingLimitGoesOut() {
         let a = Entrant(name: "Alice")
         let b = Entrant(name: "Bob")

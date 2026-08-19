@@ -264,6 +264,7 @@ private struct StepButton: View {
             Text(label)
                 .siraStyle(.subheadline)
                 .frame(width: 30, height: 30)
+                .contentShape(Circle())
         }
         .foregroundStyle(theme.ink)
         .background(theme.surface, in: Circle())

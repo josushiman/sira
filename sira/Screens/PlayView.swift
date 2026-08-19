@@ -129,7 +129,8 @@ struct PlayView: View {
             roundNumber: match.rounds.count + 1,
             totals: totals,
             badgeIndices: badgeIndices,
-            neverLaidDownValue: match.variant.neverLaidDownValue
+            neverLaidDownValue: match.variant.neverLaidDownValue,
+            supportsCifte: match.variant.supportsCifte
         ) { deltas, cifte in
             // Pop this push first and defer the Round append (which may present
             // the Rejoin sheet) to the next run loop turn — presenting a sheet in
@@ -219,6 +220,7 @@ struct PlayView: View {
                 .siraStyle(.caption)
                 .padding(.horizontal, 11)
                 .padding(.vertical, 7)
+                .contentShape(Capsule())
         }
         .foregroundStyle(theme.ink.opacity(0.7))
         .background(theme.track, in: Capsule())
@@ -233,6 +235,7 @@ struct PlayView: View {
                 .siraStyle(.caption)
                 .padding(.horizontal, 11)
                 .padding(.vertical, 7)
+                .contentShape(Capsule())
         }
         .foregroundStyle(theme.ink.opacity(match.rounds.isEmpty ? 0.35 : 1))
         .background(theme.surface, in: Capsule())
@@ -256,6 +259,7 @@ struct PlayView: View {
                 .fontWeight(.semibold)
                 .frame(maxWidth: .infinity)
                 .frame(height: 54)
+                .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         }
         .foregroundStyle(isOver ? theme.ink.opacity(0.5) : theme.background)
         .background {
@@ -421,6 +425,7 @@ struct RejoinSheet: View {
                             .fontWeight(.semibold)
                             .frame(maxWidth: .infinity)
                             .frame(height: 52)
+                            .contentShape(RoundedRectangle(cornerRadius: 17, style: .continuous))
                     }
                     .foregroundStyle(theme.background)
                     .background(theme.ink, in: RoundedRectangle(cornerRadius: 17, style: .continuous))
@@ -433,6 +438,7 @@ struct RejoinSheet: View {
                             .siraStyle(.subheadline)
                             .frame(maxWidth: .infinity)
                             .frame(height: 52)
+                            .contentShape(RoundedRectangle(cornerRadius: 17, style: .continuous))
                     }
                     .foregroundStyle(theme.ink.opacity(0.75))
                     .overlay {

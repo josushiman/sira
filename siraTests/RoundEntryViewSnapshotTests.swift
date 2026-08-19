@@ -15,6 +15,7 @@ final class RoundEntryViewSnapshotTests: XCTestCase {
     private func assertEntry(
         initialState: RoundEntryState? = nil,
         neverLaidDownValue: Int? = nil,
+        supportsCifte: Bool = true,
         theme: Theme,
         testName: String = #function
     ) {
@@ -24,6 +25,7 @@ final class RoundEntryViewSnapshotTests: XCTestCase {
             totals: totals,
             badgeIndices: badgeIndices,
             neverLaidDownValue: neverLaidDownValue,
+            supportsCifte: supportsCifte,
             initialState: initialState
         ) { _, _ in }
         .environment(\.theme, theme)
@@ -69,5 +71,15 @@ final class RoundEntryViewSnapshotTests: XCTestCase {
 
     func test_okey101NeverLaidDownShortcut_paper() {
         assertEntry(neverLaidDownValue: 101, theme: .paper)
+    }
+
+    /// Gonga has no Çifte concept, so its entry screen shows only the
+    /// "Won the round" shortcut.
+    func test_gongaHidesTheCifteChip_paper() {
+        assertEntry(supportsCifte: false, theme: .paper)
+    }
+
+    func test_gongaHidesTheCifteChip_felt() {
+        assertEntry(supportsCifte: false, theme: .felt)
     }
 }

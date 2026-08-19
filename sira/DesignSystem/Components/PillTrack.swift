@@ -22,6 +22,7 @@ struct PillTrack<Option: Hashable>: View {
                         .fontWeight(isSelected ? .semibold : .medium)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
+                        .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                 }
                 .foregroundStyle(isSelected ? theme.ink : theme.ink.opacity(0.5))
                 .background {
@@ -31,7 +32,6 @@ struct PillTrack<Option: Hashable>: View {
                             .shadow(color: .black.opacity(0.08), radius: 1, y: 1)
                     }
                 }
-                .contentShape(Rectangle())
             }
         }
         .padding(4)

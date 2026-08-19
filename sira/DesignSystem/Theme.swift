@@ -20,6 +20,8 @@ struct Theme: Equatable {
     let cardBack: Color
     let pip: Color
     /// Rotating palette used to color dot badges by Entrant/Match index.
+    /// Eight entries so a full Gonga table (up to 8 players) never has two
+    /// Entrants sharing a badge color.
     let dots: [Color]
 
     /// The Entrant/Match-index-th color from the rotating dot palette.
@@ -45,7 +47,7 @@ extension Theme {
         cardFace: Color(hex: 0xFBF8F0),
         cardBack: Color(hex: 0xE6DECB),
         pip: Color(hex: 0xB4552F),
-        dots: [0x1F5F46, 0xB4552F, 0x3C5A82, 0x6E5385, 0x726B2E, 0x9B4A62].map(Color.init(hex:))
+        dots: [0x1F5F46, 0xB4552F, 0x3C5A82, 0x6E5385, 0x726B2E, 0x9B4A62, 0x2F7F7A, 0x8A5A2B].map(Color.init(hex:))
     )
 
     /// `THEMES.felt` — used when the system is in dark mode.
@@ -64,7 +66,7 @@ extension Theme {
         cardFace: Color(hex: 0xF1EEE2),
         cardBack: Color(hex: 0x0D2E23),
         pip: Color(hex: 0xC2452F),
-        dots: [0xE4C46A, 0xE0906A, 0x8FC2A4, 0xB9A6DC, 0x6FB0C4, 0xDE8896].map(Color.init(hex:))
+        dots: [0xE4C46A, 0xE0906A, 0x8FC2A4, 0xB9A6DC, 0x6FB0C4, 0xDE8896, 0x9FC96F, 0xD2B08C].map(Color.init(hex:))
     )
 
     /// Maps the system's color scheme onto Paper (light) or Felt (dark).

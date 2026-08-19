@@ -13,10 +13,10 @@ One played instance of a Game — has its own Entrants, Rounds, and running tota
 _Avoid_: "game" (ambiguous with the Game type above), "session."
 
 **Variant**:
-A specific ruleset within a Game, e.g. Gonga 101, Gonga 151, Okey (standard), Okey 101. Determines the Win Condition, starting score, and whether teams are required.
+A specific ruleset within a Game. Four exist: Gonga 101, Gonga 151, Okey (standard), Okey 101. Determines the Win Condition, the starting score or limit, whether Çifte applies, and the Entrant mode and table size the Variant is played at.
 
 **Entrant**:
-A player or a team of two, scored uniformly regardless of which. A Match is either all-player or all-team Entrants (`mode`), never mixed.
+A player or a team of two, scored uniformly regardless of which. A Match is either all-player or all-team Entrants (`mode`), never mixed — and the mode is fixed by the Variant, not chosen at Setup. Okey standard is the only Teams Variant, and is always exactly two teams; Gonga 101/151 and Okey 101 are individuals only, seating up to 8 and 4 players respectively.
 _Avoid_: player, team, side (as a generic term — use Entrant when talking about either).
 
 **Round**:
@@ -43,4 +43,4 @@ The mechanic by which a Match ends, determined by its Variant. Three exist:
 _Avoid_: "end condition," "game over logic."
 
 **Çifte**:
-A per-Round toggle that doubles part of that Round's scoring. In Survival and Fixed Rounds Variants it doubles every Entrant's delta uniformly. In Elimination (Okey standard) it doubles only the losing team's −2 loss penalty — Gösterge deductions are never affected by Çifte. Not translated — kept as the Turkish term.
+An Okey-only per-Round toggle that doubles part of that Round's scoring. In Okey 101 (Fixed Rounds) it doubles every Entrant's delta uniformly. In Okey standard (Elimination) it doubles only the losing team's −2 loss penalty — Gösterge deductions are never affected by Çifte. Gonga has no Çifte concept, so its Round entry screen doesn't offer the toggle. Not translated — kept as the Turkish term.

@@ -17,6 +17,7 @@ struct EntryChip: View {
                 .siraStyle(.caption)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 11)
+                .contentShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
         }
         .foregroundStyle(isOn ? theme.background : theme.ink)
         .background {
