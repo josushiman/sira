@@ -2,17 +2,29 @@ import Foundation
 
 /// Interactive state for the keypad Round Entry screen (Survival, Fixed
 /// Rounds): a per-Entrant entered-digits buffer, which Entrant is currently
-/// "active," and the Çifte toggle — independent of any view, mirroring how
-/// `Scoresheet` derives its rows from a `Match` without touching SwiftUI.
+/// "active," and this Round's modifiers — independent of any view, mirroring
+/// how `Scoresheet` derives its rows from a `Match` without touching SwiftUI.
+///
+/// One state per Round: the screen builds a fresh one each time it's pushed,
+/// so no modifier can carry into the next Round's entry.
 struct RoundEntryState: Equatable {
     /// Still-in Entrants, in display order. Fixed for the state's lifetime.
     let entrants: [Entrant]
+    /// Whether this Variant has a Çifte concept at all. Gonga doesn't, so the
+    /// state refuses to record a caller — rather than leaving the view as the
+    /// only thing standing between Gonga and a doubled Round.
+    let supportsCifte: Bool
     private(set) var enteredDigits: [Entrant.ID: String] = [:]
     private(set) var activeEntrantID: Entrant.ID?
-    var cifteOn = false
+    /// The Entrants marked as having called Çifte this Round.
+    private(set) var cifteCallers: Set<Entrant.ID> = []
+    /// The Entrant marked as the Okey atan — the one who did Okey atmak this
+    /// Round.
+    private(set) var okeyAtanID: Entrant.ID?
 
-    init(entrants: [Entrant]) {
+    init(entrants: [Entrant], supportsCifte: Bool = true) {
         self.entrants = entrants
+        self.supportsCifte = supportsCifte
         self.activeEntrantID = entrants.first?.id
     }
 
@@ -22,11 +34,60 @@ struct RoundEntryState: Equatable {
         return Int(digits)
     }
 
-    /// The live Çifte-doubled preview for `id`'s entered value, or `nil` when
-    /// Çifte is off or nothing's been entered yet.
-    func doubledPreview(for id: Entrant.ID) -> Int? {
-        guard cifteOn, let value = enteredValue(for: id) else { return nil }
-        return value * 2
+    /// What one Entrant's entered value will actually score, and the
+    /// multiplier that gets it there — so a row can show `×4 → 96` rather
+    /// than leaving a surprising number unexplained.
+    struct ScaledPreview: Equatable {
+        let multiplier: Int
+        let value: Int
+    }
+
+    /// Whether `id` is marked as a Çifte caller this Round.
+    func isCifteCaller(_ id: Entrant.ID) -> Bool {
+        cifteCallers.contains(id)
+    }
+
+    /// Whether `id` is marked as the Okey atan this Round.
+    func isOkeyAtan(_ id: Entrant.ID) -> Bool {
+        okeyAtanID == id
+    }
+
+    /// Whether the active row already carries each mark — what the chips light
+    /// from, so one chip reads as both "apply" and "applied".
+    var isActiveCifteCaller: Bool {
+        activeEntrantID.map(isCifteCaller) ?? false
+    }
+
+    var isActiveOkeyAtan: Bool {
+        activeEntrantID.map(isOkeyAtan) ?? false
+    }
+
+    /// Whether any modifier has been recorded this Round.
+    var hasModifiers: Bool {
+        !cifteCallers.isEmpty || okeyAtanID != nil
+    }
+
+    /// Every Entrant's live preview, in one pass — absent for anyone who has
+    /// entered nothing yet or whose value nothing scales.
+    ///
+    /// Derived by handing the Round this entry *would* save to the same
+    /// derivation the Engines use, so the preview can't drift from the score.
+    /// The rules live in `Round` and are never restated here.
+    ///
+    /// Presentation only. This is the one place in the entry layer that
+    /// multiplies, and what it produces never reaches the Round that gets
+    /// saved — see `rawDeltas` and `docs/adr/0005`.
+    func previews() -> [Entrant.ID: ScaledPreview] {
+        let round = Round(deltas: rawDeltas, cifteCallers: cifteCallers, okeyAtanID: okeyAtanID)
+        let multipliers = round.keypadMultipliers(for: entrants.map(\.id))
+        var result: [Entrant.ID: ScaledPreview] = [:]
+        for entrant in entrants {
+            guard let value = enteredValue(for: entrant.id) else { continue }
+            let multiplier = multipliers[entrant.id] ?? 1
+            guard multiplier > 1 else { continue }
+            result[entrant.id] = ScaledPreview(multiplier: multiplier, value: value * multiplier)
+        }
+        return result
     }
 
     /// Matches the prototype's "ready" check: enabled once any Entrant has a value.
@@ -34,19 +95,60 @@ struct RoundEntryState: Equatable {
         enteredDigits.values.contains { !$0.isEmpty }
     }
 
-    /// This round's per-Entrant deltas, doubled if Çifte is on — the same
-    /// shape `SurvivalEngine`/`FixedRoundsEngine` already expect from `Round.deltas`.
-    var deltas: [Entrant.ID: Int] {
+    /// This Round's per-Entrant deltas exactly as entered — never scaled by
+    /// Çifte, Okey atmak or any other Round modifier. `Round.deltas` stores
+    /// raw counts and the Engines are the only place a multiplier is applied
+    /// (`docs/adr/0005`); doubling here as well is what made Okey 101 Çifte
+    /// Rounds score ×4.
+    var rawDeltas: [Entrant.ID: Int] {
         var result: [Entrant.ID: Int] = [:]
         for entrant in entrants {
             guard let value = enteredValue(for: entrant.id) else { continue }
-            result[entrant.id] = cifteOn ? value * 2 : value
+            result[entrant.id] = value
         }
         return result
     }
 
     mutating func selectActive(_ id: Entrant.ID) {
         activeEntrantID = id
+    }
+
+    /// Toggles the active Entrant's Çifte caller status — the chip acts on
+    /// whichever row is selected, the convention the quick-entry shortcuts
+    /// already teach. Tapping it again un-marks that caller.
+    mutating func toggleCifteForActive() {
+        guard supportsCifte, let id = activeEntrantID else { return }
+        if cifteCallers.contains(id) {
+            cifteCallers.remove(id)
+        } else {
+            cifteCallers.insert(id)
+        }
+    }
+
+    /// Marks the active Entrant as the Okey atan and enters 0 for them: they
+    /// finished the Round, so they scored nothing and shouldn't have to record
+    /// that separately.
+    ///
+    /// Exclusive — applying it to another row moves the marker rather than
+    /// adding a second, since only one Entrant can finish a Round. Applying it
+    /// to the current atan clears the marker, and deliberately leaves their 0
+    /// alone: it's an entered value like any other, editable from the keypad,
+    /// and silently withdrawing it would turn a mis-tap into a lost score.
+    ///
+    /// Marking advances the active row, like the quick-entry shortcuts: it
+    /// settles that Entrant's score at 0, so the next thing the player wants
+    /// is the next Entrant. The marker stays legible from the row's own meta
+    /// line after the selection moves on. Clearing doesn't advance — the row
+    /// just un-marked still has a value to deal with.
+    mutating func toggleOkeyAtanForActive() {
+        guard let id = activeEntrantID else { return }
+        if okeyAtanID == id {
+            okeyAtanID = nil
+        } else {
+            okeyAtanID = id
+            enteredDigits[id] = "0"
+            advanceActive(from: id)
+        }
     }
 
     /// Appends a digit to the active Entrant's buffer, stripping leading
@@ -79,8 +181,15 @@ struct RoundEntryState: Equatable {
     mutating func applyQuickEntry(_ value: Int) {
         guard let id = activeEntrantID else { return }
         enteredDigits[id] = "\(value)"
-        if let index = entrants.firstIndex(where: { $0.id == id }), index + 1 < entrants.count {
-            activeEntrantID = entrants[index + 1].id
-        }
+        advanceActive(from: id)
+    }
+
+    /// Moves the active row on to the next Entrant, once whatever was tapped
+    /// has settled the current one's value. Stops at the last row rather than
+    /// wrapping: the player is working down the list, and jumping back to the
+    /// top would look like the tap had cleared everything.
+    private mutating func advanceActive(from id: Entrant.ID) {
+        guard let index = entrants.firstIndex(where: { $0.id == id }), index + 1 < entrants.count else { return }
+        activeEntrantID = entrants[index + 1].id
     }
 }

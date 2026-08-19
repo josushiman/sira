@@ -16,6 +16,7 @@ final class RoundEntryViewSnapshotTests: XCTestCase {
         initialState: RoundEntryState? = nil,
         neverLaidDownValue: Int? = nil,
         supportsCifte: Bool = true,
+        game: Game = .okey,
         theme: Theme,
         testName: String = #function
     ) {
@@ -26,8 +27,9 @@ final class RoundEntryViewSnapshotTests: XCTestCase {
             badgeIndices: badgeIndices,
             neverLaidDownValue: neverLaidDownValue,
             supportsCifte: supportsCifte,
+            game: game,
             initialState: initialState
-        ) { _, _ in }
+        ) { _, _, _ in }
         .environment(\.theme, theme)
         .frame(width: 402, height: 874)
 
@@ -57,29 +59,71 @@ final class RoundEntryViewSnapshotTests: XCTestCase {
         assertEntry(initialState: partialValueState, theme: .felt)
     }
 
-    func test_cifteOn_paper() {
+    /// The active row is a Çifte caller who hasn't won, so its chip is lit and
+    /// its meta line carries both the mark and a ×2 preview.
+    private var cifteCallerState: RoundEntryState {
         var state = partialValueState
-        state.cifteOn = true
-        assertEntry(initialState: state, theme: .paper)
+        state.toggleCifteForActive()
+        return state
     }
 
-    func test_cifteOn_felt() {
-        var state = partialValueState
-        state.cifteOn = true
-        assertEntry(initialState: state, theme: .felt)
+    func test_activeRowIsACifteCaller_paper() {
+        assertEntry(initialState: cifteCallerState, theme: .paper)
+    }
+
+    func test_activeRowIsACifteCaller_felt() {
+        assertEntry(initialState: cifteCallerState, theme: .felt)
+    }
+
+    /// Alice called Çifte and lost while Cem finished on the joker, so Alice's
+    /// row previews ×4 and everyone else's ×2 — the surprising number the
+    /// meta line exists to explain.
+    private var quadrupledRowState: RoundEntryState {
+        var state = cifteCallerState
+        state.selectActive(bob.id)
+        state.appendDigit("8")
+        state.selectActive(cem.id)
+        state.toggleOkeyAtanForActive()
+        state.selectActive(alice.id)
+        return state
+    }
+
+    func test_rowPreviewingQuadruple_paper() {
+        assertEntry(initialState: quadrupledRowState, theme: .paper)
+    }
+
+    func test_rowPreviewingQuadruple_felt() {
+        assertEntry(initialState: quadrupledRowState, theme: .felt)
     }
 
     func test_okey101NeverLaidDownShortcut_paper() {
         assertEntry(neverLaidDownValue: 101, theme: .paper)
     }
 
-    /// Gonga has no Çifte concept, so its entry screen shows only the
-    /// "Won the round" shortcut.
-    func test_gongaHidesTheCifteChip_paper() {
-        assertEntry(supportsCifte: false, theme: .paper)
+    /// Gonga has no Çifte concept, so its entry screen hides that chip — but
+    /// Okey atmak is played at every table, under a card-table name.
+    func test_gongaShowsJokeriAttiWithoutACifteChip_paper() {
+        assertEntry(supportsCifte: false, game: .gonga, theme: .paper)
     }
 
-    func test_gongaHidesTheCifteChip_felt() {
-        assertEntry(supportsCifte: false, theme: .felt)
+    func test_gongaShowsJokeriAttiWithoutACifteChip_felt() {
+        assertEntry(supportsCifte: false, game: .gonga, theme: .felt)
+    }
+
+    /// The Gonga label applies to the marked row's meta line too, not just the
+    /// chip.
+    private var gongaOkeyAtanState: RoundEntryState {
+        var state = RoundEntryState(entrants: entrants, supportsCifte: false)
+        state.selectActive(bob.id)
+        state.toggleOkeyAtanForActive()
+        return state
+    }
+
+    func test_gongaOkeyAtanRow_paper() {
+        assertEntry(initialState: gongaOkeyAtanState, supportsCifte: false, game: .gonga, theme: .paper)
+    }
+
+    func test_gongaOkeyAtanRow_felt() {
+        assertEntry(initialState: gongaOkeyAtanState, supportsCifte: false, game: .gonga, theme: .felt)
     }
 }

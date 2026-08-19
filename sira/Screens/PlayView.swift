@@ -16,6 +16,9 @@ struct PlayView: View {
 
     @Environment(\.theme) private var theme
     @Environment(\.dismiss) private var dismiss
+    /// Optional so Play still renders on its own in a preview or a snapshot,
+    /// where nothing above it is doing any navigating.
+    @Environment(Navigator.self) private var navigator: Navigator?
 
     init(match: Binding<Match>, initialTab: PlayTab = .standings) {
         _match = match
@@ -130,15 +133,20 @@ struct PlayView: View {
             totals: totals,
             badgeIndices: badgeIndices,
             neverLaidDownValue: match.variant.neverLaidDownValue,
-            supportsCifte: match.variant.supportsCifte
-        ) { deltas, cifte in
+            supportsCifte: match.variant.supportsCifte,
+            game: match.game
+        ) { deltas, cifteCallers, okeyAtanID in
             // Pop this push first and defer the Round append (which may present
             // the Rejoin sheet) to the next run loop turn — presenting a sheet in
             // the same update as a navigation transition is a race UIKit can
             // lose, silently dropping the Rejoin sheet.
             showingKeypadEntry = false
             DispatchQueue.main.async {
-                match.rounds.append(Round(deltas: deltas, cifte: cifte))
+                match.rounds.append(Round(
+                    deltas: deltas,
+                    cifteCallers: cifteCallers,
+                    okeyAtanID: okeyAtanID
+                ))
                 if let survivalEngine = engine as? SurvivalEngine {
                     rejoinQueue.append(contentsOf: survivalEngine.newlyOutEntrantIDs(for: match))
                 }
@@ -147,13 +155,16 @@ struct PlayView: View {
     }
 
     private var okeyStandardRoundEntry: some View {
-        OkeyStandardRoundEntryView(entrants: match.entrants, roundNumber: match.rounds.count + 1) { losingEntrantID, gostergeFinds, cifte in
+        OkeyStandardRoundEntryView(entrants: match.entrants, roundNumber: match.rounds.count + 1) { losingEntrantID, gostergeFinderID, cifteCallers, okeyAtti in
             showingOkeyEntry = false
             DispatchQueue.main.async {
+                // Okey atmak is winning the Round, so the atan is the other team.
+                let winnerID = match.entrants.first { $0.id != losingEntrantID }?.id
                 match.rounds.append(Round(
-                    cifte: cifte,
+                    cifteCallers: cifteCallers,
+                    okeyAtanID: okeyAtti ? winnerID : nil,
                     losingEntrantID: losingEntrantID,
-                    gostergeFinds: gostergeFinds
+                    gostergeFinderID: gostergeFinderID
                 ))
             }
         }
@@ -176,6 +187,16 @@ struct PlayView: View {
         match.rounds[match.rounds.count - 1].rejoins.append(RejoinEvent(id: entrant.id, to: target))
     }
 
+    /// Leaves the Match for Home, falling back to an ordinary dismiss where
+    /// Home isn't an ancestor — a preview, or a snapshot of Play on its own.
+    private func leave() {
+        if let navigator {
+            navigator.goHome()
+        } else {
+            dismiss()
+        }
+    }
+
     private func undoLastRound() {
         rejoinQueue.removeAll()
         match.undoLastRound()
@@ -183,7 +204,13 @@ struct PlayView: View {
 
     private var header: some View {
         HStack(spacing: 11) {
-            BackButton { dismiss() }
+            // Once Rounds exist, leaving means leaving the Match, not stepping
+            // back into the Setup screen that built it.
+            if match.rounds.isEmpty {
+                BackButton { dismiss() }
+            } else {
+                HomeButton { leave() }
+            }
 
             VStack(alignment: .leading, spacing: 5) {
                 Text(match.variant.label)
@@ -213,7 +240,9 @@ struct PlayView: View {
                 match.restore()
             } else {
                 match.archive()
-                dismiss()
+                // Archiving is done with this Match, so it lands on Home
+                // rather than on whatever screen happened to push it.
+                leave()
             }
         } label: {
             Text(match.archived ? "Restore" : "Archive")

@@ -249,15 +249,19 @@ final class SurvivalEngineTests: XCTestCase {
         XCTAssertEqual(newlyOut, [a.id])
     }
 
-    // MARK: - Çifte
+    // MARK: - Okey atmak
 
-    func test_cifteDoublesEveryEntrantsDeltaForThatRound() {
+    /// Gonga doesn't offer Çifte, so Okey atmak is the only modifier Survival
+    /// ever sees — and it doubles everyone uniformly, the Okey atan's own 0
+    /// included.
+    func test_okeyAtmakDoublesEveryEntrantsDeltaForThatRound() {
         let a = Entrant(name: "Alice")
         let b = Entrant(name: "Bob")
+        let c = Entrant(name: "Cara")
         let match = makeMatch(
-            entrants: [a, b],
+            entrants: [a, b, c],
             rounds: [
-                Round(deltas: [a.id: 10, b.id: 5], cifte: true),
+                Round(deltas: [a.id: 10, b.id: 5, c.id: 0], okeyAtanID: c.id),
             ]
         )
 
@@ -265,19 +269,21 @@ final class SurvivalEngineTests: XCTestCase {
 
         let alice = standings.ranked.first { $0.entrantID == a.id }!
         let bob = standings.ranked.first { $0.entrantID == b.id }!
+        let cara = standings.ranked.first { $0.entrantID == c.id }!
         XCTAssertEqual(alice.total, 20)
         XCTAssertEqual(alice.deltaFromLastRound, 20)
         XCTAssertEqual(bob.total, 10)
         XCTAssertEqual(bob.deltaFromLastRound, 10)
+        XCTAssertEqual(cara.total, 0)
     }
 
-    func test_cifteRoundThatBustsAnEntrantAppliesTheDoubledTotal() {
+    func test_okeyAtmakRoundThatBustsAnEntrantAppliesTheDoubledTotal() {
         let a = Entrant(name: "Alice")
         let b = Entrant(name: "Bob")
         let match = makeMatch(
             entrants: [a, b],
             rounds: [
-                Round(deltas: [a.id: 60, b.id: 5], cifte: true),
+                Round(deltas: [a.id: 60, b.id: 0], okeyAtanID: b.id),
             ]
         )
 
@@ -286,6 +292,27 @@ final class SurvivalEngineTests: XCTestCase {
         let alice = standings.ranked.first { $0.entrantID == a.id }!
         XCTAssertEqual(alice.total, 120)
         XCTAssertTrue(alice.isOut)
+    }
+
+    /// Out and Rejoin resolution reads the already-multiplied totals, so a
+    /// doubled Round busts an Entrant and sets the Rejoin target exactly as a
+    /// large ordinary Round would.
+    func test_rejoinTargetAfterAnOkeyAtmakRoundIsComputedFromTheDoubledTotals() {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        let c = Entrant(name: "Cara")
+        let match = makeMatch(
+            entrants: [a, b, c],
+            rounds: [
+                Round(deltas: [a.id: 60, b.id: 30, c.id: 0], okeyAtanID: c.id),
+            ]
+        )
+
+        let engine = SurvivalEngine()
+
+        XCTAssertEqual(engine.newlyOutEntrantIDs(for: match), [a.id])
+        // Bob's doubled 60, not his raw 30.
+        XCTAssertEqual(engine.rejoinTarget(for: match), 60)
     }
 
     // MARK: - Undo
@@ -322,7 +349,7 @@ final class SurvivalEngineTests: XCTestCase {
         XCTAssertTrue(standings.ranked.allSatisfy { !$0.isOut })
     }
 
-    func test_undoReversesADoubledCifteRound() {
+    func test_undoReversesADoubledRound() {
         let a = Entrant(name: "Alice")
         let b = Entrant(name: "Bob")
         var match = makeMatch(
@@ -332,7 +359,7 @@ final class SurvivalEngineTests: XCTestCase {
 
         let before = SurvivalEngine().standings(for: match)
 
-        match.rounds.append(Round(deltas: [a.id: 10, b.id: 15], cifte: true))
+        match.rounds.append(Round(deltas: [a.id: 10, b.id: 15], okeyAtanID: b.id))
         match.undoLastRound()
 
         let after = SurvivalEngine().standings(for: match)

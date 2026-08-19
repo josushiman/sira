@@ -4,6 +4,26 @@ struct ScoresheetRow: Identifiable {
     let id: Round.ID
     let roundNumber: Int
     let deltas: [Entrant.ID: Int]
+    /// The Round's modifiers, carried through unchanged so the history can say
+    /// *why* a Round doubled and who did it — the deltas above already have
+    /// the doubling in them, and a number alone can't be traced back to the
+    /// event that caused it.
+    let cifteCallers: Set<Entrant.ID>
+    let okeyAtanID: Entrant.ID?
+
+    init(
+        id: Round.ID,
+        roundNumber: Int,
+        deltas: [Entrant.ID: Int],
+        cifteCallers: Set<Entrant.ID> = [],
+        okeyAtanID: Entrant.ID? = nil
+    ) {
+        self.id = id
+        self.roundNumber = roundNumber
+        self.deltas = deltas
+        self.cifteCallers = cifteCallers
+        self.okeyAtanID = okeyAtanID
+    }
 }
 
 /// A Round-by-Round history derived purely from `Match` → `Standings` diffs, so it
@@ -33,7 +53,13 @@ struct Scoresheet {
                 previousTotals[standing.entrantID] = standing.total
             }
 
-            rows.append(ScoresheetRow(id: round.id, roundNumber: index + 1, deltas: deltas))
+            rows.append(ScoresheetRow(
+                id: round.id,
+                roundNumber: index + 1,
+                deltas: deltas,
+                cifteCallers: round.cifteCallers,
+                okeyAtanID: round.okeyAtanID
+            ))
         }
 
         self.rows = rows

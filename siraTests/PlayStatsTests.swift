@@ -63,7 +63,7 @@ final class PlayStatsTests: XCTestCase {
             variant: .okeyStandard,
             mode: .teams,
             entrants: [a, b],
-            rounds: [Round(cifte: false, losingEntrantID: b.id, gostergeFinds: [:])]
+            rounds: [Round(losingEntrantID: b.id)]
         )
 
         let stats = PlayStats(match: match, engine: EliminationEngine())

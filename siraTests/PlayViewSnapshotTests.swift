@@ -42,6 +42,25 @@ final class PlayViewSnapshotTests: XCTestCase {
         )
     }
 
+    /// An Okey 101 Match whose middle Rounds were doubled — one by Okey atmak,
+    /// one by a Çifte call — so the scoresheet has both annotations to draw.
+    private var doubledMatch: Match {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        let c = Entrant(name: "Cem")
+        return Match(
+            game: .okey,
+            variant: .okey101,
+            mode: .players,
+            entrants: [a, b, c],
+            rounds: [
+                Round(deltas: [a.id: 20, b.id: 34, c.id: 12]),
+                Round(deltas: [a.id: 0, b.id: 22, c.id: 41], okeyAtanID: a.id),
+                Round(deltas: [a.id: 15, b.id: 0, c.id: 30], cifteCallers: [b.id, c.id]),
+            ]
+        )
+    }
+
     func test_standingsMidMatch_paper() {
         assertPlay(midMatch, tab: .standings, theme: .paper)
     }
@@ -64,5 +83,13 @@ final class PlayViewSnapshotTests: XCTestCase {
 
     func test_scoresheet_felt() {
         assertPlay(midMatch, tab: .scoresheet, theme: .felt)
+    }
+
+    func test_scoresheetWithDoubledRounds_paper() {
+        assertPlay(doubledMatch, tab: .scoresheet, theme: .paper)
+    }
+
+    func test_scoresheetWithDoubledRounds_felt() {
+        assertPlay(doubledMatch, tab: .scoresheet, theme: .felt)
     }
 }

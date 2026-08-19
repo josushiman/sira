@@ -2,9 +2,15 @@ import Foundation
 
 /// Win Condition for Okey standard: two Entrants (Teams of 2) count down from
 /// the Variant's starting score. Each Round the losing team takes a −2
-/// penalty, doubled by Çifte, and each Gösterge find (capped at 1 per Entrant
-/// per Round) deducts 1 from the *other* team, never doubled. The Match ends
-/// the moment any Entrant's total reaches 0 or below.
+/// penalty, scaled by that Round's modifiers, and the Gösterge find — one per
+/// Round at most — deducts 1 from the *other* team, never scaled. The Match
+/// ends the moment any Entrant's total reaches 0 or below.
+///
+/// With a single loser, Çifte's two branches land on the same team — "everyone
+/// else doubles" and "the caller doubles themselves" both reach the loser — so
+/// the totals here don't turn on which team called, or on how many did. The
+/// callers are still recorded per Entrant, because the scoresheet shows who
+/// called.
 struct EliminationEngine: MatchEngine {
     func standings(for match: Match) -> Standings {
         let startingScore = match.variant.startingScore ?? 0
@@ -18,20 +24,19 @@ struct EliminationEngine: MatchEngine {
 
         for round in match.rounds {
             lastRoundDeltas = [:]
-            let multiplier = round.cifte ? 2 : 1
+            let multipliers = round.multipliers(in: match)
 
             if let losingID = round.losingEntrantID, totals[losingID] != nil {
-                let penalty = -2 * multiplier
+                let penalty = -2 * (multipliers[losingID] ?? 1)
                 totals[losingID] = (totals[losingID] ?? 0) + penalty
                 lastRoundDeltas[losingID, default: 0] += penalty
             }
 
-            for entrant in match.entrants {
-                let finds = min(max(round.gostergeFinds[entrant.id] ?? 0, 0), 1)
-                guard finds > 0 else { continue }
-                for other in match.entrants where other.id != entrant.id {
-                    totals[other.id] = (totals[other.id] ?? 0) - finds
-                    lastRoundDeltas[other.id, default: 0] -= finds
+            if let finderID = round.gostergeFinderID,
+               match.entrants.contains(where: { $0.id == finderID }) {
+                for other in match.entrants where other.id != finderID {
+                    totals[other.id] = (totals[other.id] ?? 0) - 1
+                    lastRoundDeltas[other.id, default: 0] -= 1
                 }
             }
         }

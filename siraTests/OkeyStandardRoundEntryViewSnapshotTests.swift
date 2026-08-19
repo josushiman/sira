@@ -11,8 +11,9 @@ final class OkeyStandardRoundEntryViewSnapshotTests: XCTestCase {
 
     private func assertEntry(
         losingEntrantID: Entrant.ID? = nil,
-        gostergeFinds: [Entrant.ID: Int] = [:],
-        cifteOn: Bool = false,
+        gostergeFinderID: Entrant.ID? = nil,
+        cifteCallers: Set<Entrant.ID> = [],
+        okeyAttiOn: Bool = false,
         theme: Theme,
         testName: String = #function
     ) {
@@ -20,9 +21,10 @@ final class OkeyStandardRoundEntryViewSnapshotTests: XCTestCase {
             entrants: entrants,
             roundNumber: 3,
             losingEntrantID: losingEntrantID,
-            gostergeFinds: gostergeFinds,
-            cifteOn: cifteOn
-        ) { _, _, _ in }
+            gostergeFinderID: gostergeFinderID,
+            cifteCallers: cifteCallers,
+            okeyAttiOn: okeyAttiOn
+        ) { _, _, _, _ in }
         .environment(\.theme, theme)
         .frame(width: 402, height: 874)
 
@@ -37,19 +39,43 @@ final class OkeyStandardRoundEntryViewSnapshotTests: XCTestCase {
         assertEntry(theme: .felt)
     }
 
-    func test_teamSelectedWithGostergeFinds_paper() {
-        assertEntry(losingEntrantID: teamB.id, gostergeFinds: [teamA.id: 1], theme: .paper)
+    func test_teamSelectedWithGostergeFind_paper() {
+        assertEntry(losingEntrantID: teamB.id, gostergeFinderID: teamA.id, theme: .paper)
     }
 
-    func test_teamSelectedWithGostergeFinds_felt() {
-        assertEntry(losingEntrantID: teamB.id, gostergeFinds: [teamA.id: 1], theme: .felt)
+    func test_teamSelectedWithGostergeFind_felt() {
+        assertEntry(losingEntrantID: teamB.id, gostergeFinderID: teamA.id, theme: .felt)
     }
 
     func test_okeyStandardCifteOn_paper() {
-        assertEntry(losingEntrantID: teamB.id, cifteOn: true, theme: .paper)
+        assertEntry(losingEntrantID: teamB.id, cifteCallers: [teamA.id], theme: .paper)
     }
 
     func test_okeyStandardCifteOn_felt() {
-        assertEntry(losingEntrantID: teamB.id, cifteOn: true, theme: .felt)
+        assertEntry(losingEntrantID: teamB.id, cifteCallers: [teamA.id], theme: .felt)
+    }
+
+    func test_okeyStandardCifteCalledByBothTeams_paper() {
+        assertEntry(losingEntrantID: teamB.id, cifteCallers: [teamA.id, teamB.id], theme: .paper)
+    }
+
+    func test_okeyStandardCifteCalledByBothTeams_felt() {
+        assertEntry(losingEntrantID: teamB.id, cifteCallers: [teamA.id, teamB.id], theme: .felt)
+    }
+
+    func test_okeyStandardOkeyAttiOn_paper() {
+        assertEntry(losingEntrantID: teamB.id, okeyAttiOn: true, theme: .paper)
+    }
+
+    func test_okeyStandardOkeyAttiOn_felt() {
+        assertEntry(losingEntrantID: teamB.id, okeyAttiOn: true, theme: .felt)
+    }
+
+    func test_okeyStandardBothModifiersOn_paper() {
+        assertEntry(losingEntrantID: teamB.id, cifteCallers: [teamA.id], okeyAttiOn: true, theme: .paper)
+    }
+
+    func test_okeyStandardBothModifiersOn_felt() {
+        assertEntry(losingEntrantID: teamB.id, cifteCallers: [teamA.id], okeyAttiOn: true, theme: .felt)
     }
 }

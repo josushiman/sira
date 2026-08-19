@@ -17,10 +17,10 @@ struct SurvivalEngine: MatchEngine {
 
         for round in match.rounds {
             lastRoundDeltas = [:]
-            let multiplier = round.cifte ? 2 : 1
+            let multipliers = round.multipliers(in: match)
             for entrant in match.entrants {
                 guard isOut[entrant.id] == false, let delta = round.deltas[entrant.id] else { continue }
-                let appliedDelta = delta * multiplier
+                let appliedDelta = delta * (multipliers[entrant.id] ?? 1)
                 let newTotal = (totals[entrant.id] ?? 0) + appliedDelta
                 totals[entrant.id] = newTotal
                 lastRoundDeltas[entrant.id] = appliedDelta

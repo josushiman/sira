@@ -48,12 +48,76 @@ final class ScoresheetTests: XCTestCase {
         let b = Entrant(name: "Bob")
         let match = makeMatch(
             entrants: [a, b],
-            rounds: [Round(deltas: [a.id: 10, b.id: 5], cifte: true)]
+            rounds: [Round(deltas: [a.id: 10, b.id: 5], cifteCallers: [a.id, b.id])]
         )
 
         let scoresheet = Scoresheet(match: match, engine: engine)
 
         XCTAssertEqual(scoresheet.rows[0].deltas, [a.id: 20, b.id: 10])
+    }
+
+    func test_rowCarriesItsRoundsModifiers() {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        let match = makeMatch(
+            entrants: [a, b],
+            rounds: [
+                Round(deltas: [a.id: 10, b.id: 5]),
+                Round(deltas: [a.id: 0, b.id: 12], cifteCallers: [b.id], okeyAtanID: a.id),
+            ]
+        )
+
+        let scoresheet = Scoresheet(match: match, engine: engine)
+
+        XCTAssertEqual(scoresheet.rows[0].cifteCallers, [])
+        XCTAssertNil(scoresheet.rows[0].okeyAtanID)
+        XCTAssertEqual(scoresheet.rows[1].cifteCallers, [b.id])
+        XCTAssertEqual(scoresheet.rows[1].okeyAtanID, a.id)
+    }
+
+    func test_deltaDerivationIsUnchangedByTheModifiersPresence() {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        // The same Round scored twice: once with the modifiers recorded on it,
+        // once with the doubling entered by hand and no modifiers at all. The
+        // rows must agree — carrying the facts changes nothing about the
+        // Standings diffs the rows are derived from.
+        let annotated = makeMatch(
+            entrants: [a, b],
+            rounds: [Round(deltas: [a.id: 0, b.id: 12], okeyAtanID: a.id)]
+        )
+        let plain = makeMatch(
+            entrants: [a, b],
+            rounds: [Round(deltas: [a.id: 0, b.id: 24])]
+        )
+
+        XCTAssertEqual(
+            Scoresheet(match: annotated, engine: engine).rows[0].deltas,
+            Scoresheet(match: plain, engine: engine).rows[0].deltas
+        )
+    }
+
+    func test_rejoinRowAlsoCarryingModifiersKeepsItsRejoinDelta() {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        let match = makeMatch(
+            entrants: [a, b],
+            rounds: [
+                Round(deltas: [a.id: 110, b.id: 20]),
+                Round(
+                    deltas: [a.id: 0, b.id: 10],
+                    rejoins: [RejoinEvent(id: a.id, to: 20)],
+                    okeyAtanID: a.id
+                ),
+            ]
+        )
+
+        let scoresheet = Scoresheet(match: match, engine: engine)
+
+        // Alice rejoins at 20 from 110, doubling or not; Bob's 10 doubles.
+        XCTAssertEqual(scoresheet.rows[1].deltas[a.id], -90)
+        XCTAssertEqual(scoresheet.rows[1].deltas[b.id], 20)
+        XCTAssertEqual(scoresheet.rows[1].okeyAtanID, a.id)
     }
 
     func test_roundAfterAnEntrantIsOutShowsZeroDeltaForThem() {

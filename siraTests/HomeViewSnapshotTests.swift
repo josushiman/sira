@@ -9,6 +9,7 @@ final class HomeViewSnapshotTests: XCTestCase {
             HomeView()
         }
         .environment(store)
+        .environment(Navigator())
         .environment(\.theme, theme)
         .frame(width: 402, height: 1200)
 

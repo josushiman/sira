@@ -32,7 +32,7 @@ The one-time offer made to an Entrant the moment they go Out: re-enter the Match
 A Match hidden from the default "Active" view. Purely a visibility flag — an Archived Match is not locked, and Rounds can still be added to it.
 
 **Gösterge**:
-An Okey-21-only find: at most one per Entrant per Round. Each find deducts 1 point from the *other* team's total that Round. Not translated — kept as the Turkish term.
+An Okey-21-only find. There is one Gösterge per Round, so at most one Entrant can find it — the Round records who, or nobody — and the find deducts 1 point from the *other* team's total that Round. Not translated — kept as the Turkish term.
 _Avoid_: "indicator tile."
 
 **Win Condition**:
@@ -43,4 +43,11 @@ The mechanic by which a Match ends, determined by its Variant. Three exist:
 _Avoid_: "end condition," "game over logic."
 
 **Çifte**:
-An Okey-only per-Round toggle that doubles part of that Round's scoring. In Okey 101 (Fixed Rounds) it doubles every Entrant's delta uniformly. In Okey 21 (Elimination) it doubles only the losing team's −2 loss penalty — Gösterge deductions are never affected by Çifte. Gonga has no Çifte concept, so its Round entry screen doesn't offer the toggle. Not translated — kept as the Turkish term.
+An Okey-only Round modifier, called by one or more Entrants during play, that doubles part of that Round's scoring asymmetrically: if a caller wins the Round, every *other* Entrant's delta doubles; if a caller loses, only that caller's own delta doubles. An Entrant doubles if any caller's rule says they do — never more than ×2 from Çifte, however many Entrants called it. In Okey 21 the two branches collapse to the same outcome (there is only one loser, and only their −2 is at stake), so Okey 21's totals don't turn on who called or on how many teams did — both teams calling in the same Round still doubles the loss once. It records the callers anyway, as Okey 101 does, because the scoresheet marks who called. Gösterge deductions are never affected. Gonga has no Çifte concept, so its Round entry screen doesn't offer it. Not translated — kept as the Turkish term.
+_Avoid_: describing Çifte as doubling "everyone" — the caller is exempt when they win, and the non-callers are exempt when they lose.
+
+**Okey atmak**:
+Finishing a Round by discarding the joker. Every Entrant's delta that Round doubles, uniformly — unlike Çifte, there is no winner/loser asymmetry. Applies to every Game and every Variant. At most one Entrant per Round, and doing it is winning the Round, so the Okey atan necessarily takes the Round (a 0 in keypad Variants, the winning team in Okey 21). In Okey 21 it doubles the losing team's −2 to −4 and never touches Gösterge. Surfaced in the UI as "Okey attı" in Okey and "Jokeri attı" in Gonga; the head-word stays the infinitive. Not translated — kept as the Turkish term.
+_Avoid_: "joker finish," "going out on the joker," conflating it with Çifte.
+
+Çifte and Okey atmak are independent and stack per Entrant: a losing Çifte caller in a Round someone finished on the joker takes ×4, while everyone else takes ×2.
