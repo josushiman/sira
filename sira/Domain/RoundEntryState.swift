@@ -135,9 +135,11 @@ struct RoundEntryState: Equatable {
     /// alone: it's an entered value like any other, editable from the keypad,
     /// and silently withdrawing it would turn a mis-tap into a lost score.
     ///
-    /// The active row doesn't advance, unlike the quick-entry shortcuts — the
-    /// row just marked is the one whose chip is now lit, and moving off it
-    /// would make the marker look like it hadn't taken.
+    /// Marking advances the active row, like the quick-entry shortcuts: it
+    /// settles that Entrant's score at 0, so the next thing the player wants
+    /// is the next Entrant. The marker stays legible from the row's own meta
+    /// line after the selection moves on. Clearing doesn't advance — the row
+    /// just un-marked still has a value to deal with.
     mutating func toggleOkeyAtanForActive() {
         guard let id = activeEntrantID else { return }
         if okeyAtanID == id {
@@ -145,6 +147,7 @@ struct RoundEntryState: Equatable {
         } else {
             okeyAtanID = id
             enteredDigits[id] = "0"
+            advanceActive(from: id)
         }
     }
 
@@ -178,8 +181,15 @@ struct RoundEntryState: Equatable {
     mutating func applyQuickEntry(_ value: Int) {
         guard let id = activeEntrantID else { return }
         enteredDigits[id] = "\(value)"
-        if let index = entrants.firstIndex(where: { $0.id == id }), index + 1 < entrants.count {
-            activeEntrantID = entrants[index + 1].id
-        }
+        advanceActive(from: id)
+    }
+
+    /// Moves the active row on to the next Entrant, once whatever was tapped
+    /// has settled the current one's value. Stops at the last row rather than
+    /// wrapping: the player is working down the list, and jumping back to the
+    /// top would look like the tap had cleared everything.
+    private mutating func advanceActive(from id: Entrant.ID) {
+        guard let index = entrants.firstIndex(where: { $0.id == id }), index + 1 < entrants.count else { return }
+        activeEntrantID = entrants[index + 1].id
     }
 }

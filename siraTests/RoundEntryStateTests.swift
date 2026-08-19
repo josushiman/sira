@@ -219,6 +219,44 @@ final class RoundEntryStateTests: XCTestCase {
         XCTAssertEqual(state.enteredValue(for: a.id), 0)
     }
 
+    func test_markingTheOkeyAtanAdvancesToTheNextEntrant() {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        var state = RoundEntryState(entrants: [a, b])
+
+        state.toggleOkeyAtanForActive()
+
+        // The mark settles Alice's score at 0, so the next Entrant is next.
+        XCTAssertEqual(state.okeyAtanID, a.id)
+        XCTAssertEqual(state.activeEntrantID, b.id)
+    }
+
+    func test_clearingTheOkeyAtanMarkerLeavesTheActiveRowWhereItIs() {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        var state = RoundEntryState(entrants: [a, b])
+
+        state.toggleOkeyAtanForActive()
+        state.selectActive(a.id)
+        state.toggleOkeyAtanForActive()
+
+        XCTAssertNil(state.okeyAtanID)
+        // Un-marking leaves a row with a value still to deal with — moving on
+        // would take the player away from the correction they just started.
+        XCTAssertEqual(state.activeEntrantID, a.id)
+    }
+
+    func test_markingTheOkeyAtanOnTheLastEntrantLeavesItActive() {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        var state = RoundEntryState(entrants: [a, b])
+
+        state.selectActive(b.id)
+        state.toggleOkeyAtanForActive()
+
+        XCTAssertEqual(state.activeEntrantID, b.id)
+    }
+
     func test_okeyAtmakIsOfferedEvenWhereCifteIsNot() {
         let a = Entrant(name: "Alice")
         var state = RoundEntryState(entrants: [a], supportsCifte: false)
@@ -301,6 +339,9 @@ final class RoundEntryStateTests: XCTestCase {
         let b = Entrant(name: "Bob")
         var state = RoundEntryState(entrants: [a, b])
         state.toggleOkeyAtanForActive()
+        // Marking moved on to Bob; the stray digits are typed after coming
+        // back to Alice's row.
+        state.selectActive(a.id)
         state.toggleCifteForActive()
         state.appendDigit("7")
         state.selectActive(b.id)

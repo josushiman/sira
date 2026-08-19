@@ -1,5 +1,31 @@
 import SwiftUI
 
+/// A Round modifier as the scoresheet draws it: one icon, sitting in the
+/// column of the Entrant it applied to. Okey atmak is the joker discarded to
+/// finish; Çifte is the pair — two cards, and the doubling they stand for.
+enum RoundModifierMark: String, Identifiable, CaseIterable {
+    case okeyAtmak
+    case cifte
+
+    var id: String { rawValue }
+
+    var symbol: String {
+        switch self {
+        case .okeyAtmak: return "theatermasks.fill"
+        case .cifte: return "rectangle.on.rectangle.fill"
+        }
+    }
+
+    /// Okey atmak's surface label is per-Game; Çifte is Okey-only and always
+    /// itself.
+    func label(for game: Game) -> String {
+        switch self {
+        case .okeyAtmak: return game.okeyAtmakLabel
+        case .cifte: return "\u{c7}ifte"
+        }
+    }
+}
+
 struct ScoresheetView: View {
     let match: Match
     let engine: MatchEngine
@@ -43,6 +69,11 @@ struct ScoresheetView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
             }
 
+            let marks = marksInUse(scoresheet.rows)
+            if !marks.isEmpty {
+                modifierKey(marks)
+            }
+
             Text("Undo removes the last round — totals, eliminations and rejoins all recalculate.")
                 .siraStyle(.caption)
                 .foregroundStyle(theme.ink.opacity(0.5))
@@ -66,47 +97,65 @@ struct ScoresheetView: View {
     }
 
     private func roundRow(_ row: ScoresheetRow) -> some View {
-        VStack(alignment: .leading, spacing: 5) {
-            HStack(spacing: 8) {
-                Text(sira: .monoLabel, "\(row.roundNumber)")
-                    .foregroundStyle(theme.ink.opacity(0.4))
-                    .frame(width: 26, alignment: .leading)
-                ForEach(match.entrants) { entrant in
+        HStack(spacing: 8) {
+            Text(sira: .monoLabel, "\(row.roundNumber)")
+                .foregroundStyle(theme.ink.opacity(0.4))
+                .frame(width: 26, alignment: .leading)
+            ForEach(match.entrants) { entrant in
+                HStack(spacing: 5) {
+                    ForEach(modifiers(for: entrant.id, in: row)) { modifier in
+                        Image(systemName: modifier.symbol)
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(theme.accent2)
+                    }
                     Text(deltaText(row.deltas[entrant.id]))
                         .siraStyle(.monoLabel)
                         .foregroundStyle(row.deltas[entrant.id] == 0 ? theme.ink.opacity(0.35) : theme.ink)
-                        .frame(maxWidth: .infinity, alignment: .trailing)
                 }
-            }
-
-            if let annotation = annotation(for: row) {
-                Text(annotation)
-                    .siraStyle(.caption)
-                    .foregroundStyle(theme.ink.opacity(0.5))
-                    // Indented past the Rd column so it reads as a note about
-                    // this Round rather than as another Round number.
-                    .padding(.leading, 34)
+                .frame(maxWidth: .infinity, alignment: .trailing)
             }
         }
         .padding(.horizontal, 15)
         .padding(.vertical, 11)
     }
 
-    /// Why this Round's numbers are what they are: the modifiers that applied,
-    /// each naming the Entrant responsible, in the vocabulary of the Match's
-    /// Game. `nil` for an ordinary Round, which needs no explanation.
-    private func annotation(for row: ScoresheetRow) -> String? {
-        var parts: [String] = []
-        if let atan = match.entrants.first(where: { $0.id == row.okeyAtanID }) {
-            parts.append("\(match.game.okeyAtmakLabel) \u{b7} \(atan.name)")
+    /// Which modifiers reached this Entrant in this Round. They're drawn in
+    /// the Entrant's own column rather than spelled out in a note underneath,
+    /// so the mark sits on the number it explains and names who did it by
+    /// position — a scoresheet stays a grid.
+    private func modifiers(for id: Entrant.ID, in row: ScoresheetRow) -> [RoundModifierMark] {
+        var marks: [RoundModifierMark] = []
+        if row.okeyAtanID == id { marks.append(.okeyAtmak) }
+        if row.cifteCallers.contains(id) { marks.append(.cifte) }
+        return marks
+    }
+
+    /// The marks present anywhere in this scoresheet, in a fixed order, for
+    /// the key below the card. Absent entirely from an unmodified Match, which
+    /// is most of them.
+    private func marksInUse(_ rows: [ScoresheetRow]) -> [RoundModifierMark] {
+        var marks: [RoundModifierMark] = []
+        if rows.contains(where: { $0.okeyAtanID != nil }) { marks.append(.okeyAtmak) }
+        if rows.contains(where: { !$0.cifteCallers.isEmpty }) { marks.append(.cifte) }
+        return marks
+    }
+
+    /// What the icons mean, shown only once a Round has actually used one — an
+    /// icon is only minimal if it doesn't send the reader looking for what it
+    /// stands for.
+    private func modifierKey(_ marks: [RoundModifierMark]) -> some View {
+        HStack(spacing: 14) {
+            ForEach(marks) { mark in
+                HStack(spacing: 5) {
+                    Image(systemName: mark.symbol)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(theme.accent2)
+                    Text(mark.label(for: match.game))
+                        .siraStyle(.caption)
+                        .foregroundStyle(theme.ink.opacity(0.5))
+                }
+            }
         }
-        if !row.cifteCallers.isEmpty {
-            // Roster order rather than the Set's, so the same Round reads the
-            // same way every time it's drawn.
-            let callers = match.entrants.filter { row.cifteCallers.contains($0.id) }
-            parts.append("\u{c7}ifte \u{b7} \(callers.map(\.name).joined(separator: ", "))")
-        }
-        return parts.isEmpty ? nil : parts.joined(separator: "   ")
     }
 
     private func totalsRow(_ totalsByEntrant: [Entrant.ID: Int]) -> some View {

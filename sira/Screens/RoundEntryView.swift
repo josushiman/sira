@@ -228,6 +228,10 @@ private struct EntryRow: View {
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 12)
+            // The whole row is the target, not just the glyphs in it: an
+            // inactive row draws no background, so without this only the name
+            // and value are tappable and the gap between them isn't.
+            .contentShape(RoundedRectangle(cornerRadius: 19, style: .continuous))
             .background {
                 RoundedRectangle(cornerRadius: 19, style: .continuous)
                     .fill(isActive ? theme.surface : Color.clear)

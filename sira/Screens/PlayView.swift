@@ -16,6 +16,9 @@ struct PlayView: View {
 
     @Environment(\.theme) private var theme
     @Environment(\.dismiss) private var dismiss
+    /// Optional so Play still renders on its own in a preview or a snapshot,
+    /// where nothing above it is doing any navigating.
+    @Environment(Navigator.self) private var navigator: Navigator?
 
     init(match: Binding<Match>, initialTab: PlayTab = .standings) {
         _match = match
@@ -189,6 +192,16 @@ struct PlayView: View {
         match.rounds[match.rounds.count - 1].rejoins.append(RejoinEvent(id: entrant.id, to: target))
     }
 
+    /// Leaves the Match for Home, falling back to an ordinary dismiss where
+    /// Home isn't an ancestor — a preview, or a snapshot of Play on its own.
+    private func leave() {
+        if let navigator {
+            navigator.goHome()
+        } else {
+            dismiss()
+        }
+    }
+
     private func undoLastRound() {
         rejoinQueue.removeAll()
         match.undoLastRound()
@@ -196,7 +209,13 @@ struct PlayView: View {
 
     private var header: some View {
         HStack(spacing: 11) {
-            BackButton { dismiss() }
+            // Once Rounds exist, leaving means leaving the Match, not stepping
+            // back into the Setup screen that built it.
+            if match.rounds.isEmpty {
+                BackButton { dismiss() }
+            } else {
+                HomeButton { leave() }
+            }
 
             VStack(alignment: .leading, spacing: 5) {
                 Text(match.variant.label)
@@ -226,7 +245,9 @@ struct PlayView: View {
                 match.restore()
             } else {
                 match.archive()
-                dismiss()
+                // Archiving is done with this Match, so it lands on Home
+                // rather than on whatever screen happened to push it.
+                leave()
             }
         } label: {
             Text(match.archived ? "Restore" : "Archive")

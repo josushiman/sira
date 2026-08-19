@@ -2,9 +2,12 @@ import SwiftUI
 
 struct HomeView: View {
     @Environment(MatchStore.self) private var store
+    /// What's pushed above Home. Held outside this view so that Play, however
+    /// deep it sits, can clear it and come straight back here — see
+    /// `Navigator`.
+    @Environment(Navigator.self) private var navigator
     @Environment(\.theme) private var theme
     @State private var filter: MatchFilter = .active
-    @State private var pickingVariantsFor: Game?
 
     private var filteredMatches: [Match] {
         filter.apply(to: store.matches)
@@ -16,7 +19,8 @@ struct HomeView: View {
     /// default chrome (separators, background, insets) to read as the
     /// prototype's plain, ungrouped layout.
     var body: some View {
-        List {
+        @Bindable var navigator = navigator
+        return List {
             plainRow(topPadding: 10, bottomPadding: 0) { header }
             plainRow(topPadding: 12, bottomPadding: 20) { heroSection }
             plainRow(topPadding: 0, bottomPadding: 28) { gameCardsRow }
@@ -32,9 +36,12 @@ struct HomeView: View {
                 }
             } else {
                 ForEach(filteredMatches) { match in
-                    chevronlessLink(destination: PlayView(match: store.binding(for: match.id))) {
+                    Button {
+                        navigator.openMatchID = match.id
+                    } label: {
                         MatchCard(match: match)
                     }
+                    .buttonStyle(.plain)
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
                     .listRowInsets(EdgeInsets(top: 0, leading: 22, bottom: 10, trailing: 22))
@@ -49,8 +56,11 @@ struct HomeView: View {
         .foregroundStyle(theme.ink)
         .background(theme.background)
         .toolbar(.hidden, for: .navigationBar)
-        .navigationDestination(item: $pickingVariantsFor) { game in
+        .navigationDestination(item: $navigator.pickingVariantsFor) { game in
             VariantPickerView(game: game)
+        }
+        .navigationDestination(item: $navigator.openMatchID) { id in
+            PlayView(match: store.binding(for: id))
         }
     }
 
@@ -62,21 +72,11 @@ struct HomeView: View {
             .listRowInsets(EdgeInsets(top: topPadding, leading: 22, bottom: bottomPadding, trailing: 22))
     }
 
-    /// A `NavigationLink` without List's automatic disclosure chevron — the
-    /// prototype's cards don't show one. The real link is invisible and
-    /// sized to fill `label`'s frame; `label` itself ignores hit testing so
-    /// every tap reaches the link underneath.
-    @ViewBuilder
-    private func chevronlessLink(destination: some View, @ViewBuilder label: () -> some View) -> some View {
-        ZStack {
-            NavigationLink(destination: destination) { EmptyView() }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .opacity(0)
-            label()
-                .allowsHitTesting(false)
-        }
-    }
-
+    /// The Match cards, like the Game cards below, deliberately use a plain
+    /// `Button` driving an item binding rather than a `NavigationLink`: a link
+    /// leaves `List` owning the push, which nothing can then pop, and Play
+    /// needs to be poppable from its own Home button.
+    ///
     /// The Game cards deliberately use a plain `Button` driving
     /// `pickingVariantsFor` rather than a `NavigationLink`. Both cards live in
     /// a single `List` row, and `List` binds row-level navigation to *a* link
@@ -87,7 +87,7 @@ struct HomeView: View {
     @ViewBuilder
     private func gameCardButton(for game: Game, @ViewBuilder label: () -> some View) -> some View {
         Button {
-            pickingVariantsFor = game
+            navigator.pickingVariantsFor = game
         } label: {
             label()
                 .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
@@ -408,6 +408,7 @@ private struct MatchCard: View {
         HomeView()
     }
     .environment(MatchStore.seeded())
+    .environment(Navigator())
     .themed()
 }
 
@@ -416,5 +417,6 @@ private struct MatchCard: View {
         HomeView()
     }
     .environment(MatchStore())
+    .environment(Navigator())
     .themed()
 }
