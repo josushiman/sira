@@ -7,9 +7,11 @@ struct RejoinEvent: Hashable {
 
 struct Round: Identifiable, Hashable {
     let id: UUID
-    /// Per-Entrant deltas for the keypad entry styles (Survival, Fixed Rounds).
-    /// Unused by Elimination Rounds, which are described instead by
-    /// `losingEntrantID` and `gostergeFinds`.
+    /// Per-Entrant deltas for the keypad entry styles (Survival, Fixed Rounds),
+    /// stored **raw** — exactly the counts the player entered, never scaled by
+    /// Çifte or any other Round modifier. The Engines are the only place a
+    /// multiplier is applied (`docs/adr/0005`). Unused by Elimination Rounds,
+    /// which are described instead by `losingEntrantID` and `gostergeFinds`.
     var deltas: [Entrant.ID: Int]
     var rejoins: [RejoinEvent]
     /// Çifte: doubles this Round's deltas as each Engine applies them (every

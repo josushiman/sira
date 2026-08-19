@@ -158,7 +158,8 @@ struct RoundEntryView: View {
 
     private func save() {
         guard state.isReadyToSave else { return }
-        onSave(state.deltas, isCifteOn)
+        // Raw counts plus the Çifte flag — the Engine applies the doubling.
+        onSave(state.rawDeltas, isCifteOn)
     }
 }
 

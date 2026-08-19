@@ -24,6 +24,10 @@ struct RoundEntryState: Equatable {
 
     /// The live Çifte-doubled preview for `id`'s entered value, or `nil` when
     /// Çifte is off or nothing's been entered yet.
+    ///
+    /// Presentation only. This is the one place in the entry layer that
+    /// multiplies, and what it produces never reaches the Round that gets
+    /// saved — see `rawDeltas` and `docs/adr/0005`.
     func doubledPreview(for id: Entrant.ID) -> Int? {
         guard cifteOn, let value = enteredValue(for: id) else { return nil }
         return value * 2
@@ -34,13 +38,16 @@ struct RoundEntryState: Equatable {
         enteredDigits.values.contains { !$0.isEmpty }
     }
 
-    /// This round's per-Entrant deltas, doubled if Çifte is on — the same
-    /// shape `SurvivalEngine`/`FixedRoundsEngine` already expect from `Round.deltas`.
-    var deltas: [Entrant.ID: Int] {
+    /// This Round's per-Entrant deltas exactly as entered — never scaled by
+    /// Çifte or any other Round modifier. `Round.deltas` stores raw counts and
+    /// the Engines are the only place a multiplier is applied
+    /// (`docs/adr/0005`); doubling here as well is what made Okey 101 Çifte
+    /// Rounds score ×4.
+    var rawDeltas: [Entrant.ID: Int] {
         var result: [Entrant.ID: Int] = [:]
         for entrant in entrants {
             guard let value = enteredValue(for: entrant.id) else { continue }
-            result[entrant.id] = cifteOn ? value * 2 : value
+            result[entrant.id] = value
         }
         return result
     }

@@ -10,7 +10,7 @@ final class RoundEntryStateTests: XCTestCase {
         XCTAssertEqual(state.activeEntrantID, a.id)
         XCTAssertNil(state.enteredValue(for: a.id))
         XCTAssertFalse(state.isReadyToSave)
-        XCTAssertTrue(state.deltas.isEmpty)
+        XCTAssertTrue(state.rawDeltas.isEmpty)
     }
 
     func test_tappingARowMakesItActive() {
@@ -118,17 +118,20 @@ final class RoundEntryStateTests: XCTestCase {
         XCTAssertTrue(state.isReadyToSave)
     }
 
-    func test_deltasOnlyIncludeEntrantsWithAnEnteredValue() {
+    func test_rawDeltasOnlyIncludeEntrantsWithAnEnteredValue() {
         let a = Entrant(name: "Alice")
         let b = Entrant(name: "Bob")
         var state = RoundEntryState(entrants: [a, b])
 
         state.appendDigit("7")
 
-        XCTAssertEqual(state.deltas, [a.id: 7])
+        XCTAssertEqual(state.rawDeltas, [a.id: 7])
     }
 
-    func test_deltasAreDoubledWhenCifteIsOn() {
+    /// The Engine is the only place a Round's scores get scaled
+    /// (`docs/adr/0005`), so Çifte must leave what gets saved untouched —
+    /// doubling here as well is what made Okey 101 Çifte Rounds score ×4.
+    func test_rawDeltasAreNotDoubledWhenCifteIsOn() {
         let a = Entrant(name: "Alice")
         let b = Entrant(name: "Bob")
         var state = RoundEntryState(entrants: [a, b])
@@ -137,7 +140,7 @@ final class RoundEntryStateTests: XCTestCase {
         state.appendDigit("3")
         state.cifteOn = true
 
-        XCTAssertEqual(state.deltas, [a.id: 14, b.id: 6])
+        XCTAssertEqual(state.rawDeltas, [a.id: 7, b.id: 3])
     }
 
     func test_doubledPreviewIsNilWhenCifteIsOff() {

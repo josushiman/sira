@@ -46,6 +46,34 @@ final class FixedRoundsEngineTests: XCTestCase {
         XCTAssertEqual(bob.deltaFromLastRound, 10)
     }
 
+    /// Regression: the Round-entry screen used to double for Çifte *and* the
+    /// Engine doubled the same Round again, so an Okey 101 Çifte Round scored
+    /// ×4. Neither suite caught it, because the Engine tests build `Round`
+    /// fixtures by hand and the entry tests never reach an Engine — so this
+    /// one crosses the seam, entering values the way a player does and
+    /// scoring the Round that entry actually produces.
+    func test_cifteRoundEnteredOnTheKeypadScoresDoubleNotQuadruple() {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        var entry = RoundEntryState(entrants: [a, b])
+        entry.appendDigit("1")
+        entry.appendDigit("0")
+        entry.selectActive(b.id)
+        entry.appendDigit("5")
+        entry.cifteOn = true
+
+        let match = makeMatch(
+            entrants: [a, b],
+            rounds: [Round(deltas: entry.rawDeltas, cifte: entry.cifteOn)]
+        )
+        let standings = FixedRoundsEngine().standings(for: match)
+
+        let alice = standings.ranked.first { $0.entrantID == a.id }!
+        let bob = standings.ranked.first { $0.entrantID == b.id }!
+        XCTAssertEqual(alice.total, 20)
+        XCTAssertEqual(bob.total, 10)
+    }
+
     func test_noOneIsEverMarkedOut() {
         let a = Entrant(name: "Alice")
         let b = Entrant(name: "Bob")
