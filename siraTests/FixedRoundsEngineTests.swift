@@ -148,20 +148,52 @@ final class FixedRoundsEngineTests: XCTestCase {
         var entry = RoundEntryState(entrants: [a, b])
         entry.appendDigit("1")
         entry.appendDigit("0")
+        entry.toggleCifteForActive()
         entry.selectActive(b.id)
         entry.appendDigit("5")
-        entry.cifteOn = true
 
         let match = makeMatch(
             entrants: [a, b],
-            rounds: [Round(deltas: entry.rawDeltas, cifteCallers: entry.cifteOn ? [a.id, b.id] : [])]
+            rounds: [Round(
+                deltas: entry.rawDeltas,
+                cifteCallers: entry.cifteCallers,
+                okeyAtanID: entry.okeyAtanID
+            )]
         )
         let standings = FixedRoundsEngine().standings(for: match)
 
         let alice = standings.ranked.first { $0.entrantID == a.id }!
         let bob = standings.ranked.first { $0.entrantID == b.id }!
+        // Alice called and didn't win, so she doubles once — 20, never 40.
         XCTAssertEqual(alice.total, 20)
-        XCTAssertEqual(bob.total, 10)
+        XCTAssertEqual(bob.total, 5)
+    }
+
+    /// The other half of the seam: what the screen previews for a row is what
+    /// the Engine goes on to score it at, for both modifiers at once.
+    func test_keypadPreviewMatchesWhatTheEngineScores() {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        var entry = RoundEntryState(entrants: [a, b])
+        entry.appendDigit("2")
+        entry.appendDigit("0")
+        entry.toggleCifteForActive()
+        entry.selectActive(b.id)
+        entry.toggleOkeyAtanForActive()
+
+        let match = makeMatch(
+            entrants: [a, b],
+            rounds: [Round(
+                deltas: entry.rawDeltas,
+                cifteCallers: entry.cifteCallers,
+                okeyAtanID: entry.okeyAtanID
+            )]
+        )
+        let standings = FixedRoundsEngine().standings(for: match)
+
+        XCTAssertEqual(entry.doubledPreview(for: a.id), 80)
+        XCTAssertEqual(standings.ranked.first { $0.entrantID == a.id }!.total, 80)
+        XCTAssertEqual(standings.ranked.first { $0.entrantID == b.id }!.total, 0)
     }
 
     func test_noOneIsEverMarkedOut() {

@@ -130,21 +130,20 @@ struct PlayView: View {
             totals: totals,
             badgeIndices: badgeIndices,
             neverLaidDownValue: match.variant.neverLaidDownValue,
-            supportsCifte: match.variant.supportsCifte
-        ) { deltas, cifte in
+            supportsCifte: match.variant.supportsCifte,
+            game: match.game
+        ) { deltas, cifteCallers, okeyAtanID in
             // Pop this push first and defer the Round append (which may present
             // the Rejoin sheet) to the next run loop turn — presenting a sheet in
             // the same update as a navigation transition is a race UIKit can
             // lose, silently dropping the Rejoin sheet.
             showingKeypadEntry = false
             DispatchQueue.main.async {
-                // The keypad screen still reports Çifte as one Round-wide
-                // flag, so every Entrant is recorded as a caller: with the
-                // winner having entered 0, that lands on exactly the doubling
-                // the flag used to mean. Per-Entrant callers arrive with the
-                // entry-screen work.
-                let callers = cifte ? Set(stillIn.map(\.id)) : []
-                match.rounds.append(Round(deltas: deltas, cifteCallers: callers))
+                match.rounds.append(Round(
+                    deltas: deltas,
+                    cifteCallers: cifteCallers,
+                    okeyAtanID: okeyAtanID
+                ))
                 if let survivalEngine = engine as? SurvivalEngine {
                     rejoinQueue.append(contentsOf: survivalEngine.newlyOutEntrantIDs(for: match))
                 }

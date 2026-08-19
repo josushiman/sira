@@ -18,10 +18,13 @@ struct RoundEntryView: View {
     /// The keypad's "never laid down" quick-entry shortcut value (Okey 101:
     /// 101). `nil` hides that shortcut for Variants that don't offer it.
     var neverLaidDownValue: Int? = nil
-    /// Whether to offer the Çifte doubling toggle. Okey only — Gonga has no
-    /// Çifte concept, so its entry screen hides the chip entirely.
+    /// Whether to offer the Çifte chip. Okey only — Gonga has no Çifte
+    /// concept, so its entry screen hides the chip entirely.
     var supportsCifte: Bool = true
-    let onSave: ([Entrant.ID: Int], Bool) -> Void
+    /// The Match's Game, which chooses the joker-finish chip's label: Okey
+    /// players say "Okey attı", Gonga players "Jokeri attı".
+    var game: Game = .okey
+    let onSave: (_ deltas: [Entrant.ID: Int], _ cifteCallers: Set<Entrant.ID>, _ okeyAtanID: Entrant.ID?) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.theme) private var theme
@@ -29,7 +32,7 @@ struct RoundEntryView: View {
 
     /// - Parameter initialState: Seeds the screen's interactive state directly —
     ///   used by snapshot tests to capture a specific in-progress state (a
-    ///   partial value, Çifte on) without driving the view through taps.
+    ///   partial value, a Çifte caller) without driving the view through taps.
     ///   Production callers omit it and get the prototype's default: the
     ///   first still-in Entrant active, nothing entered.
     init(
@@ -39,8 +42,9 @@ struct RoundEntryView: View {
         badgeIndices: [Entrant.ID: Int],
         neverLaidDownValue: Int? = nil,
         supportsCifte: Bool = true,
+        game: Game = .okey,
         initialState: RoundEntryState? = nil,
-        onSave: @escaping ([Entrant.ID: Int], Bool) -> Void
+        onSave: @escaping (_ deltas: [Entrant.ID: Int], _ cifteCallers: Set<Entrant.ID>, _ okeyAtanID: Entrant.ID?) -> Void
     ) {
         self.entrants = entrants
         self.roundNumber = roundNumber
@@ -48,21 +52,23 @@ struct RoundEntryView: View {
         self.badgeIndices = badgeIndices
         self.neverLaidDownValue = neverLaidDownValue
         self.supportsCifte = supportsCifte
+        self.game = game
         self.onSave = onSave
-        _state = State(initialValue: initialState ?? RoundEntryState(entrants: entrants))
+        _state = State(
+            initialValue: initialState ?? RoundEntryState(entrants: entrants, supportsCifte: supportsCifte)
+        )
     }
 
     private var entryTitle: String {
         neverLaidDownValue != nil ? "Count everyone\u{2019}s tiles" : "Count the cards left"
     }
 
-    /// Çifte only counts where the Variant supports it — guarding the read as
-    /// well as the chip keeps a seeded `cifteOn` from doubling a Gonga Round.
-    private var isCifteOn: Bool { supportsCifte && state.cifteOn }
-
+    /// Çifte's asymmetry means no one sentence describes what a Round is about
+    /// to score, so once a modifier is on the hint points at the rows, where
+    /// each Entrant's own multiplier is spelled out.
     private var entryHint: String {
-        isCifteOn
-            ? "\u{c7}ifte on \u{2014} every score doubles when you save."
+        state.hasModifiers
+            ? "Each row shows what it\u{2019}ll score."
             : "Winner takes 0. Tap a name, then type."
     }
 
@@ -95,7 +101,9 @@ struct RoundEntryView: View {
                             isActive: state.activeEntrantID == entrant.id,
                             total: totals[entrant.id] ?? 0,
                             enteredValue: state.enteredValue(for: entrant.id),
-                            doubledPreview: state.doubledPreview(for: entrant.id)
+                            multiplier: state.multiplier(for: entrant.id),
+                            doubledPreview: state.doubledPreview(for: entrant.id),
+                            roleNote: roleNote(for: entrant.id)
                         ) {
                             state.selectActive(entrant.id)
                         }
@@ -130,9 +138,12 @@ struct RoundEntryView: View {
                 }
             }
             if supportsCifte {
-                EntryChip(label: "\u{c7}ifte \u{2014} double all \u{d7}2", isOn: state.cifteOn) {
-                    state.cifteOn.toggle()
+                EntryChip(label: "\u{c7}ifte", isOn: isActiveRowACifteCaller) {
+                    state.toggleCifteForActive()
                 }
+            }
+            EntryChip(label: game.okeyAtmakLabel, isOn: isActiveRowTheOkeyAtan) {
+                state.toggleOkeyAtanForActive()
             }
         }
         // Left-aligned so a Variant with only one chip (Gonga, which has no
@@ -152,26 +163,52 @@ struct RoundEntryView: View {
         }
     }
 
+    /// Both chips act on the active row and light when that row already
+    /// carries the mark, so one chip reads as both "apply" and "applied."
+    private var isActiveRowACifteCaller: Bool {
+        state.activeEntrantID.map(state.isCifteCaller) ?? false
+    }
+
+    private var isActiveRowTheOkeyAtan: Bool {
+        state.okeyAtanID != nil && state.okeyAtanID == state.activeEntrantID
+    }
+
+    /// What this row is marked as, for its meta line — so the record of who
+    /// called is legible from the rows themselves and not only from whichever
+    /// chip happens to be lit for the active row.
+    private func roleNote(for id: Entrant.ID) -> String? {
+        var parts: [String] = []
+        if state.isCifteCaller(id) { parts.append("\u{c7}ifte") }
+        if state.okeyAtanID == id { parts.append(game.okeyAtmakLabel) }
+        return parts.isEmpty ? nil : parts.joined(separator: " \u{b7} ")
+    }
+
     private func badgeIndex(for id: Entrant.ID) -> Int {
         badgeIndices[id] ?? 0
     }
 
     private func save() {
         guard state.isReadyToSave else { return }
-        // Raw counts plus the Çifte flag — the Engine applies the doubling.
-        onSave(state.rawDeltas, isCifteOn)
+        // Raw counts plus the facts of who did what — the Engine derives every
+        // multiplier from them (`docs/adr/0005`).
+        onSave(state.rawDeltas, state.cifteCallers, state.okeyAtanID)
     }
 }
 
-/// One Entry-screen row: dot badge, name, current total (plus the doubled
-/// preview when Çifte is on), and the entered value — highlighted when active.
+/// One Entry-screen row: dot badge, name, a meta line carrying the current
+/// total, whatever modifiers this Entrant is marked with and what their value
+/// will actually score, and the entered value — highlighted when active.
 private struct EntryRow: View {
     let entrant: Entrant
     let badgeIndex: Int
     let isActive: Bool
     let total: Int
     let enteredValue: Int?
+    /// What this Entrant's entered value will be scored at: ×1, ×2 or ×4.
+    let multiplier: Int
     let doubledPreview: Int?
+    /// This Entrant's modifiers, already labelled for the Match's Game.
+    let roleNote: String?
     let onTap: () -> Void
 
     @Environment(\.theme) private var theme
@@ -186,7 +223,7 @@ private struct EntryRow: View {
                         .siraStyle(.headline)
                         .lineLimit(1)
                     Text(sira: .monoLabel, metaText)
-                        .foregroundStyle(doubledPreview != nil ? theme.accent2 : theme.ink.opacity(0.42))
+                        .foregroundStyle(isMarked ? theme.accent2 : theme.ink.opacity(0.42))
                 }
 
                 Spacer(minLength: 0)
@@ -211,9 +248,17 @@ private struct EntryRow: View {
         .buttonStyle(.plain)
     }
 
+    private var isMarked: Bool { roleNote != nil || doubledPreview != nil }
+
+    /// `now 34` on its own, growing to `now 34   Çifte   ×4 → 136` as the
+    /// Round's modifiers reach this Entrant.
     private var metaText: String {
-        guard let doubledPreview else { return "now \(total)" }
-        return "now \(total)   \u{d7}2 \u{2192} \(doubledPreview)"
+        var parts = ["now \(total)"]
+        if let roleNote { parts.append(roleNote) }
+        if let doubledPreview {
+            parts.append("\u{d7}\(multiplier) \u{2192} \(doubledPreview)")
+        }
+        return parts.joined(separator: "   ")
     }
 
     private var valueText: String {
@@ -231,8 +276,9 @@ private struct EntryRow: View {
         entrants: [a, b],
         roundNumber: 3,
         totals: [a.id: 34, b.id: 12],
-        badgeIndices: [a.id: 0, b.id: 1]
-    ) { _, _ in }
+        badgeIndices: [a.id: 0, b.id: 1],
+        game: .gonga
+    ) { _, _, _ in }
     .themed()
 }
 
@@ -245,6 +291,6 @@ private struct EntryRow: View {
         totals: [a.id: 34, b.id: 12],
         badgeIndices: [a.id: 0, b.id: 1],
         neverLaidDownValue: 101
-    ) { _, _ in }
+    ) { _, _, _ in }
     .themed()
 }

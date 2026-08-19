@@ -60,33 +60,48 @@ extension Round {
     /// What each Engine scales with the result is its own business: Survival
     /// and Fixed Rounds scale every delta, Elimination scales only the loss
     /// penalty and never a Gösterge find. The Match comes in whole because
-    /// "won the Round" is read differently per Win Condition — see `wonRound`.
+    /// "won the Round" is read differently per Win Condition.
     func multipliers(in match: Match) -> [Entrant.ID: Int] {
-        let okeyAtmakMultiplier = okeyAtanID == nil ? 1 : 2
-        var result: [Entrant.ID: Int] = [:]
-        for entrant in match.entrants {
-            let doubledByCifte = cifteCallers.contains { caller in
-                wonRound(caller, in: match) ? caller != entrant.id : caller == entrant.id
-            }
-            result[entrant.id] = (doubledByCifte ? 2 : 1) * okeyAtmakMultiplier
-        }
-        return result
-    }
-
-    /// Whether `id` won this Round, in the sense Çifte's asymmetry needs it.
-    /// Which fact answers that is the Win Condition's to say, not something to
-    /// infer from whichever of the Round's fields happen to be populated.
-    private func wonRound(_ id: Entrant.ID, in match: Match) -> Bool {
+        let entrantIDs = match.entrants.map(\.id)
         switch match.variant.winCondition {
         case .elimination:
             // Okey 21 records the team that lost; the other one won.
-            return id != losingEntrantID
+            return multipliers(for: entrantIDs) { $0 != losingEntrantID }
         case .survival, .fixedRounds:
-            // The keypad Variants record winning as an entered 0. Nothing
-            // entered is not a win — that Entrant takes no score this Round
-            // either, so no multiplier of theirs is ever applied.
+            return keypadMultipliers(for: entrantIDs)
+        }
+    }
+
+    /// The same derivation as the keypad Variants' Engines read it: winning
+    /// the Round is an entered 0, and nothing entered is not a win — that
+    /// Entrant takes no score this Round either, so no multiplier of theirs
+    /// is ever applied.
+    ///
+    /// Exposed so the entry screen's live preview can share this body rather
+    /// than restate the rules: what a row shows before saving is then the same
+    /// arithmetic the Engine performs after, by construction.
+    func keypadMultipliers(for entrantIDs: [Entrant.ID]) -> [Entrant.ID: Int] {
+        multipliers(for: entrantIDs) { id in
             guard let delta = deltas[id] else { return false }
             return delta == 0
         }
+    }
+
+    /// - Parameter wonRound: Whether an Entrant won this Round, which only the
+    ///   Win Condition can answer — it's read from an entered 0 in the keypad
+    ///   Variants and from the recorded loser in Okey 21.
+    private func multipliers(
+        for entrantIDs: [Entrant.ID],
+        wonRound: (Entrant.ID) -> Bool
+    ) -> [Entrant.ID: Int] {
+        let okeyAtmakMultiplier = okeyAtanID == nil ? 1 : 2
+        var result: [Entrant.ID: Int] = [:]
+        for id in entrantIDs {
+            let doubledByCifte = cifteCallers.contains { caller in
+                wonRound(caller) ? caller != id : caller == id
+            }
+            result[id] = (doubledByCifte ? 2 : 1) * okeyAtmakMultiplier
+        }
+        return result
     }
 }
