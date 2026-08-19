@@ -182,17 +182,7 @@ struct PlayView: View {
 
     private var header: some View {
         HStack(spacing: 11) {
-            Button {
-                dismiss()
-            } label: {
-                Text("‹")
-                    .siraStyle(.headline)
-            }
-            .frame(width: 34, height: 34)
-            .background(theme.surface, in: Circle())
-            .overlay { Circle().stroke(theme.line, lineWidth: 1) }
-            .foregroundStyle(theme.ink)
-            .buttonStyle(.plain)
+            BackButton { dismiss() }
 
             VStack(alignment: .leading, spacing: 5) {
                 Text(match.variant.label)
@@ -218,7 +208,12 @@ struct PlayView: View {
 
     private var archiveButton: some View {
         Button {
-            if match.archived { match.restore() } else { match.archive() }
+            if match.archived {
+                match.restore()
+            } else {
+                match.archive()
+                dismiss()
+            }
         } label: {
             Text(match.archived ? "Restore" : "Archive")
                 .siraStyle(.caption)
@@ -273,6 +268,7 @@ struct PlayView: View {
                     }
                 }
         }
+        .contentShape(Rectangle())
         .buttonStyle(.plain)
         .disabled(isOver)
     }
