@@ -21,7 +21,7 @@ struct PillTrack<Option: Hashable>: View {
                         .siraStyle(.subheadline)
                         .fontWeight(isSelected ? .semibold : .medium)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 9)
+                        .padding(.vertical, 12)
                 }
                 .foregroundStyle(isSelected ? theme.ink : theme.ink.opacity(0.5))
                 .background {
@@ -31,6 +31,7 @@ struct PillTrack<Option: Hashable>: View {
                             .shadow(color: .black.opacity(0.08), radius: 1, y: 1)
                     }
                 }
+                .contentShape(Rectangle())
             }
         }
         .padding(4)

@@ -48,6 +48,9 @@ struct HomeView: View {
         .foregroundStyle(theme.ink)
         .background(theme.background)
         .toolbar(.hidden, for: .navigationBar)
+        .navigationDestination(for: Game.self) { game in
+            VariantPickerView(game: game)
+        }
     }
 
     @ViewBuilder
@@ -73,6 +76,23 @@ struct HomeView: View {
         }
     }
 
+    /// Same chevronless technique as `chevronlessLink(destination:)`, but
+    /// value-based: both Game cards resolve through the single
+    /// `.navigationDestination(for: Game.self)` below instead of each getting
+    /// its own eagerly-built `NavigationLink(destination:)`. Two such eager
+    /// links sharing one List row is what caused Back, after picking Okey, to
+    /// land on Gonga's Variant picker instead of Home.
+    @ViewBuilder
+    private func chevronlessLink(value: Game, @ViewBuilder label: () -> some View) -> some View {
+        ZStack {
+            NavigationLink(value: value) { EmptyView() }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .opacity(0)
+            label()
+                .allowsHitTesting(false)
+        }
+    }
+
     private var heroSection: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("Keep the\nscore honest.")
@@ -86,7 +106,7 @@ struct HomeView: View {
     private var gameCardsRow: some View {
         HStack(spacing: 14) {
             ForEach(Game.allCases, id: \.self) { game in
-                chevronlessLink(destination: VariantPickerView(game: game)) {
+                chevronlessLink(value: game) {
                     GameGlyphCard(game: game)
                 }
             }

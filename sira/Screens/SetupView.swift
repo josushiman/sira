@@ -111,17 +111,7 @@ struct SetupView: View {
 
     private var header: some View {
         HStack(spacing: 12) {
-            Button {
-                dismiss()
-            } label: {
-                Text("‹")
-                    .siraStyle(.headline)
-            }
-            .frame(width: 34, height: 34)
-            .background(theme.surface, in: Circle())
-            .overlay { Circle().stroke(theme.line, lineWidth: 1) }
-            .foregroundStyle(theme.ink)
-            .buttonStyle(.plain)
+            BackButton { dismiss() }
 
             Text(sira: .monoEyebrow, variant.label)
                 .foregroundStyle(theme.ink.opacity(0.5))
@@ -142,6 +132,7 @@ struct SetupView: View {
         }
         .foregroundStyle(theme.background)
         .background(theme.ink, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .contentShape(Rectangle())
         .buttonStyle(.plain)
     }
 
