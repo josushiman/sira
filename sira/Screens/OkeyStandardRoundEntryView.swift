@@ -6,23 +6,26 @@ import SwiftUI
 /// Play with the prototype's Cancel/Save top bar, matching the keypad Round
 /// entry screen's chrome (`docs/adr/0003`).
 ///
-/// Restyle only — the underlying `losingEntrantID` + per-Entrant Gösterge
-/// find counts + Çifte model is unchanged from the segmented-Picker/Stepper
-/// version this replaces.
+/// Both Round modifiers are Round-level here rather than per-Entrant: with a
+/// single loser, Çifte's two branches collapse onto the same team, and a
+/// joker finish is a win, so the winning team is the Okey atan by
+/// construction. Either modifier alone doubles the loss to −4; both together
+/// take it to −8, and neither ever touches a Gösterge find.
 struct OkeyStandardRoundEntryView: View {
     let entrants: [Entrant]
     /// This round's number, shown in the top bar ("Round 3").
     let roundNumber: Int
-    let onSave: (_ losingEntrantID: Entrant.ID?, _ gostergeFinds: [Entrant.ID: Int], _ cifte: Bool) -> Void
+    let onSave: (_ losingEntrantID: Entrant.ID?, _ gostergeFinds: [Entrant.ID: Int], _ cifte: Bool, _ okeyAtti: Bool) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.theme) private var theme
     @State private var losingEntrantID: Entrant.ID?
     @State private var gostergeFinds: [Entrant.ID: Int]
     @State private var cifteOn: Bool
+    @State private var okeyAttiOn: Bool
 
     /// - Parameters:
-    ///   - losingEntrantID, gostergeFinds, cifteOn: Seed the screen's interactive
+    ///   - losingEntrantID, gostergeFinds, cifteOn, okeyAttiOn: Seed the screen's interactive
     ///     state directly — used by snapshot tests to capture a specific
     ///     in-progress state without driving the view through taps.
     ///     Production callers omit them and get nothing selected.
@@ -32,7 +35,8 @@ struct OkeyStandardRoundEntryView: View {
         losingEntrantID: Entrant.ID? = nil,
         gostergeFinds: [Entrant.ID: Int] = [:],
         cifteOn: Bool = false,
-        onSave: @escaping (_ losingEntrantID: Entrant.ID?, _ gostergeFinds: [Entrant.ID: Int], _ cifte: Bool) -> Void
+        okeyAttiOn: Bool = false,
+        onSave: @escaping (_ losingEntrantID: Entrant.ID?, _ gostergeFinds: [Entrant.ID: Int], _ cifte: Bool, _ okeyAtti: Bool) -> Void
     ) {
         self.entrants = entrants
         self.roundNumber = roundNumber
@@ -40,6 +44,7 @@ struct OkeyStandardRoundEntryView: View {
         _losingEntrantID = State(initialValue: losingEntrantID)
         _gostergeFinds = State(initialValue: gostergeFinds)
         _cifteOn = State(initialValue: cifteOn)
+        _okeyAttiOn = State(initialValue: okeyAttiOn)
     }
 
     private var isReadyToSave: Bool { losingEntrantID != nil }
@@ -57,7 +62,7 @@ struct OkeyStandardRoundEntryView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Who won the round?")
                         .siraStyle(.displayTitle)
-                    Text("The losing team drops 2. First team to 0 loses.")
+                    Text("First team to 0 loses.")
                         .siraStyle(.body)
                         .foregroundStyle(theme.ink.opacity(0.55))
                 }
@@ -70,7 +75,8 @@ struct OkeyStandardRoundEntryView: View {
                             entrant: entrant,
                             badgeIndex: badgeIndex(for: entrant.id),
                             otherName: otherEntrant(for: entrant)?.name,
-                            isWinner: isWinner(entrant)
+                            isWinner: isWinner(entrant),
+                            penalty: penalty
                         ) {
                             pickWinner(entrant)
                         }
@@ -102,16 +108,60 @@ struct OkeyStandardRoundEntryView: View {
                 }
                 .padding(.top, 24)
 
-                EntryChip(label: "\u{c7}ifte \u{2014} double all \u{d7}2", isOn: cifteOn) {
-                    cifteOn.toggle()
-                }
-                .padding(.top, 18)
+                modifierChips
+                    .padding(.top, 18)
             }
             .padding(.horizontal, 22)
             .padding(.bottom, 34)
         }
         .background(theme.background)
         .foregroundStyle(theme.ink)
+    }
+
+    /// The two Round modifiers, with the number they produce spelled out
+    /// underneath — either one alone doubles the loss, so the chips can't be
+    /// told apart by their effect and the player shouldn't have to work out
+    /// whether they're looking at −4 or −8.
+    private var modifierChips: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            HStack(spacing: 7) {
+                EntryChip(label: "\u{c7}ifte", isOn: cifteOn) {
+                    cifteOn.toggle()
+                }
+                // Okey 21 is an Okey Variant, so the label is always Okey's.
+                EntryChip(label: Game.okey.okeyAtmakLabel, isOn: okeyAttiOn) {
+                    okeyAttiOn.toggle()
+                }
+            }
+            Text(consequence)
+                .siraStyle(.body)
+                .foregroundStyle(theme.ink.opacity(0.55))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// What the losing team actually drops this Round, modifiers included —
+    /// the same 2 the Engine starts from, scaled the same way. Gösterge finds
+    /// are absent because the doubling never reaches them.
+    private var penalty: Int {
+        2 * (cifteOn ? 2 : 1) * (okeyAttiOn ? 2 : 1)
+    }
+
+    /// Why the number on the cards is what it is. Neither chip can be read off
+    /// the score — each alone produces the same −4 — so the line names the
+    /// event rather than only its size.
+    private var consequence: String {
+        let drop = "the losing team drops \(penalty)"
+        switch (cifteOn, okeyAttiOn) {
+        case (false, false):
+            return "Either one doubles the round."
+        case (true, false):
+            return "\u{c7}ifte doubles it \u{2014} \(drop)."
+        case (false, true):
+            return "The joker finish doubles it \u{2014} \(drop)."
+        case (true, true):
+            return "Both double it \u{2014} \(drop)."
+        }
     }
 
     private func badgeIndex(for id: Entrant.ID) -> Int {
@@ -145,7 +195,7 @@ struct OkeyStandardRoundEntryView: View {
 
     private func save() {
         guard isReadyToSave else { return }
-        onSave(losingEntrantID, gostergeFinds, cifteOn)
+        onSave(losingEntrantID, gostergeFinds, cifteOn, okeyAttiOn)
     }
 }
 
@@ -157,6 +207,9 @@ private struct TeamPickCard: View {
     let badgeIndex: Int
     let otherName: String?
     let isWinner: Bool
+    /// What the losing team drops this Round, already scaled by whichever
+    /// modifiers are on, so the card never disagrees with the chips below it.
+    let penalty: Int
     let onTap: () -> Void
 
     @Environment(\.theme) private var theme
@@ -197,8 +250,8 @@ private struct TeamPickCard: View {
     }
 
     private var subtitle: String {
-        guard let otherName else { return "the other side drops 2" }
-        return isWinner ? "\(otherName) drops 2" : "the other side drops 2"
+        guard let otherName, isWinner else { return "the other side drops \(penalty)" }
+        return "\(otherName) drops \(penalty)"
     }
 
     private var checkmark: some View {
@@ -276,11 +329,11 @@ private struct StepButton: View {
 #Preview("No team selected") {
     let a = Entrant(name: "Ekrem & Su")
     let b = Entrant(name: "Ada & Barış")
-    return OkeyStandardRoundEntryView(entrants: [a, b], roundNumber: 3) { _, _, _ in }
+    return OkeyStandardRoundEntryView(entrants: [a, b], roundNumber: 3) { _, _, _, _ in }
         .themed()
 }
 
-#Preview("Team selected, Gösterge, Çifte") {
+#Preview("Team selected, Gösterge, both modifiers") {
     let a = Entrant(name: "Ekrem & Su")
     let b = Entrant(name: "Ada & Barış")
     return OkeyStandardRoundEntryView(
@@ -288,7 +341,8 @@ private struct StepButton: View {
         roundNumber: 3,
         losingEntrantID: b.id,
         gostergeFinds: [a.id: 1],
-        cifteOn: true
-    ) { _, _, _ in }
+        cifteOn: true,
+        okeyAttiOn: true
+    ) { _, _, _, _ in }
     .themed()
 }

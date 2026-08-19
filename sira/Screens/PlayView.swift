@@ -152,15 +152,19 @@ struct PlayView: View {
     }
 
     private var okeyStandardRoundEntry: some View {
-        OkeyStandardRoundEntryView(entrants: match.entrants, roundNumber: match.rounds.count + 1) { losingEntrantID, gostergeFinds, cifte in
+        OkeyStandardRoundEntryView(entrants: match.entrants, roundNumber: match.rounds.count + 1) { losingEntrantID, gostergeFinds, cifte, okeyAtti in
             showingOkeyEntry = false
             DispatchQueue.main.async {
-                // Okey 21's toggle is Round-wide because its two branches
-                // collapse with a single loser; recording the loser as the
+                // Okey 21's chips are Round-wide because they resolve the same
+                // way whoever is named: with a single loser, Çifte's two
+                // branches both land on them, so recording the loser as the
                 // caller is the reading that survives the shared derivation.
                 let callers = cifte ? Set([losingEntrantID].compactMap { $0 }) : []
+                // A joker finish is a win, so the Okey atan is the other team.
+                let winnerID = match.entrants.first { $0.id != losingEntrantID }?.id
                 match.rounds.append(Round(
                     cifteCallers: callers,
+                    okeyAtanID: okeyAtti ? winnerID : nil,
                     losingEntrantID: losingEntrantID,
                     gostergeFinds: gostergeFinds
                 ))

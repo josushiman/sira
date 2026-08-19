@@ -13,6 +13,7 @@ final class OkeyStandardRoundEntryViewSnapshotTests: XCTestCase {
         losingEntrantID: Entrant.ID? = nil,
         gostergeFinds: [Entrant.ID: Int] = [:],
         cifteOn: Bool = false,
+        okeyAttiOn: Bool = false,
         theme: Theme,
         testName: String = #function
     ) {
@@ -21,8 +22,9 @@ final class OkeyStandardRoundEntryViewSnapshotTests: XCTestCase {
             roundNumber: 3,
             losingEntrantID: losingEntrantID,
             gostergeFinds: gostergeFinds,
-            cifteOn: cifteOn
-        ) { _, _, _ in }
+            cifteOn: cifteOn,
+            okeyAttiOn: okeyAttiOn
+        ) { _, _, _, _ in }
         .environment(\.theme, theme)
         .frame(width: 402, height: 874)
 
@@ -51,5 +53,21 @@ final class OkeyStandardRoundEntryViewSnapshotTests: XCTestCase {
 
     func test_okeyStandardCifteOn_felt() {
         assertEntry(losingEntrantID: teamB.id, cifteOn: true, theme: .felt)
+    }
+
+    func test_okeyStandardOkeyAttiOn_paper() {
+        assertEntry(losingEntrantID: teamB.id, okeyAttiOn: true, theme: .paper)
+    }
+
+    func test_okeyStandardOkeyAttiOn_felt() {
+        assertEntry(losingEntrantID: teamB.id, okeyAttiOn: true, theme: .felt)
+    }
+
+    func test_okeyStandardBothModifiersOn_paper() {
+        assertEntry(losingEntrantID: teamB.id, cifteOn: true, okeyAttiOn: true, theme: .paper)
+    }
+
+    func test_okeyStandardBothModifiersOn_felt() {
+        assertEntry(losingEntrantID: teamB.id, cifteOn: true, okeyAttiOn: true, theme: .felt)
     }
 }
