@@ -114,6 +114,10 @@ struct OkeyStandardRoundEntryView: View {
         }
         .background(theme.background)
         .foregroundStyle(theme.ink)
+        // EntryTopBar already offers the only two ways out of Round entry —
+        // Cancel and Save — so the system chevron above it was a third,
+        // unlabelled one. Every other screen hides the bar the same way.
+        .toolbar(.hidden, for: .navigationBar)
     }
 
     /// Okey atmak — the one modifier that isn't a question about who, since

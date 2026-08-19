@@ -125,6 +125,10 @@ struct RoundEntryView: View {
         }
         .background(theme.background)
         .foregroundStyle(theme.ink)
+        // EntryTopBar already offers the only two ways out of Round entry —
+        // Cancel and Save — so the system chevron above it was a third,
+        // unlabelled one. Every other screen hides the bar the same way.
+        .toolbar(.hidden, for: .navigationBar)
     }
 
     private var quickEntryChips: some View {
