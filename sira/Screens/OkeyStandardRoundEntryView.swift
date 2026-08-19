@@ -7,8 +7,8 @@ import SwiftUI
 /// entry screen's chrome (`docs/adr/0003`).
 ///
 /// Both Round modifiers are Round-level here rather than per-Entrant: with a
-/// single loser, Çifte's two branches collapse onto the same team, and a
-/// joker finish is a win, so the winning team is the Okey atan by
+/// single loser, Çifte's two branches collapse onto the same team, and Okey
+/// atmak is winning the Round, so the winning team is the Okey atan by
 /// construction. Either modifier alone doubles the loss to −4; both together
 /// take it to −8, and neither ever touches a Gösterge find.
 struct OkeyStandardRoundEntryView: View {
@@ -158,7 +158,7 @@ struct OkeyStandardRoundEntryView: View {
         case (true, false):
             return "\u{c7}ifte doubles it \u{2014} \(drop)."
         case (false, true):
-            return "The joker finish doubles it \u{2014} \(drop)."
+            return "Okey att\u{131} doubles it \u{2014} \(drop)."
         case (true, true):
             return "Both double it \u{2014} \(drop)."
         }

@@ -160,7 +160,7 @@ struct PlayView: View {
                 // branches both land on them, so recording the loser as the
                 // caller is the reading that survives the shared derivation.
                 let callers = cifte ? Set([losingEntrantID].compactMap { $0 }) : []
-                // A joker finish is a win, so the Okey atan is the other team.
+                // Okey atmak is winning the Round, so the atan is the other team.
                 let winnerID = match.entrants.first { $0.id != losingEntrantID }?.id
                 match.rounds.append(Round(
                     cifteCallers: callers,
