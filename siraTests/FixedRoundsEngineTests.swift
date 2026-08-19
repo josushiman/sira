@@ -28,22 +28,112 @@ final class FixedRoundsEngineTests: XCTestCase {
         XCTAssertFalse(standings.isOver)
     }
 
-    func test_cifteDoublesEveryEntrantsDeltaForThatRound() {
+    // MARK: - Çifte
+
+    /// The call came off: the caller finished the Round on 0, and everyone
+    /// *else* pays double for it.
+    func test_cifteCallerWhoWinsDoublesEveryoneElseAndNotThemselves() {
         let a = Entrant(name: "Alice")
         let b = Entrant(name: "Bob")
+        let c = Entrant(name: "Cara")
         let match = makeMatch(
-            entrants: [a, b],
-            rounds: [Round(deltas: [a.id: 10, b.id: 5], cifte: true)]
+            entrants: [a, b, c],
+            rounds: [Round(deltas: [a.id: 0, b.id: 5, c.id: 10], cifteCallers: [a.id])]
+        )
+
+        let standings = FixedRoundsEngine().standings(for: match)
+
+        XCTAssertEqual(standings.ranked.first { $0.entrantID == a.id }!.total, 0)
+        XCTAssertEqual(standings.ranked.first { $0.entrantID == b.id }!.total, 10)
+        XCTAssertEqual(standings.ranked.first { $0.entrantID == c.id }!.total, 20)
+    }
+
+    /// The call didn't come off: the caller carries the cost alone.
+    func test_cifteCallerWhoLosesDoublesOnlyThemselves() {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        let c = Entrant(name: "Cara")
+        let match = makeMatch(
+            entrants: [a, b, c],
+            rounds: [Round(deltas: [a.id: 20, b.id: 5, c.id: 0], cifteCallers: [a.id])]
+        )
+
+        let standings = FixedRoundsEngine().standings(for: match)
+
+        XCTAssertEqual(standings.ranked.first { $0.entrantID == a.id }!.total, 40)
+        XCTAssertEqual(standings.ranked.first { $0.entrantID == b.id }!.total, 5)
+        XCTAssertEqual(standings.ranked.first { $0.entrantID == c.id }!.total, 0)
+    }
+
+    /// Two callers, one of whom won: the losing caller is reached by both
+    /// rules — their own and the winner's — and still doubles only once.
+    func test_twoCifteCallersOneWinningLeaveTheLoserAtDoubleNotQuadruple() {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        let c = Entrant(name: "Cara")
+        let match = makeMatch(
+            entrants: [a, b, c],
+            rounds: [Round(deltas: [a.id: 0, b.id: 20, c.id: 10], cifteCallers: [a.id, b.id])]
+        )
+
+        let standings = FixedRoundsEngine().standings(for: match)
+
+        XCTAssertEqual(standings.ranked.first { $0.entrantID == a.id }!.total, 0)
+        XCTAssertEqual(standings.ranked.first { $0.entrantID == b.id }!.total, 40)
+        XCTAssertEqual(standings.ranked.first { $0.entrantID == c.id }!.total, 20)
+    }
+
+    // MARK: - Okey atmak
+
+    func test_okeyAtmakDoublesEveryEntrantsDeltaForThatRound() {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        let c = Entrant(name: "Cara")
+        let match = makeMatch(
+            entrants: [a, b, c],
+            rounds: [Round(deltas: [a.id: 10, b.id: 5, c.id: 0], okeyAtanID: c.id)]
         )
 
         let standings = FixedRoundsEngine().standings(for: match)
 
         let alice = standings.ranked.first { $0.entrantID == a.id }!
-        let bob = standings.ranked.first { $0.entrantID == b.id }!
         XCTAssertEqual(alice.total, 20)
         XCTAssertEqual(alice.deltaFromLastRound, 20)
-        XCTAssertEqual(bob.total, 10)
-        XCTAssertEqual(bob.deltaFromLastRound, 10)
+        XCTAssertEqual(standings.ranked.first { $0.entrantID == b.id }!.total, 10)
+        XCTAssertEqual(standings.ranked.first { $0.entrantID == c.id }!.total, 0)
+    }
+
+    /// The two modifiers stack per Entrant, and ×4 is as far as they go.
+    func test_losingCifteCallerInAnOkeyAtmakRoundTakesQuadrupleWhileOthersTakeDouble() {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        let c = Entrant(name: "Cara")
+        let match = makeMatch(
+            entrants: [a, b, c],
+            rounds: [Round(deltas: [a.id: 20, b.id: 5, c.id: 0], cifteCallers: [a.id], okeyAtanID: c.id)]
+        )
+
+        let standings = FixedRoundsEngine().standings(for: match)
+
+        XCTAssertEqual(standings.ranked.first { $0.entrantID == a.id }!.total, 80)
+        XCTAssertEqual(standings.ranked.first { $0.entrantID == b.id }!.total, 10)
+        XCTAssertEqual(standings.ranked.first { $0.entrantID == c.id }!.total, 0)
+    }
+
+    /// The Okey atan may also have called Çifte — they won, so their doubled 0
+    /// is still 0, and nothing needs to forbid the combination.
+    func test_okeyAtanWhoAlsoCalledCifteDoublesEveryoneElseAndStaysAtZero() {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        let match = makeMatch(
+            entrants: [a, b],
+            rounds: [Round(deltas: [a.id: 0, b.id: 5], cifteCallers: [a.id], okeyAtanID: a.id)]
+        )
+
+        let standings = FixedRoundsEngine().standings(for: match)
+
+        XCTAssertEqual(standings.ranked.first { $0.entrantID == a.id }!.total, 0)
+        XCTAssertEqual(standings.ranked.first { $0.entrantID == b.id }!.total, 20)
     }
 
     /// Regression: the Round-entry screen used to double for Çifte *and* the
@@ -64,7 +154,7 @@ final class FixedRoundsEngineTests: XCTestCase {
 
         let match = makeMatch(
             entrants: [a, b],
-            rounds: [Round(deltas: entry.rawDeltas, cifte: entry.cifteOn)]
+            rounds: [Round(deltas: entry.rawDeltas, cifteCallers: entry.cifteOn ? [a.id, b.id] : [])]
         )
         let standings = FixedRoundsEngine().standings(for: match)
 
@@ -136,7 +226,7 @@ final class FixedRoundsEngineTests: XCTestCase {
 
         let before = FixedRoundsEngine().standings(for: match)
 
-        match.rounds.append(Round(deltas: [a.id: 10, b.id: 15], cifte: true))
+        match.rounds.append(Round(deltas: [a.id: 10, b.id: 15], cifteCallers: [a.id, b.id]))
         match.undoLastRound()
 
         let after = FixedRoundsEngine().standings(for: match)

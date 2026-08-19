@@ -1,8 +1,10 @@
 import Foundation
 
-/// Win Condition for Okey 101: Entrants accumulate deltas each Round,
-/// optionally doubled by Çifte, with no elimination. The Match ends once the
-/// Variant's configured Round count is reached; the lowest total wins.
+/// Win Condition for Okey 101: Entrants accumulate deltas each Round, scaled
+/// by that Round's modifiers, with no elimination. The Match ends once the
+/// Variant's configured Round count is reached; the lowest total wins. This is
+/// the only Win Condition where Çifte's asymmetry is observable, having more
+/// than one loser for a winning caller to double.
 struct FixedRoundsEngine: MatchEngine {
     func standings(for match: Match) -> Standings {
         let roundCount = match.variant.roundCount ?? .max
@@ -16,10 +18,10 @@ struct FixedRoundsEngine: MatchEngine {
 
         for round in match.rounds {
             lastRoundDeltas = [:]
-            let multiplier = round.cifte ? 2 : 1
+            let multipliers = round.multipliers(in: match)
             for entrant in match.entrants {
                 guard let delta = round.deltas[entrant.id] else { continue }
-                let appliedDelta = delta * multiplier
+                let appliedDelta = delta * (multipliers[entrant.id] ?? 1)
                 totals[entrant.id] = (totals[entrant.id] ?? 0) + appliedDelta
                 lastRoundDeltas[entrant.id] = appliedDelta
             }

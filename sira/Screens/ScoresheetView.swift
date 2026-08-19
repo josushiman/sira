@@ -117,7 +117,7 @@ struct ScoresheetView: View {
         entrants: [a, b],
         rounds: [
             Round(deltas: [a.id: 20, b.id: 5]),
-            Round(deltas: [a.id: 10, b.id: 15], cifte: true),
+            Round(deltas: [a.id: 10, b.id: 15], cifteCallers: [a.id]),
         ]
     )
     return ScoresheetView(match: match, engine: SurvivalEngine())

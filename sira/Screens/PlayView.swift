@@ -138,7 +138,13 @@ struct PlayView: View {
             // lose, silently dropping the Rejoin sheet.
             showingKeypadEntry = false
             DispatchQueue.main.async {
-                match.rounds.append(Round(deltas: deltas, cifte: cifte))
+                // The keypad screen still reports Çifte as one Round-wide
+                // flag, so every Entrant is recorded as a caller: with the
+                // winner having entered 0, that lands on exactly the doubling
+                // the flag used to mean. Per-Entrant callers arrive with the
+                // entry-screen work.
+                let callers = cifte ? Set(stillIn.map(\.id)) : []
+                match.rounds.append(Round(deltas: deltas, cifteCallers: callers))
                 if let survivalEngine = engine as? SurvivalEngine {
                     rejoinQueue.append(contentsOf: survivalEngine.newlyOutEntrantIDs(for: match))
                 }
@@ -150,8 +156,12 @@ struct PlayView: View {
         OkeyStandardRoundEntryView(entrants: match.entrants, roundNumber: match.rounds.count + 1) { losingEntrantID, gostergeFinds, cifte in
             showingOkeyEntry = false
             DispatchQueue.main.async {
+                // Okey 21's toggle is Round-wide because its two branches
+                // collapse with a single loser; recording the loser as the
+                // caller is the reading that survives the shared derivation.
+                let callers = cifte ? Set([losingEntrantID].compactMap { $0 }) : []
                 match.rounds.append(Round(
-                    cifte: cifte,
+                    cifteCallers: callers,
                     losingEntrantID: losingEntrantID,
                     gostergeFinds: gostergeFinds
                 ))

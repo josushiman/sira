@@ -48,7 +48,7 @@ final class ScoresheetTests: XCTestCase {
         let b = Entrant(name: "Bob")
         let match = makeMatch(
             entrants: [a, b],
-            rounds: [Round(deltas: [a.id: 10, b.id: 5], cifte: true)]
+            rounds: [Round(deltas: [a.id: 10, b.id: 5], cifteCallers: [a.id, b.id])]
         )
 
         let scoresheet = Scoresheet(match: match, engine: engine)

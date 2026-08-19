@@ -92,20 +92,67 @@ final class EliminationEngineTests: XCTestCase {
         XCTAssertEqual(standings.ranked.first { $0.entrantID == b.id }!.total, 21)
     }
 
-    // MARK: - Çifte
+    // MARK: - Round modifiers
 
     func test_cifteDoublesOnlyTheLossPenalty() {
         let a = Entrant(name: "Team A")
         let b = Entrant(name: "Team B")
         let match = makeMatch(
             entrants: [a, b],
-            rounds: [Round(cifte: true, losingEntrantID: a.id, gostergeFinds: [b.id: 1])]
+            rounds: [Round(cifteCallers: [a.id], losingEntrantID: a.id, gostergeFinds: [b.id: 1])]
         )
 
         let standings = EliminationEngine().standings(for: match)
 
         // Team A: -4 (doubled penalty) - 1 (Gösterge, never doubled) = 16.
         XCTAssertEqual(standings.ranked.first { $0.entrantID == a.id }!.total, 16)
+        XCTAssertEqual(standings.ranked.first { $0.entrantID == b.id }!.total, 21)
+    }
+
+    /// With a single loser, Çifte's two branches collapse: called by the team
+    /// that lost or by the team that won, the −4 lands on the same team. This
+    /// is why Okey 21's screen can keep a Round-wide toggle.
+    func test_cifteCalledByTheWinningTeamDoublesTheSamePenalty() {
+        let a = Entrant(name: "Team A")
+        let b = Entrant(name: "Team B")
+        let match = makeMatch(
+            entrants: [a, b],
+            rounds: [Round(cifteCallers: [b.id], losingEntrantID: a.id)]
+        )
+
+        let standings = EliminationEngine().standings(for: match)
+
+        XCTAssertEqual(standings.ranked.first { $0.entrantID == a.id }!.total, 17)
+        XCTAssertEqual(standings.ranked.first { $0.entrantID == b.id }!.total, 21)
+    }
+
+    func test_okeyAtmakDoublesOnlyTheLossPenalty() {
+        let a = Entrant(name: "Team A")
+        let b = Entrant(name: "Team B")
+        let match = makeMatch(
+            entrants: [a, b],
+            rounds: [Round(okeyAtanID: b.id, losingEntrantID: a.id, gostergeFinds: [b.id: 1])]
+        )
+
+        let standings = EliminationEngine().standings(for: match)
+
+        // Team A: -4 (doubled penalty) - 1 (Gösterge, never doubled) = 16.
+        XCTAssertEqual(standings.ranked.first { $0.entrantID == a.id }!.total, 16)
+        XCTAssertEqual(standings.ranked.first { $0.entrantID == b.id }!.total, 21)
+    }
+
+    func test_cifteAndOkeyAtmakTogetherTakeTheLossToMinusEight() {
+        let a = Entrant(name: "Team A")
+        let b = Entrant(name: "Team B")
+        let match = makeMatch(
+            entrants: [a, b],
+            rounds: [Round(cifteCallers: [b.id], okeyAtanID: b.id, losingEntrantID: a.id, gostergeFinds: [b.id: 1])]
+        )
+
+        let standings = EliminationEngine().standings(for: match)
+
+        // Team A: -8 (both modifiers) - 1 (Gösterge, still never scaled) = 12.
+        XCTAssertEqual(standings.ranked.first { $0.entrantID == a.id }!.total, 12)
         XCTAssertEqual(standings.ranked.first { $0.entrantID == b.id }!.total, 21)
     }
 
@@ -148,7 +195,7 @@ final class EliminationEngineTests: XCTestCase {
         let b = Entrant(name: "Team B")
         // 21 − (9 × 2) = 3, then a doubled −4 penalty overshoots to −1.
         var rounds = (0..<9).map { _ in Round(losingEntrantID: a.id) }
-        rounds.append(Round(cifte: true, losingEntrantID: a.id))
+        rounds.append(Round(cifteCallers: [a.id], losingEntrantID: a.id))
         let match = makeMatch(entrants: [a, b], rounds: rounds)
 
         let standings = EliminationEngine().standings(for: match)
