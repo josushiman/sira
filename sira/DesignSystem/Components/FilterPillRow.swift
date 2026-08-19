@@ -23,6 +23,7 @@ struct FilterPillRow<Option: Hashable>: View {
                         .fixedSize()
                         .padding(.horizontal, 10)
                         .padding(.vertical, 5)
+                        .contentShape(Capsule())
                 }
                 .foregroundStyle(isSelected ? theme.background : theme.ink.opacity(0.65))
                 .background(isSelected ? theme.ink : theme.track, in: Capsule())

@@ -16,6 +16,7 @@ struct KeypadTile: View {
                 .font(isControl ? .sira(.subheadline) : .sira(.monoValue))
                 .frame(maxWidth: .infinity)
                 .frame(height: 52)
+                .contentShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
         }
         .foregroundStyle(isControl ? theme.ink.opacity(0.55) : theme.ink)
         .background {

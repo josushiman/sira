@@ -15,11 +15,11 @@ final class SetupViewSnapshotTests: XCTestCase {
         assertSnapshot(of: view, as: .image(layout: .fixed(width: 402, height: 874)), testName: testName)
     }
 
-    func test_gonga_playersModeVariant_paper() {
+    func test_gonga101_playerCountUpToEight_paper() {
         assertSetup(.gonga101, theme: .paper)
     }
 
-    func test_gonga_playersModeVariant_felt() {
+    func test_gonga101_playerCountUpToEight_felt() {
         assertSetup(.gonga101, theme: .felt)
     }
 

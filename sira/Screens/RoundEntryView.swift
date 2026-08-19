@@ -18,6 +18,9 @@ struct RoundEntryView: View {
     /// The keypad's "never laid down" quick-entry shortcut value (Okey 101:
     /// 101). `nil` hides that shortcut for Variants that don't offer it.
     var neverLaidDownValue: Int? = nil
+    /// Whether to offer the Çifte doubling toggle. Okey only — Gonga has no
+    /// Çifte concept, so its entry screen hides the chip entirely.
+    var supportsCifte: Bool = true
     let onSave: ([Entrant.ID: Int], Bool) -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -35,6 +38,7 @@ struct RoundEntryView: View {
         totals: [Entrant.ID: Int],
         badgeIndices: [Entrant.ID: Int],
         neverLaidDownValue: Int? = nil,
+        supportsCifte: Bool = true,
         initialState: RoundEntryState? = nil,
         onSave: @escaping ([Entrant.ID: Int], Bool) -> Void
     ) {
@@ -43,6 +47,7 @@ struct RoundEntryView: View {
         self.totals = totals
         self.badgeIndices = badgeIndices
         self.neverLaidDownValue = neverLaidDownValue
+        self.supportsCifte = supportsCifte
         self.onSave = onSave
         _state = State(initialValue: initialState ?? RoundEntryState(entrants: entrants))
     }
@@ -51,8 +56,12 @@ struct RoundEntryView: View {
         neverLaidDownValue != nil ? "Count everyone\u{2019}s tiles" : "Count the cards left"
     }
 
+    /// Çifte only counts where the Variant supports it — guarding the read as
+    /// well as the chip keeps a seeded `cifteOn` from doubling a Gonga Round.
+    private var isCifteOn: Bool { supportsCifte && state.cifteOn }
+
     private var entryHint: String {
-        state.cifteOn
+        isCifteOn
             ? "\u{c7}ifte on \u{2014} every score doubles when you save."
             : "Winner takes 0. Tap a name, then type."
     }
@@ -120,10 +129,16 @@ struct RoundEntryView: View {
                     state.applyQuickEntry(neverLaidDownValue)
                 }
             }
-            EntryChip(label: "\u{c7}ifte \u{2014} double all \u{d7}2", isOn: state.cifteOn) {
-                state.cifteOn.toggle()
+            if supportsCifte {
+                EntryChip(label: "\u{c7}ifte \u{2014} double all \u{d7}2", isOn: state.cifteOn) {
+                    state.cifteOn.toggle()
+                }
             }
         }
+        // Left-aligned so a Variant with only one chip (Gonga, which has no
+        // Çifte) still lines up with the rows and title above it rather than
+        // floating in the middle of the screen.
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var keypad: some View {
@@ -143,7 +158,7 @@ struct RoundEntryView: View {
 
     private func save() {
         guard state.isReadyToSave else { return }
-        onSave(state.deltas, state.cifteOn)
+        onSave(state.deltas, isCifteOn)
     }
 }
 
