@@ -15,4 +15,12 @@ enum MatchFilter: String, CaseIterable, Identifiable {
         case .archived: return match.archived
         }
     }
+
+    /// The Matches this filter shows, newest-started first — the order Home
+    /// lists them in under every filter.
+    func apply(to matches: [Match]) -> [Match] {
+        matches
+            .filter(includes)
+            .sorted { $0.createdAt > $1.createdAt }
+    }
 }

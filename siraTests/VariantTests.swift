@@ -58,7 +58,11 @@ final class VariantTests: XCTestCase {
         XCTAssertEqual(Variant.gonga151.limit, 151)
     }
 
-    func test_okeyStandardCountsDownFromTwenty() {
-        XCTAssertEqual(Variant.okeyStandard.startingScore, 20)
+    func test_okeyStandardCountsDownFromTwentyOne() {
+        XCTAssertEqual(Variant.okeyStandard.startingScore, 21)
+    }
+
+    func test_okeyStandardIsLabelledOkey21() {
+        XCTAssertEqual(Variant.okeyStandard.label, "Okey 21")
     }
 }

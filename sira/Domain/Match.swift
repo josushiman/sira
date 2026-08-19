@@ -8,6 +8,9 @@ struct Match: Identifiable, Hashable {
     var entrants: [Entrant]
     var rounds: [Round]
     var archived: Bool
+    /// When the Match was started. Home lists Matches newest-first by this,
+    /// and each card is titled with it, so it never changes after creation.
+    let createdAt: Date
     var updatedAt: Date
 
     init(
@@ -18,6 +21,7 @@ struct Match: Identifiable, Hashable {
         entrants: [Entrant],
         rounds: [Round] = [],
         archived: Bool = false,
+        createdAt: Date = Date(),
         updatedAt: Date = Date()
     ) {
         self.id = id
@@ -27,6 +31,7 @@ struct Match: Identifiable, Hashable {
         self.entrants = entrants
         self.rounds = rounds
         self.archived = archived
+        self.createdAt = createdAt
         self.updatedAt = updatedAt
     }
 
