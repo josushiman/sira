@@ -417,6 +417,11 @@ private struct MatchCard: View {
     }
 }
 
+// `#Preview` bodies are compiled in every configuration, not only Debug, so a
+// preview drawing the Alice/Bob fixtures has to say where those fixtures exist
+// — `MatchStore.seeded()` is `#if DEBUG` precisely so it cannot ship.
+#if DEBUG
+
 #Preview("Home — populated") {
     HomePreview(store: .seeded())
 }
@@ -440,3 +445,5 @@ private struct HomePreview: View {
         .themed()
     }
 }
+
+#endif

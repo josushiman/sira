@@ -39,7 +39,9 @@ struct ContentView: View {
                 }
             )
         ) {
-            Button("OK") { store.acknowledgeSaveFailure() }
+            // Dismissing is what clears the failure, through the binding above;
+            // the button only has to close the alert.
+            Button("OK") {}
         } message: {
             Text(
                 """

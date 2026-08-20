@@ -1,5 +1,11 @@
 import Foundation
 
+// Debug-only, so that "first launch is empty" is a property of the shipped
+// binary rather than a habit. These live in the app target because `#Preview`
+// can only reach what the app target holds; `#if DEBUG` is what stops that
+// necessity from also putting two strangers' Matches in a release build.
+#if DEBUG
+
 /// Fixtures for previews and view tests.
 ///
 /// These Matches were once what the app itself opened with; now that Matches
@@ -62,3 +68,5 @@ extension Date {
         return Calendar(identifier: .gregorian).date(from: components) ?? Date()
     }
 }
+
+#endif

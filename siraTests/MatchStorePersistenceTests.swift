@@ -209,6 +209,28 @@ final class MatchStorePersistenceTests: XCTestCase {
         }
     }
 
+    /// Declining a Rejoin writes nothing, which is the point: being Out is what
+    /// the Round that busted the Entrant already says, and that Round was saved
+    /// as it was entered. This pins the behaviour the absence relies on, so
+    /// nobody later "fixes" a decline into a stored fact.
+    func test_aDeclinedRejoinLeavesTheEntrantOutAfterAReload() throws {
+        let matchID = try launch { store -> Match.ID in
+            let alice = Entrant(name: "Alice")
+            let bob = Entrant(name: "Bob")
+            let match = Match(game: .gonga, variant: .gonga101, mode: .players, entrants: [alice, bob])
+            store.add(match)
+            store.addRound(Round(deltas: [alice.id: 110, bob.id: 40]), to: match)
+            // Alice is offered a Rejoin here and declines: nothing is recorded.
+            return match.id
+        }
+
+        try launch { store in
+            let after = WinCondition.survival.engine.standings(for: try match(matchID, in: store))
+
+            XCTAssertEqual(after.ranked.filter(\.isOut).map(\.name), ["Alice"])
+        }
+    }
+
     func test_eliminationStandingsAreUnchangedByAReload_includingAMatchThatIsOver() throws {
         let (matchID, before) = try launch { store -> (Match.ID, Standings) in
             let kirmizi = Entrant(name: "Kırmızı")

@@ -48,6 +48,11 @@ final class MatchStore {
     ) {
         self.container = container
         self.saveContext = saveContext
+        // Stated rather than inherited from the framework's default. Every
+        // mutation here saves explicitly, so autosave is only ever a backstop —
+        // but it is one this store means to have, and a default is not a
+        // decision until someone writes it down.
+        container.mainContext.autosaveEnabled = true
     }
 
     /// A store over a fresh in-memory container: previews, view tests, and any
@@ -162,8 +167,7 @@ extension MatchStore {
     /// A save that did not reach the disk. Carries the underlying error for
     /// diagnosis; what the player is shown is deliberately not the error's own
     /// wording, which describes a database rather than a game.
-    struct SaveFailure: Identifiable {
-        let id = UUID()
+    struct SaveFailure {
         let error: Error
     }
 }
