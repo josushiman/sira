@@ -61,6 +61,21 @@ final class PlayViewSnapshotTests: XCTestCase {
         )
     }
 
+    /// A Match with no Rounds scored yet — Play still heads home rather than
+    /// back into Setup.
+    private var freshMatch: Match {
+        Match(
+            game: .gonga,
+            variant: .gonga101,
+            mode: .players,
+            entrants: [Entrant(name: "Alice"), Entrant(name: "Bob")]
+        )
+    }
+
+    func test_standingsFreshMatch_felt() {
+        assertPlay(freshMatch, tab: .standings, theme: .felt)
+    }
+
     func test_standingsMidMatch_paper() {
         assertPlay(midMatch, tab: .standings, theme: .paper)
     }
