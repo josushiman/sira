@@ -141,7 +141,10 @@ final class Match {
     ///
     /// Every downstream Standing recomputes from `rounds`, so this alone
     /// reverses totals, Out status, and Rejoins for any Engine.
-    @discardableResult
+    ///
+    /// Deliberately not `@discardableResult`: throwing the Round away is the
+    /// mistake this signature exists to make visible, so a caller with no use
+    /// for it has to say `_ =` and mean it.
     func undoLastRound() -> Round? {
         guard let latest = rounds.last else { return nil }
         storedRounds.removeAll { $0.id == latest.id }

@@ -101,7 +101,7 @@ final class MatchTests: XCTestCase {
     func test_undoFreesTheHighestSequenceAndTheNextRoundTakesItAgain() {
         let match = gongaMatch(rounds: [Round(), Round(), Round()])
 
-        match.undoLastRound()
+        _ = match.undoLastRound()
         let replacement = Round()
         match.addRound(replacement)
 
@@ -114,7 +114,7 @@ final class MatchTests: XCTestCase {
         let played = [Round(), Round(), Round()]
         let match = gongaMatch(rounds: played).withRoundsStoredOutOfOrder()
 
-        match.undoLastRound()
+        _ = match.undoLastRound()
 
         XCTAssertEqual(match.rounds.map(\.id), [played[0].id, played[1].id])
     }
@@ -151,7 +151,7 @@ final class MatchTests: XCTestCase {
             ]
         )
 
-        match.undoLastRound()
+        _ = match.undoLastRound()
 
         XCTAssertEqual(match.rounds, [firstRound])
     }
@@ -168,7 +168,7 @@ final class MatchTests: XCTestCase {
             ]
         )
 
-        match.undoLastRound()
+        _ = match.undoLastRound()
 
         XCTAssertTrue(match.rounds.isEmpty)
     }
@@ -176,7 +176,7 @@ final class MatchTests: XCTestCase {
     func test_undoLastRoundOnMatchWithNoRoundsIsANoOp() {
         let match = Match(game: .gonga, variant: .gonga101, mode: .players, entrants: [Entrant(name: "Alice")])
 
-        match.undoLastRound()
+        _ = match.undoLastRound()
 
         XCTAssertTrue(match.rounds.isEmpty)
     }

@@ -285,7 +285,7 @@ final class FixedRoundsEngineTests: XCTestCase {
         let before = FixedRoundsEngine().standings(for: match)
 
         match.addRound(Round(deltas: [a.id: 10, b.id: 15], cifteCallers: [a.id, b.id]))
-        match.undoLastRound()
+        _ = match.undoLastRound()
 
         let after = FixedRoundsEngine().standings(for: match)
 

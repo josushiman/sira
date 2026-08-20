@@ -225,7 +225,7 @@ final class EliminationEngineTests: XCTestCase {
         let before = EliminationEngine().standings(for: match)
 
         match.addRound(Round(losingEntrantID: b.id, gostergeFinderID: a.id))
-        match.undoLastRound()
+        _ = match.undoLastRound()
 
         let after = EliminationEngine().standings(for: match)
 

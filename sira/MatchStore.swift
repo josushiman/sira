@@ -86,9 +86,10 @@ final class MatchStore {
 extension MatchStore {
     /// A store holding the two fixture Matches.
     ///
-    /// Previews and view tests only — the app opens on whatever the player has
-    /// actually created, which before ticket 06 means an empty Home on every
-    /// launch.
+    /// Still what the app itself opens with, exactly as before the conversion —
+    /// this ticket changes what a Match is stored in, not what Home shows. The
+    /// fixtures move to previews and tests, and first launch becomes empty,
+    /// when there is real data to open instead.
     static func seeded() -> MatchStore {
         let store = MatchStore()
 

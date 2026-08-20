@@ -63,7 +63,13 @@ final class Round {
     var gostergeFinderID: Entrant.ID?
     /// The Match that owns this Round. The inverse of `Match.storedRounds`,
     /// declared there.
-    var match: Match?
+    ///
+    /// Settable only from this file, for the same reason `sequence` is: a Round
+    /// moved to another Match would arrive carrying a sequence stamped by its
+    /// old one, colliding with the sequences already in use there and
+    /// bypassing `addRound`, which is the only thing entitled to say where a
+    /// Round sits.
+    private(set) var match: Match?
 
     init(
         id: UUID = UUID(),

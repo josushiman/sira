@@ -328,7 +328,7 @@ final class SurvivalEngineTests: XCTestCase {
         let before = SurvivalEngine().standings(for: match)
 
         match.addRound(Round(deltas: [a.id: 10, b.id: 15]))
-        match.undoLastRound()
+        _ = match.undoLastRound()
 
         let after = SurvivalEngine().standings(for: match)
 
@@ -343,7 +343,7 @@ final class SurvivalEngineTests: XCTestCase {
             rounds: [Round(deltas: [a.id: 105, b.id: 20])]
         )
 
-        match.undoLastRound()
+        _ = match.undoLastRound()
 
         let standings = SurvivalEngine().standings(for: match)
         XCTAssertTrue(standings.ranked.allSatisfy { !$0.isOut })
@@ -360,7 +360,7 @@ final class SurvivalEngineTests: XCTestCase {
         let before = SurvivalEngine().standings(for: match)
 
         match.addRound(Round(deltas: [a.id: 10, b.id: 15], okeyAtanID: b.id))
-        match.undoLastRound()
+        _ = match.undoLastRound()
 
         let after = SurvivalEngine().standings(for: match)
 
@@ -378,7 +378,7 @@ final class SurvivalEngineTests: XCTestCase {
             ]
         )
 
-        match.undoLastRound()
+        _ = match.undoLastRound()
 
         let standings = SurvivalEngine().standings(for: match)
         let alice = standings.ranked.first { $0.entrantID == a.id }!

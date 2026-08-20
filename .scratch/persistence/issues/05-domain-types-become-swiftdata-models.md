@@ -30,3 +30,16 @@ Two things worth a reader's attention:
 **Entrant order is now unguaranteed** — filed as ticket 11 rather than fixed here. `Match.entrants` is a relationship array, which is exactly what ticket 03 gave Rounds a sequence to avoid, and nothing was done for Entrants. It is invisible while the container is in memory and never reloaded, and it cannot corrupt a tally (every score is keyed by `Entrant.ID`), but it can change dot-badge colours across a reload. It has to land no later than 06.
 
 Everything else went as the ticket predicted. The domain test suites changed by exactly `var` → `let` on Match fixtures and nothing else; `MatchStorageOrderFixture` now copies the Rounds it rearranges rather than handing the originals to a second Match, which would have moved them out of the first.
+
+**2026-08-20 (review)** — Two-axis review run against this ticket and the spec. Spec axis: all ten bullets earned, no scope creep, tickets 06–08 cleanly untouched, and the `standings(for:rounds:)` seam confirmed in scope rather than creep. Standards axis raised ten findings; taken:
+
+- `Entrant.match` and `Round.match` were public settable vars, so anything could re-parent an Entrant and silently orphan every `deltas`/`cifteCallers` key naming it — directly against the constraint `docs/adr/0006` says the inline-attribute decision depends on. Both are now `private(set)`, which SwiftData still maintains the inverse through.
+- `PlayView` held the store as an optional, so a missing store would have left every button looking live while dropping the Round. Now non-optional; `PlayViewSnapshotTests` supplies a real store, which is what the optional was really there for.
+- `MatchStore.seeded()`'s doc claimed the app opens on player-created data. It does not yet — `ContentView` still seeds. Corrected.
+- `undoLastRound()` lost its `@discardableResult`: discarding the Round is exactly the orphan the signature exists to make visible.
+- `Match.ID` being `UUID` rather than `PersistentIdentifier` rests on the declared `id` shadowing `PersistentModel`'s. Load-bearing for the whole domain and now documented at the declaration.
+- Redundant `archive`/`restore` wrappers in `HomeView` inlined to the store calls.
+
+Not taken, with reasons: the store's own one-line `archive`/`restore`/`recordRejoin` were called Middle Man, but they are the spec's "single place that mutates and then saves" and ticket 06 adds the save to each. `SiraSchemaV1` naming its models top-level rather than nesting them was queried; the two are equivalent at one version, and the file now documents what a v2 has to do instead.
+
+Also noted for ticket 06: `SetupView` navigates on a `Match` whose `Hashable` identity is `persistentModelID`, which is temporary until the object is first saved. Stable while the container is in memory; worth re-checking when saving lands.

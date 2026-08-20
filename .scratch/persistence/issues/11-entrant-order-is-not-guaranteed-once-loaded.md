@@ -24,6 +24,6 @@ Scoring itself is safe: Standings are sorted by Out-then-total, Elimination pick
 Ticket 05 runs the app on an in-memory container that is populated in one session and never reloaded, so the array order is simply the insertion order and the snapshot suites pass unchanged. The first launch that reads Entrants back off disk is the first chance for this to appear, and it may well appear intermittently rather than on every load — the worst kind to chase later.
 
 - [ ] A Match's Entrants come back in the order they were entered at Setup
-- [ ] Whatever carries that order is part of schema v1, not a later migration — the same "do it while it is free" reasoning as tickets 01 and 44
+- [ ] Whatever carries that order is part of schema v1, not a later migration — the same "do it while it is free" reasoning that put the id rename and the `updatedAt` removal in ticket 01
 - [ ] A test that writes a Match with enough Entrants for an accidental reordering to be visible, discards the store, reads it back and asserts the order
 - [ ] Dot-badge colours are stable for a Match across a reload

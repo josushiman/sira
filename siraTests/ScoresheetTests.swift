@@ -165,7 +165,7 @@ final class ScoresheetTests: XCTestCase {
             ]
         )
 
-        match.undoLastRound()
+        _ = match.undoLastRound()
 
         let scoresheet = Scoresheet(match: match, engine: engine)
 

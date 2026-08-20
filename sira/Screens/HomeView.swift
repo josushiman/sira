@@ -175,18 +175,10 @@ struct HomeView: View {
     @ViewBuilder
     private func archiveButton(for match: Match) -> some View {
         if match.archived {
-            Button("Restore") { restore(match) }.tint(.blue)
+            Button("Restore") { store.restore(match) }.tint(.blue)
         } else {
-            Button("Archive") { archive(match) }.tint(.gray)
+            Button("Archive") { store.archive(match) }.tint(.gray)
         }
-    }
-
-    private func archive(_ match: Match) {
-        store.archive(match)
-    }
-
-    private func restore(_ match: Match) {
-        store.restore(match)
     }
 }
 

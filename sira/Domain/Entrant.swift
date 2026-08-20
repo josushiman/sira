@@ -13,11 +13,24 @@ final class Entrant {
     /// deltas, Çifte callers, Rejoins and Standings are all keyed on it. Kept
     /// as our own UUID rather than leaning on `persistentModelID` so those keys
     /// mean the same thing before a Match is stored as after.
+    ///
+    /// Declaring it also decides what `Entrant.ID` means: it shadows the
+    /// `PersistentModel` conformance's own `id`, so `Entrant.ID` is `UUID` and
+    /// not `PersistentIdentifier`. `Round.deltas`, `cifteCallers` and
+    /// `RejoinEvent` are all typed on that, so removing this property would
+    /// quietly retype the whole domain rather than fail where it was deleted.
     var id: UUID
     var name: String
     /// The Match that owns this Entrant. The inverse of `Match.entrants`,
     /// declared there.
-    var match: Match?
+    ///
+    /// Settable only from this file, so an Entrant cannot be moved to another
+    /// Match or detached from the one it has. That is not tidiness: a Round's
+    /// `deltas` and `cifteCallers` are keyed by `Entrant.ID` with no
+    /// referential integrity behind them, and `docs/adr/0006` records that this
+    /// is safe *only* while Entrants cannot be removed from a Match. Re-parent
+    /// one and every key naming it silently orphans.
+    private(set) var match: Match?
 
     init(id: UUID = UUID(), name: String) {
         self.id = id

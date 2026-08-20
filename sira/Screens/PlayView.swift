@@ -23,10 +23,11 @@ struct PlayView: View {
     /// Optional so Play still renders on its own in a preview or a snapshot,
     /// where nothing above it is doing any navigating.
     @Environment(Navigator.self) private var navigator: Navigator?
-    /// Optional for the same reason: a snapshot of Play renders a Match without
-    /// ever changing one. Every mutation below goes through the store, so where
-    /// there is no store there is nothing to mutate with.
-    @Environment(MatchStore.self) private var store: MatchStore?
+    /// Not optional, unlike `navigator`: every mutation on this screen goes
+    /// through the store, so a missing one would not disable the buttons — it
+    /// would leave them looking live and silently drop the Round. A Match being
+    /// played always has a store behind it.
+    @Environment(MatchStore.self) private var store
 
     init(match: Match, initialTab: PlayTab = .standings) {
         self.match = match
@@ -160,7 +161,7 @@ struct PlayView: View {
             // lose, silently dropping the Rejoin sheet.
             showingKeypadEntry = false
             DispatchQueue.main.async {
-                store?.addRound(
+                store.addRound(
                     Round(
                         deltas: deltas,
                         cifteCallers: cifteCallers,
@@ -181,7 +182,7 @@ struct PlayView: View {
             DispatchQueue.main.async {
                 // Okey atmak is winning the Round, so the atan is the other team.
                 let winnerID = match.entrants.first { $0.id != losingEntrantID }?.id
-                store?.addRound(
+                store.addRound(
                     Round(
                         cifteCallers: cifteCallers,
                         okeyAtanID: okeyAtti ? winnerID : nil,
@@ -208,7 +209,7 @@ struct PlayView: View {
     private func acceptRejoin(_ variant: Variant, for entrant: Entrant) {
         guard let survivalEngine = variant.winCondition.engine as? SurvivalEngine else { return }
         let target = survivalEngine.rejoinTarget(for: match)
-        store?.recordRejoin(RejoinEvent(id: entrant.id, to: target), in: match)
+        store.recordRejoin(RejoinEvent(id: entrant.id, to: target), in: match)
     }
 
     /// Leaves the Match for Home, falling back to an ordinary dismiss where
@@ -223,7 +224,7 @@ struct PlayView: View {
 
     private func undoLastRound() {
         rejoinQueue.removeAll()
-        store?.undoLastRound(in: match)
+        store.undoLastRound(in: match)
     }
 
     private func header(_ variant: Variant) -> some View {
@@ -261,9 +262,9 @@ struct PlayView: View {
     private var archiveButton: some View {
         Button {
             if match.archived {
-                store?.restore(match)
+                store.restore(match)
             } else {
-                store?.archive(match)
+                store.archive(match)
                 // Archiving is done with this Match, so it lands on Home
                 // rather than on whatever screen happened to push it.
                 leave()
