@@ -78,7 +78,11 @@ And a Match can be deleted: a context menu on the Home card, a confirmation, and
 
 ### Step order
 
-Two free cleanups land first, while no schema and no stored data exist: the `okey-standard` → `okey-21` id rename, and the removal of the dead `updatedAt` field. After the first release writes a schema, both become migrations. The ADRs are written next, before the conversion, while the reasoning is current. The model conversion follows, then durability on disk, then deletion.
+Four independent pieces land first, none blocking any other. Two are free cleanups that exist only while no schema and no stored data do — the `okey-standard` → `okey-21` id rename and the removal of the dead `updatedAt` field, both of which become migrations after the first release. Two are prefactors that move this spec's riskiest semantics out of the conversion and land them while the domain is still made of value types: the Variant resolved from a stored id, and Round order carried by an explicit sequence. The ADRs are written alongside them, before the code, while the reasoning is current.
+
+The conversion to SwiftData models then follows as one atomic step, on an in-memory container so that it changes no observable behaviour. Durability on disk comes next, then recovery from unreadable data, then deletion.
+
+The conversion cannot be sliced further. A type cannot be a value type and a model class at once, so no batch-by-batch migration stays green, and duplicating the domain under a temporary name across roughly 25 files would be more churn than the risk it hedges. Prefactoring is the lever that shrinks it instead: by the time it lands, Variant resolution and Round ordering are already proven by the existing tests, so the conversion is a type change and nothing else.
 
 ### The domain types become the models
 
