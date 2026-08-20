@@ -180,14 +180,17 @@ extension Sequence<Match> {
     /// The Matches this build can score, each with its Variant already
     /// resolved.
     ///
-    /// A Match naming a Variant id that resolves to nothing is skipped — never
-    /// deleted, and never scored under a substitute. Its data stays exactly
-    /// where it is, so a downgrade or a bad write is recoverable by the build
-    /// that knows the id rather than terminal (`docs/adr/0007`).
+    /// A Match naming a Variant id that resolves to nothing is skipped rather
+    /// than shown, and never deleted: its data stays exactly where it is, so a
+    /// downgrade or a bad write is recoverable by the build that knows the id
+    /// rather than terminal (`docs/adr/0007`).
     ///
-    /// This is the one place that rule is applied, and skipping here is what
-    /// keeps an unscorable Match out of every screen that would otherwise have
-    /// to guess what to do with one.
+    /// Skipping is a gate, not a guarantee the domain enforces. The Engines
+    /// will still score a Match whose Variant is `nil` — against a substitute
+    /// limit, because there is nothing else for them to read — so what keeps
+    /// that from happening is that such a Match is filtered out here, before
+    /// any screen can open it. Ticket 10 is about the one route that does not
+    /// come through here.
     var scorable: [(match: Match, variant: Variant)] {
         compactMap { match in
             match.variant.map { (match: match, variant: $0) }

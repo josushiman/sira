@@ -122,30 +122,63 @@ final class MatchStore {
     /// Moved rather than removed, always: data that cannot be read today may
     /// be readable by the build that ships next week, and deleting a player's
     /// Matches to make the app start again is not a trade this app gets to
-    /// make on their behalf. The stamp carries milliseconds so that recovering
-    /// twice in quick succession cannot collide with itself and turn a
-    /// recoverable launch into a failed one.
+    /// make on their behalf.
+    ///
+    /// Throwing here aborts the recovery and, from `forApp()`, the launch. That
+    /// is the honest outcome for the case it describes: nothing can be moved
+    /// out of the way, so a fresh store cannot be put in its place either
+    /// without writing over data this app has promised to keep. The one cause
+    /// that would be self-inflicted — a name already in use — is ruled out by
+    /// `unusedMovedAsideName(...)` rather than left to the clock.
     private static func moveAside(_ url: URL) throws {
         let directory = url.deletingLastPathComponent()
-        let name = url.deletingPathExtension().lastPathComponent
-        let extensionSuffix = url.pathExtension.isEmpty ? "" : ".\(url.pathExtension)"
-        let movedName = "\(name)-unreadable-\(unreadableStamp.string(from: Date()))\(extensionSuffix)"
+        let movedName = unusedMovedAsideName(for: url, in: directory)
 
-        // The store file itself plus SQLite's write-ahead log and shared
-        // memory files, which are named after it and are as much a part of the
-        // data as it is — leaving them behind would hand the fresh store the
-        // tail of the old one.
-        for sidecar in ["", "-wal", "-shm"] {
-            let source = directory.appending(path: url.lastPathComponent + sidecar)
+        for suffix in storeFileSuffixes {
+            let source = directory.appending(path: url.lastPathComponent + suffix)
             guard FileManager.default.fileExists(atPath: source.path) else { continue }
             try FileManager.default.moveItem(
                 at: source,
-                to: directory.appending(path: movedName + sidecar)
+                to: directory.appending(path: movedName + suffix)
             )
         }
     }
 
-    private static let unreadableStamp: DateFormatter = {
+    /// The store file itself — the empty suffix — plus SQLite's write-ahead log
+    /// and shared memory files, which are named after it and are as much a part
+    /// of the data as it is. Moving the store alone would hand the fresh one
+    /// the tail of the old.
+    private static let storeFileSuffixes = ["", "-wal", "-shm"]
+
+    /// A name for the set-aside store that no file in `directory` is using —
+    /// timestamped, as the ticket asks, and then disambiguated if that is
+    /// somehow not enough.
+    ///
+    /// The clock alone would nearly always do. "Nearly" is the problem: a
+    /// second recovery landing on a name already taken makes the move throw,
+    /// which turns a launch this code exists to rescue into one that fails, so
+    /// the collision is checked for rather than assumed away.
+    private static func unusedMovedAsideName(for url: URL, in directory: URL) -> String {
+        let stem = url.deletingPathExtension().lastPathComponent
+        let extensionSuffix = url.pathExtension.isEmpty ? "" : ".\(url.pathExtension)"
+        let stamp = unreadableNameFormatter.string(from: Date())
+
+        func isFree(_ name: String) -> Bool {
+            storeFileSuffixes.allSatisfy { suffix in
+                !FileManager.default.fileExists(atPath: directory.appending(path: name + suffix).path)
+            }
+        }
+
+        var name = "\(stem)-unreadable-\(stamp)\(extensionSuffix)"
+        var attempt = 2
+        while !isFree(name) {
+            name = "\(stem)-unreadable-\(stamp)-\(attempt)\(extensionSuffix)"
+            attempt += 1
+        }
+        return name
+    }
+
+    private static let unreadableNameFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.timeZone = TimeZone(secondsFromGMT: 0)

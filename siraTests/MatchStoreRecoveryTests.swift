@@ -80,10 +80,58 @@ final class MatchStoreRecoveryTests: XCTestCase {
         XCTAssertTrue(recovered.lastPathComponent.hasPrefix("Sira-unreadable-"))
     }
 
+    /// SQLite keeps a write-ahead log and a shared memory file beside the
+    /// store, holding writes that have not been folded into it yet. They are as
+    /// much the player's data as the store file is, so they are set aside with
+    /// it — and leaving either behind would hand the fresh store the tail of
+    /// the unreadable one.
+    func test_theWriteAheadLogAndSharedMemoryFileAreSetAsideWithTheStore() throws {
+        try writeRubbishWhereTheStoreGoes()
+        let sidecars = ["-wal", "-shm"]
+        for sidecar in sidecars {
+            try Self.rubbish.write(to: directory.appending(path: "Sira.store" + sidecar))
+        }
+
+        try launch { _ in }
+
+        // All three files are set aside together, and what sits at their old
+        // paths afterwards belongs to the fresh store rather than the old one —
+        // asserted by content, because the fresh store makes sidecars of its
+        // own at exactly those names.
+        XCTAssertEqual(try movedAside().count, 3)
+        XCTAssertEqual(try movedAside().map { try Data(contentsOf: $0) }, Array(repeating: Self.rubbish, count: 3))
+        for sidecar in sidecars {
+            let atOldPath = directory.appending(path: "Sira.store" + sidecar)
+            guard FileManager.default.fileExists(atPath: atOldPath.path) else { continue }
+            XCTAssertNotEqual(
+                try Data(contentsOf: atOldPath),
+                Self.rubbish,
+                "\(sidecar) was left behind for the fresh store to pick up"
+            )
+        }
+    }
+
+    /// Two stores set aside keep both sets of data: the second recovery does
+    /// not overwrite what the first one saved, and does not fail trying.
+    func test_recoveringTwiceKeepsBothSetsOfSetAsideData() throws {
+        try writeRubbishWhereTheStoreGoes()
+        try launch { _ in }
+
+        let second = Data("a second unreadable store".utf8)
+        try second.write(to: storeURL)
+        try launch { _ in }
+
+        // Counted by content rather than by file, because the store the first
+        // recovery opened brings sidecars of its own to be set aside alongside.
+        let contents = try movedAside().map { try Data(contentsOf: $0) }
+        XCTAssertTrue(contents.contains(Self.rubbish))
+        XCTAssertTrue(contents.contains(second))
+    }
+
     /// The failure this recovery must not become: an app that looks like it is
     /// working while saving nothing. A Match entered after recovering is on the
     /// device, and the launch after that finds it.
-    func test_aRecoveredStoreWritesToTheDeviceRatherThanFallingBackToMemory() throws {
+    func test_aMatchEnteredAfterRecoveringIsStillThereOnTheNextLaunch() throws {
         try writeRubbishWhereTheStoreGoes()
 
         let matchID = try launch { store -> Match.ID in
