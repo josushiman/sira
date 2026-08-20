@@ -14,11 +14,9 @@ struct Match: Identifiable, Hashable {
     var roundCount: Int?
     var mode: EntrantMode
     var entrants: [Entrant]
-    /// The Rounds as stored, in no particular order. Never read this for
-    /// order — read `rounds`, which sorts by `Round.sequence`. It is exposed
-    /// only so a store can hand back what it loaded without pretending the
-    /// order it arrived in means anything.
-    private(set) var unorderedRounds: [Round]
+    /// The Rounds as held, carrying no ordering guarantee of their own. Never
+    /// read this for order — read `rounds`, which sorts by `Round.sequence`.
+    private(set) var storedRounds: [Round]
     var archived: Bool
     /// When the Match was started. Home lists Matches newest-first by this,
     /// and each card is titled with it, so it never changes after creation.
@@ -45,10 +43,8 @@ struct Match: Identifiable, Hashable {
             // `rounds` is given in the order it was played, so position is the
             // sequence — this is the only place that equivalence is allowed to
             // hold, and it holds because the caller has just stated the order.
-            unorderedRounds: rounds.enumerated().map { index, round in
-                var numbered = round
-                numbered.sequence = index
-                return numbered
+            storedRounds: rounds.enumerated().map { index, round in
+                round.withSequence(index)
             },
             archived: archived,
             createdAt: createdAt
@@ -56,8 +52,8 @@ struct Match: Identifiable, Hashable {
     }
 
     /// Builds a Match from Rounds that already carry their sequence, in
-    /// whatever order they came back in. This is the load path: a store
-    /// reconstitutes a Match without having to preserve, or invent, an order.
+    /// whatever order they happen to be in — so a caller holding Rounds whose
+    /// order means nothing doesn't have to invent one to build a Match.
     init(
         id: UUID = UUID(),
         game: Game,
@@ -65,7 +61,7 @@ struct Match: Identifiable, Hashable {
         roundCount: Int? = nil,
         mode: EntrantMode,
         entrants: [Entrant],
-        unorderedRounds: [Round],
+        storedRounds: [Round],
         archived: Bool = false,
         createdAt: Date = Date()
     ) {
@@ -75,7 +71,7 @@ struct Match: Identifiable, Hashable {
         self.roundCount = roundCount
         self.mode = mode
         self.entrants = entrants
-        self.unorderedRounds = unorderedRounds
+        self.storedRounds = storedRounds
         self.archived = archived
         self.createdAt = createdAt
     }
@@ -83,22 +79,20 @@ struct Match: Identifiable, Hashable {
     /// The Rounds in the order they were played, which is the order every
     /// cumulative total, delta, Scoresheet row number and Undo depends on.
     var rounds: [Round] {
-        unorderedRounds.sorted { $0.sequence < $1.sequence }
+        storedRounds.sorted { $0.sequence < $1.sequence }
     }
 
     /// The sequence the next Round added will take. One past the highest in
     /// use, so an Undo followed by a new Round reuses the number it freed.
     private var nextSequence: Int {
-        (unorderedRounds.map(\.sequence).max() ?? -1) + 1
+        (storedRounds.map(\.sequence).max() ?? -1) + 1
     }
 
     /// Adds `round` as the Match's latest, stamping it with the next sequence.
     /// Whatever sequence the Round arrived with is overwritten: where a Round
     /// sits is the Match's to say, not the Round's.
     mutating func addRound(_ round: Round) {
-        var round = round
-        round.sequence = nextSequence
-        unorderedRounds.append(round)
+        storedRounds.append(round.withSequence(nextSequence))
     }
 
     /// Attaches `rejoin` to the latest Round, so undoing that Round undoes the
@@ -106,16 +100,16 @@ struct Match: Identifiable, Hashable {
     /// reach — it is only offered in response to a Round just added.
     mutating func recordRejoin(_ rejoin: RejoinEvent) {
         guard let latest = rounds.last,
-              let index = unorderedRounds.firstIndex(where: { $0.id == latest.id })
+              let index = storedRounds.firstIndex(where: { $0.id == latest.id })
         else { return }
-        unorderedRounds[index].rejoins.append(rejoin)
+        storedRounds[index].rejoins.append(rejoin)
     }
 
     /// Empties the Match of Rounds, freeing every sequence. Used to rebuild a
     /// Match Round by Round — the Scoresheet's derivation — rather than to
     /// discard history.
     mutating func removeAllRounds() {
-        unorderedRounds.removeAll()
+        storedRounds.removeAll()
     }
 
     /// The Variant this Match is played under, resolved from `variantId`
@@ -140,7 +134,30 @@ struct Match: Identifiable, Hashable {
     /// totals, Out status, and Rejoins for any Engine.
     mutating func undoLastRound() {
         guard let latest = rounds.last else { return }
-        unorderedRounds.removeAll { $0.id == latest.id }
+        storedRounds.removeAll { $0.id == latest.id }
+    }
+
+    /// Two Matches are equal when they hold the same Rounds in the same
+    /// *played* order, never merely when their storage happens to be arranged
+    /// alike. Written out rather than synthesized because synthesis compares
+    /// `storedRounds`, which would let array position back into the semantics
+    /// `sequence` exists to take it out of.
+    static func == (lhs: Match, rhs: Match) -> Bool {
+        lhs.id == rhs.id
+            && lhs.game == rhs.game
+            && lhs.variantId == rhs.variantId
+            && lhs.roundCount == rhs.roundCount
+            && lhs.mode == rhs.mode
+            && lhs.entrants == rhs.entrants
+            && lhs.archived == rhs.archived
+            && lhs.createdAt == rhs.createdAt
+            && lhs.rounds == rhs.rounds
+    }
+
+    /// The id alone: it is unique per Match, so equal Matches necessarily hash
+    /// alike, and no Round has to be sorted to put one in a Set.
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
     }
 
     /// Hides this Match from the Active filter without locking it — Rounds can

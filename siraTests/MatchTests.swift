@@ -84,23 +84,16 @@ final class MatchTests: XCTestCase {
     func test_addRoundIgnoresWhateverSequenceTheRoundArrivedWith() {
         var match = gongaMatch()
 
-        match.addRound(Round(sequence: 99))
+        match.addRound(Round().withSequence(99))
 
         XCTAssertEqual(match.rounds.map(\.sequence), [0])
     }
 
     func test_roundsReadInSequenceOrderHoweverTheyAreStored() {
         let played = [Round(), Round(), Round()]
-        let match = Match(
-            game: .gonga,
-            variantId: Variant.gonga101.id,
-            mode: .players,
-            entrants: [Entrant(name: "Alice")],
-            unorderedRounds: played.enumerated().map { index, round in
-                Round(id: round.id, sequence: index)
-            }.shuffled()
-        )
+        let match = gongaMatch(rounds: played).withRoundsStoredOutOfOrder()
 
+        XCTAssertEqual(match.storedRounds.map(\.id), played.reversed().map(\.id))
         XCTAssertEqual(match.rounds.map(\.id), played.map(\.id))
         XCTAssertEqual(match.rounds.map(\.sequence), [0, 1, 2])
     }
@@ -119,15 +112,7 @@ final class MatchTests: XCTestCase {
 
     func test_undoRemovesTheHighestSequenceRatherThanTheLastStoredRound() {
         let played = [Round(), Round(), Round()]
-        var match = Match(
-            game: .gonga,
-            variantId: Variant.gonga101.id,
-            mode: .players,
-            entrants: [Entrant(name: "Alice")],
-            unorderedRounds: played.enumerated().map { index, round in
-                Round(id: round.id, sequence: index)
-            }.reversed()
-        )
+        var match = gongaMatch(rounds: played).withRoundsStoredOutOfOrder()
 
         match.undoLastRound()
 
@@ -136,16 +121,13 @@ final class MatchTests: XCTestCase {
 
     func test_recordRejoinAttachesToTheHighestSequenceRound() {
         let a = Entrant(name: "Alice")
-        let played = [Round(), Round()]
         var match = Match(
             game: .gonga,
-            variantId: Variant.gonga101.id,
+            variant: .gonga101,
             mode: .players,
             entrants: [a],
-            unorderedRounds: played.enumerated().map { index, round in
-                Round(id: round.id, sequence: index)
-            }.reversed()
-        )
+            rounds: [Round(), Round()]
+        ).withRoundsStoredOutOfOrder()
 
         match.recordRejoin(RejoinEvent(id: a.id, to: 40))
 

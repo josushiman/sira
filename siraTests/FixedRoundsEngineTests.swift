@@ -290,4 +290,27 @@ final class FixedRoundsEngineTests: XCTestCase {
 
         XCTAssertEqual(before, after)
     }
+
+    /// The delta from the last Round is the order-sensitive half of Standings:
+    /// totals are a sum and would survive any arrangement, but "last" only
+    /// means something if order does. Storage order must not get to answer it.
+    func test_roundsStoredOutOfOrderStillScoreInSequenceOrder() {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        let inOrder = makeMatch(entrants: [a, b], rounds: [
+            Round(deltas: [a.id: 20, b.id: 0]),
+            Round(deltas: [a.id: 5, b.id: 30]),
+        ])
+
+        let expected = FixedRoundsEngine().standings(for: inOrder)
+        let actual = FixedRoundsEngine().standings(for: inOrder.withRoundsStoredOutOfOrder())
+
+        XCTAssertEqual(actual, expected)
+        XCTAssertEqual(actual.ranked.first { $0.entrantID == b.id }?.deltaFromLastRound, 30)
+
+        // And the fixture really is order-sensitive, so the equality above
+        // isn't passing because both arrangements happen to score alike.
+        let reversed = makeMatch(entrants: [a, b], rounds: inOrder.rounds.reversed())
+        XCTAssertNotEqual(FixedRoundsEngine().standings(for: reversed), expected)
+    }
 }

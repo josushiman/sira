@@ -20,7 +20,8 @@ A player or a team of two, scored uniformly regardless of which. A Match is eith
 _Avoid_: player, team, side (as a generic term — use Entrant when talking about either).
 
 **Round**:
-One scored turn within a Match. Produces a per-Entrant delta and, for limit Variants, may trigger an Entrant going Out.
+One scored turn within a Match. Produces a per-Entrant delta and, for limit Variants, may trigger an Entrant going Out. Every Round knows where it sits in its Match — its **sequence** — rather than that being implied by the order it happens to be held in; cumulative totals, the delta from the last Round, Scoresheet row numbers and Undo all read that sequence. Sequences are assigned when a Round is added and never renumbered: Undo removes only the last Round, freeing the highest sequence for the next one to take again.
+_Avoid_: hand, turn, game (a Round is not a Match).
 
 **Out**:
 An Entrant that has passed a Variant's score limit. Permanent for the rest of the Match — declining to Rejoin means no way back in.

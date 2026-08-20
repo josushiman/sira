@@ -246,4 +246,26 @@ final class EliminationEngineTests: XCTestCase {
 
         XCTAssertEqual(standings.ranked.map(\.name), ["Team B", "Team A"])
     }
+
+    /// As for the keypad Engines: the countdown totals would survive any
+    /// arrangement, but the delta from the last Round only means something if
+    /// order does.
+    func test_roundsStoredOutOfOrderStillScoreInSequenceOrder() {
+        let a = Entrant(name: "Team A")
+        let b = Entrant(name: "Team B")
+        let inOrder = makeMatch(entrants: [a, b], rounds: [
+            Round(losingEntrantID: a.id),
+            Round(losingEntrantID: b.id, gostergeFinderID: a.id),
+        ])
+
+        let expected = EliminationEngine().standings(for: inOrder)
+        let actual = EliminationEngine().standings(for: inOrder.withRoundsStoredOutOfOrder())
+
+        XCTAssertEqual(actual, expected)
+        // Team B took the −2 and the Gösterge deduction on the last Round.
+        XCTAssertEqual(actual.ranked.first { $0.entrantID == b.id }?.deltaFromLastRound, -3)
+
+        let reversed = makeMatch(entrants: [a, b], rounds: inOrder.rounds.reversed())
+        XCTAssertNotEqual(EliminationEngine().standings(for: reversed), expected)
+    }
 }

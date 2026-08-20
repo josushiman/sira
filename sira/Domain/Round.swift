@@ -16,7 +16,13 @@ struct Round: Identifiable, Hashable {
     ///
     /// Only the last Round is ever removed (Undo), so removal frees the
     /// highest sequence and the next Round added takes it again.
-    var sequence: Int
+    ///
+    /// Sequences are unique within a Match — `addRound` always takes one past
+    /// the highest in use — so sorting by this is a total order and needs no
+    /// tie-break. It is deliberately absent from `init`: a Round has no
+    /// opinion about where it sits, so only a Match can stamp one, via
+    /// `addRound` or `withSequence(_:)`.
+    private(set) var sequence = 0
     /// Per-Entrant deltas for the keypad entry styles (Survival, Fixed Rounds),
     /// stored **raw** — exactly the counts the player entered, never scaled by
     /// Çifte, Okey atmak or any other Round modifier. The Engines are the only
@@ -41,7 +47,6 @@ struct Round: Identifiable, Hashable {
 
     init(
         id: UUID = UUID(),
-        sequence: Int = 0,
         deltas: [Entrant.ID: Int] = [:],
         rejoins: [RejoinEvent] = [],
         cifteCallers: Set<Entrant.ID> = [],
@@ -50,7 +55,6 @@ struct Round: Identifiable, Hashable {
         gostergeFinderID: Entrant.ID? = nil
     ) {
         self.id = id
-        self.sequence = sequence
         self.deltas = deltas
         self.rejoins = rejoins
         self.cifteCallers = cifteCallers
@@ -61,6 +65,15 @@ struct Round: Identifiable, Hashable {
 }
 
 extension Round {
+    /// This Round, stamped as sitting at `sequence` in its Match. The only way
+    /// to set a sequence other than by adding the Round to a Match, so a
+    /// caller reconstituting stored Rounds has to say so explicitly.
+    func withSequence(_ sequence: Int) -> Round {
+        var stamped = self
+        stamped.sequence = sequence
+        return stamped
+    }
+
     /// This Round's multiplier per Entrant — the one derivation all three
     /// Engines share, so Çifte and Okey atmak can't drift apart between Win
     /// Conditions (`docs/adr/0005`).

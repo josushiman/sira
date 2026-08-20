@@ -410,4 +410,26 @@ final class SurvivalEngineTests: XCTestCase {
         XCTAssertFalse(bob.isOut)
         XCTAssertEqual(bob.total, 40)
     }
+
+    /// The Rejoin offer is the one place that compares a Match to itself minus
+    /// its last Round, so it depends on `undoLastRound()` taking the highest
+    /// sequence rather than whatever happens to sit last in storage.
+    func test_newlyOutIsReadFromSequenceOrderNotStorageOrder() {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        // Alice passes 101 on the *first* Round, so by the last one she is
+        // already Out and no Rejoin is owed.
+        let inOrder = makeMatch(entrants: [a, b], rounds: [
+            Round(deltas: [a.id: 105, b.id: 10]),
+            Round(deltas: [a.id: 0, b.id: 10]),
+        ])
+
+        XCTAssertEqual(SurvivalEngine().newlyOutEntrantIDs(for: inOrder), [])
+        XCTAssertEqual(SurvivalEngine().newlyOutEntrantIDs(for: inOrder.withRoundsStoredOutOfOrder()), [])
+
+        // Played the other way round she goes Out *on* the last Round, which is
+        // what makes this fixture worth asserting on.
+        let reversed = makeMatch(entrants: [a, b], rounds: inOrder.rounds.reversed())
+        XCTAssertEqual(SurvivalEngine().newlyOutEntrantIDs(for: reversed), [a.id])
+    }
 }
