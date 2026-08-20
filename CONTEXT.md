@@ -31,6 +31,11 @@ The one-time offer made to an Entrant the moment they go Out: re-enter the Match
 
 **Archived**:
 A Match hidden from the default "Active" view. Purely a visibility flag — an Archived Match is not locked, and Rounds can still be added to it.
+_Avoid_: using "Archived" and "Deleted" for each other. Archiving hides a Match and is reversible; deleting destroys it and is not.
+
+**Delete**:
+Removing a Match and everything it owns — its Entrants and every Round — from the device for good. Offered from the Match's Home card, behind a confirmation, in both the Active and Archived filters; a Match does not have to be Archived first. There is no undo and no restorable state: a deleted Match is gone, where an Archived one is only out of sight.
+_Avoid_: "remove," "hide," "archive permanently."
 
 **Gösterge**:
 An Okey-21-only find. There is one Gösterge per Round, so at most one Entrant can find it — the Round records who, or nobody — and the find deducts 1 point from the *other* team's total that Round. Not translated — kept as the Turkish term.

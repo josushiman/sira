@@ -15,6 +15,13 @@ struct HomeView: View {
     @Environment(Navigator.self) private var navigator
     @Environment(\.theme) private var theme
     @State private var filter: MatchFilter = .active
+    /// The Match whose deletion is being confirmed, or `nil` when no
+    /// confirmation is on screen. Everything the sheet shows is read off the
+    /// Match here, when the menu item is tapped, rather than while the sheet is
+    /// up: confirming deletes the Match out from under a sheet that is still
+    /// dismissing, and a deleted model is not something to be reading
+    /// properties from.
+    @State private var pendingDeletion: PendingDeletion?
 
     /// The Matches this filter shows, each with its Variant already resolved.
     /// A Match naming a Variant this build doesn't know has no rules to score
@@ -60,6 +67,17 @@ struct HomeView: View {
                     .swipeActions {
                         archiveButton(for: match)
                     }
+                    // Deliberately a context menu and not a swipe action.
+                    // Archive's swipe is safe to brush against; deletion is
+                    // not, and it lives behind a press-and-hold and a
+                    // confirmation rather than beside the gesture that hides a
+                    // Match. It is attached here, above the filter, so the same
+                    // menu is on the card in Active and in Archived.
+                    .contextMenu {
+                        MatchCardMenu {
+                            pendingDeletion = PendingDeletion(match: match)
+                        }
+                    }
                 }
             }
         }
@@ -68,6 +86,9 @@ struct HomeView: View {
         .foregroundStyle(theme.ink)
         .background(theme.background)
         .toolbar(.hidden, for: .navigationBar)
+        .sheet(item: $pendingDeletion) { deletion in
+            DeleteMatchSheet(deletion: deletion) { delete(deletion) }
+        }
         .navigationDestination(item: $navigator.pickingVariantsFor) { game in
             VariantPickerView(game: game)
         }
@@ -168,6 +189,21 @@ struct HomeView: View {
         case .all: return "No Matches"
         case .archived: return "No Archived Matches"
         }
+    }
+
+    /// Carries out the deletion the player has just confirmed: the
+    /// confirmation comes down, the Match goes, and anything pointing at it
+    /// stops pointing at it.
+    ///
+    /// Order matters. The route is cleared before the Match is deleted so that
+    /// nothing is left holding a route to an object that no longer exists, and
+    /// the sheet is dismissed first so it is on its way out before its subject
+    /// is gone.
+    private func delete(_ deletion: PendingDeletion) {
+        pendingDeletion = nil
+        guard let match = matches.first(where: { $0.id == deletion.id }) else { return }
+        navigator.closeDeletedMatch(match.id)
+        store.delete(match)
     }
 
     @ViewBuilder
@@ -292,34 +328,7 @@ private struct MatchCard: View {
         MatchSummary(match: match, engine: variant.winCondition.engine)
     }
 
-    /// When the Match was started, as "14th March 2026 · 9pm" — the minutes
-    /// are only shown when there are any, so the common on-the-hour case stays
-    /// short.
-    private var title: String {
-        let calendar = Calendar.current
-        let day = calendar.component(.day, from: match.createdAt)
-        let ordinalDay = Self.ordinalDayFormatter.string(from: NSNumber(value: day)) ?? "\(day)"
-        let monthAndYear = match.createdAt.formatted(.dateTime.month(.wide).year())
-        return "\(ordinalDay) \(monthAndYear) · \(time)"
-    }
-
-    /// 12-hour clock, lowercase, minutes elided on the hour: "9pm", "9:15pm".
-    private var time: String {
-        let calendar = Calendar.current
-        let hour = calendar.component(.hour, from: match.createdAt)
-        let minute = calendar.component(.minute, from: match.createdAt)
-        let suffix = hour < 12 ? "am" : "pm"
-        let hour12 = hour % 12 == 0 ? 12 : hour % 12
-        return minute == 0
-            ? "\(hour12)\(suffix)"
-            : String(format: "%d:%02d%@", hour12, minute, suffix)
-    }
-
-    private static let ordinalDayFormatter: NumberFormatter = {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .ordinal
-        return formatter
-    }()
+    private var title: String { MatchDateTitle.text(for: match.createdAt) }
 
     private var statusText: String {
         if standings.isOver { return "Finished" }
@@ -412,6 +421,168 @@ private struct MatchCard: View {
                         .stroke(theme.line, lineWidth: 1)
                 }
         }
+    }
+}
+
+/// How a Match is named wherever one is shown: by when it was started, which
+/// is what Home sorts by and never changes. Shared by the card and the delete
+/// confirmation, so the Match named in the confirmation is spelled exactly as
+/// the card the player pressed.
+enum MatchDateTitle {
+    /// "14th March 2026 · 9pm" — the minutes are only shown when there are
+    /// any, so the common on-the-hour case stays short.
+    static func text(for date: Date) -> String {
+        let day = Calendar.current.component(.day, from: date)
+        let ordinalDay = ordinalDayFormatter.string(from: NSNumber(value: day)) ?? "\(day)"
+        let monthAndYear = date.formatted(.dateTime.month(.wide).year())
+        return "\(ordinalDay) \(monthAndYear) · \(time(for: date))"
+    }
+
+    /// 12-hour clock, lowercase, minutes elided on the hour: "9pm", "9:15pm".
+    private static func time(for date: Date) -> String {
+        let calendar = Calendar.current
+        let hour = calendar.component(.hour, from: date)
+        let minute = calendar.component(.minute, from: date)
+        let suffix = hour < 12 ? "am" : "pm"
+        let hour12 = hour % 12 == 0 ? 12 : hour % 12
+        return minute == 0
+            ? "\(hour12)\(suffix)"
+            : String(format: "%d:%02d%@", hour12, minute, suffix)
+    }
+
+    private static let ordinalDayFormatter: NumberFormatter = {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .ordinal
+        return formatter
+    }()
+}
+
+/// A Match the player has asked to delete, read off the Match at the moment
+/// they asked and held as plain values from then on.
+///
+/// Values rather than the Match itself, because confirming deletes the Match
+/// while the sheet showing it is still coming down: a sheet holding the object
+/// would be reading a deleted model to draw its last frame.
+struct PendingDeletion: Identifiable {
+    let id: Match.ID
+    /// The Match named as its Home card names it.
+    let title: String
+    let roundCount: Int
+
+    init(match: Match) {
+        id = match.id
+        title = MatchDateTitle.text(for: match.createdAt)
+        roundCount = match.rounds.count
+    }
+}
+
+/// What a press-and-hold on a Match card offers. Deletion only: Archive and
+/// Restore keep the swipe they already have.
+///
+/// A view of its own rather than an inline menu body so that the items — their
+/// wording, their order, and Delete's destructive role — can be snapshot like
+/// any other surface. What the snapshot cannot show is the chrome around them,
+/// which is the system's and is drawn in the system's colours whichever theme
+/// the app is in.
+struct MatchCardMenu: View {
+    let onDelete: () -> Void
+
+    var body: some View {
+        Button(role: .destructive, action: onDelete) {
+            Label("Delete Match", systemImage: "trash")
+        }
+    }
+}
+
+/// The confirmation between the menu item and the deletion.
+///
+/// A themed sheet rather than a system confirmation dialog, for the same
+/// reason the Rejoin offer is one: this is a decision the app asks the player
+/// to make, and it is drawn in the app's own surface, in whichever theme they
+/// are in, rather than in system chrome that answers to neither.
+///
+/// The wording's whole job is to make sure nobody taps through it expecting to
+/// get the Match back: it names what goes, says it goes for good, and says
+/// there is no undo.
+struct DeleteMatchSheet: View {
+    let deletion: PendingDeletion
+    let onDelete: () -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.theme) private var theme
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Spacer(minLength: 0)
+            bottomSheet
+        }
+        .presentationDetents([.medium])
+        .presentationDragIndicator(.hidden)
+        .presentationBackground(.clear)
+    }
+
+    private var bottomSheet: some View {
+        BottomSheetContent {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Delete this Match?")
+                    .siraStyle(.displayTitle)
+                Text(explanation)
+                    .siraStyle(.body)
+                    .foregroundStyle(theme.ink.opacity(0.6))
+
+                VStack(spacing: 9) {
+                    deleteButton
+                    cancelButton
+                }
+                .padding(.top, 4)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private var explanation: String {
+        let subject: String
+        switch deletion.roundCount {
+        case 0: subject = "\(deletion.title) and its players"
+        case 1: subject = "\(deletion.title), its players and the 1 Round played"
+        default: subject = "\(deletion.title), its players and all \(deletion.roundCount) Rounds played"
+        }
+        return "\(subject) will be deleted for good. There is no undo."
+    }
+
+    private var deleteButton: some View {
+        Button(action: onDelete) {
+            Text("Delete Match")
+                .siraStyle(.subheadline)
+                .fontWeight(.semibold)
+                .frame(maxWidth: .infinity)
+                .frame(height: 52)
+                .contentShape(RoundedRectangle(cornerRadius: 17, style: .continuous))
+        }
+        // The palette's one warning colour — the red of a Gonga pip in Paper
+        // and of a tile's dot in Felt — carried here so the destructive button
+        // reads as destructive in both themes. White on it rather than a theme
+        // ink, which is dark in one theme and light in the other and legible on
+        // red in only one of them.
+        .foregroundStyle(.white)
+        .background(theme.pip, in: RoundedRectangle(cornerRadius: 17, style: .continuous))
+        .buttonStyle(.plain)
+    }
+
+    private var cancelButton: some View {
+        Button { dismiss() } label: {
+            Text("Keep it")
+                .siraStyle(.subheadline)
+                .frame(maxWidth: .infinity)
+                .frame(height: 52)
+                .contentShape(RoundedRectangle(cornerRadius: 17, style: .continuous))
+        }
+        .foregroundStyle(theme.ink.opacity(0.75))
+        .overlay {
+            RoundedRectangle(cornerRadius: 17, style: .continuous)
+                .stroke(theme.line, lineWidth: 1)
+        }
+        .buttonStyle(.plain)
     }
 }
 

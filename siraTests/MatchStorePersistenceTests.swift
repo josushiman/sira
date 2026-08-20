@@ -342,6 +342,70 @@ final class MatchStorePersistenceTests: XCTestCase {
         }
     }
 
+    // MARK: - Deleting
+
+    /// Deleted has to mean deleted across launches too — a Match that comes
+    /// back after a relaunch was never deleted, it was hidden, and this app
+    /// already has a word for hidden.
+    func test_aDeletedMatchDoesNotComeBack() throws {
+        let deleted = UUID()
+        let kept = UUID()
+        // The Entrant's id and not the Entrant: an object belonging to the
+        // first launch's store is no use to the third's.
+        let alice = UUID()
+
+        try launch { store in
+            store.add(
+                Match(id: deleted, game: .gonga, variant: .gonga101, mode: .players, entrants: [Entrant(name: "Bob")])
+            )
+            let keptMatch = Match(
+                id: kept,
+                game: .gonga,
+                variant: .gonga101,
+                mode: .players,
+                entrants: [Entrant(id: alice, name: "Alice")]
+            )
+            store.add(keptMatch)
+            store.addRound(Round(deltas: [alice: 10]), to: keptMatch)
+            store.addRound(Round(deltas: [alice: 20]), to: keptMatch)
+        }
+
+        try launch { store in
+            store.delete(try self.match(deleted, in: store))
+        }
+
+        try launch { store in
+            XCTAssertEqual(try store.context.fetch(FetchDescriptor<Match>()).map(\.id), [kept])
+            // The surviving Match's history is untouched by the deletion, which
+            // is what makes removing a mis-tap safe to offer at all.
+            let survivor = try self.match(kept, in: store)
+            XCTAssertEqual(survivor.rounds.map { $0.deltas[alice] }, [10, 20])
+            XCTAssertEqual(survivor.entrants.map(\.name), ["Alice"])
+        }
+    }
+
+    /// Nothing the deleted Match owned outlives it — an orphaned Round is
+    /// invisible to the player and still on their device.
+    func test_aDeletedMatchLeavesNoRoundsOrEntrantsBehind() throws {
+        let id = UUID()
+        let alice = Entrant(name: "Alice")
+
+        try launch { store in
+            let match = Match(id: id, game: .gonga, variant: .gonga101, mode: .players, entrants: [alice])
+            store.add(match)
+            store.addRound(Round(deltas: [alice.id: 10]), to: match)
+        }
+
+        try launch { store in
+            store.delete(try self.match(id, in: store))
+        }
+
+        try launch { store in
+            XCTAssertEqual(try store.context.fetch(FetchDescriptor<Round>()).count, 0)
+            XCTAssertEqual(try store.context.fetch(FetchDescriptor<Entrant>()).count, 0)
+        }
+    }
+
     // MARK: - When a save fails
 
     /// A full disk is the realistic case. The Round the player just entered

@@ -16,6 +16,31 @@ final class NavigatorTests: XCTestCase {
         XCTAssertNil(navigator.openMatchID)
     }
 
+    /// Deletion is the one way a Match a route names can stop existing. The
+    /// route has to go with it: a `navigationDestination` naming a Match that
+    /// is no longer there has nothing to draw.
+    func test_aRouteNamingADeletedMatchIsCleared() {
+        let navigator = Navigator()
+        let deleted = UUID()
+        navigator.openMatchID = deleted
+
+        navigator.closeDeletedMatch(deleted)
+
+        XCTAssertNil(navigator.openMatchID)
+    }
+
+    /// Only the Match that was deleted. Another Match being removed from Home
+    /// is no reason to close the one the player is looking at.
+    func test_aRouteNamingAnotherMatchIsLeftAlone() {
+        let navigator = Navigator()
+        let open = UUID()
+        navigator.openMatchID = open
+
+        navigator.closeDeletedMatch(UUID())
+
+        XCTAssertEqual(navigator.openMatchID, open)
+    }
+
     func test_goHomeFromHomeIsANoOp() {
         let navigator = Navigator()
 

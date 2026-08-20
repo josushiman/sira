@@ -119,4 +119,54 @@ final class MatchStoreTests: XCTestCase {
         let entrantIDs = matches.flatMap { $0.entrants.map(\.id) }
         XCTAssertEqual(Set(entrantIDs).count, entrantIDs.count)
     }
+    // MARK: - Deleting
+
+    /// Delete means deleted: the Match goes, and the Rounds and Entrants it
+    /// owns go with it rather than staying behind as objects belonging to
+    /// nothing.
+    func test_deleteRemovesTheMatchAndEverythingItOwns() throws {
+        let store = MatchStore()
+        let alice = Entrant(name: "Alice")
+        let match = gongaMatch(entrants: [alice])
+        store.add(match)
+        store.addRound(Round(deltas: [alice.id: 10]), to: match)
+
+        store.delete(match)
+
+        XCTAssertEqual(try storedMatches(in: store).map(\.id), [])
+        XCTAssertEqual(try store.context.fetch(FetchDescriptor<Round>()).count, 0)
+        XCTAssertEqual(try store.context.fetch(FetchDescriptor<Entrant>()).count, 0)
+    }
+
+    /// The reason Entrants are owned by their Match rather than shared between
+    /// Matches: removing a mistake can never reach into real history.
+    func test_deletingOneMatchLeavesEveryOtherMatchIntact() throws {
+        let store = MatchStore()
+        let alice = Entrant(name: "Alice")
+        let kept = gongaMatch(entrants: [alice])
+        let mistake = gongaMatch(entrants: [Entrant(name: "Bob")])
+        store.add(kept)
+        store.add(mistake)
+        store.addRound(Round(deltas: [alice.id: 10]), to: kept)
+        store.addRound(Round(deltas: [alice.id: 20]), to: kept)
+
+        store.delete(mistake)
+
+        XCTAssertEqual(try storedMatches(in: store).map(\.id), [kept.id])
+        XCTAssertEqual(kept.rounds.map { $0.deltas[alice.id] }, [10, 20])
+        XCTAssertEqual(kept.entrants.map(\.name), ["Alice"])
+    }
+
+    /// Archived is a visibility flag and nothing more — it neither permits
+    /// deletion nor stands in its way.
+    func test_anArchivedMatchCanBeDeleted() throws {
+        let store = MatchStore()
+        let match = gongaMatch()
+        store.add(match)
+        store.archive(match)
+
+        store.delete(match)
+
+        XCTAssertEqual(try storedMatches(in: store).map(\.id), [])
+    }
 }

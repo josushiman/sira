@@ -13,6 +13,19 @@ final class Navigator {
     var pickingVariantsFor: Game?
     var openMatchID: Match.ID?
 
+    /// Drops the route to `id` if that is the Match currently open, landing
+    /// the player back on Home. Deletion is the one thing that can make a
+    /// route name a Match that no longer exists, and the app can never present
+    /// one that doesn't.
+    ///
+    /// Only that route is cleared, not everything pushed: `goHome()` would
+    /// also throw away a Variant choice being made above Home, which the
+    /// deletion of some other Match has no business undoing.
+    func closeDeletedMatch(_ id: Match.ID) {
+        guard openMatchID == id else { return }
+        openMatchID = nil
+    }
+
     /// Leaves whatever is open and lands on Home.
     func goHome() {
         pickingVariantsFor = nil

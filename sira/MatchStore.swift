@@ -228,6 +228,20 @@ final class MatchStore {
         save()
     }
 
+    /// Removes `match` for good, taking its Entrants and Rounds with it —
+    /// SwiftData cascades to both, which is what `Match`'s relationships
+    /// declare and what makes deleting one Match unable to touch another's
+    /// history.
+    ///
+    /// There is no pending-deletion state and nothing to undo: a Match that is
+    /// deleted-but-restorable is a third durability state, and this app
+    /// persists exactly one thing. The confirmation on the way in is where the
+    /// player gets to change their mind.
+    func delete(_ match: Match) {
+        context.delete(match)
+        save()
+    }
+
     func archive(_ match: Match) {
         match.archive()
         save()
