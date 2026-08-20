@@ -11,7 +11,6 @@ struct Match: Identifiable, Hashable {
     /// When the Match was started. Home lists Matches newest-first by this,
     /// and each card is titled with it, so it never changes after creation.
     let createdAt: Date
-    var updatedAt: Date
 
     init(
         id: UUID = UUID(),
@@ -21,8 +20,7 @@ struct Match: Identifiable, Hashable {
         entrants: [Entrant],
         rounds: [Round] = [],
         archived: Bool = false,
-        createdAt: Date = Date(),
-        updatedAt: Date = Date()
+        createdAt: Date = Date()
     ) {
         self.id = id
         self.game = game
@@ -32,7 +30,6 @@ struct Match: Identifiable, Hashable {
         self.rounds = rounds
         self.archived = archived
         self.createdAt = createdAt
-        self.updatedAt = updatedAt
     }
 
     /// Removes the most recently added Round, including any Rejoin attached to it.

@@ -9,6 +9,11 @@ enum RoundEntryStyle: Hashable {
 }
 
 struct Variant: Identifiable, Hashable {
+    /// Stable identity for this Variant, and a persistence contract once the
+    /// app ships: a Match stores this string and resolves its rules from it,
+    /// so renaming one orphans every Match that names it. Treat these ids as
+    /// frozen — add a new Variant rather than retitling an existing id, and
+    /// keep `VariantTests` asserting each one explicitly.
     let id: String
     let game: Game
     let label: String
@@ -69,7 +74,7 @@ extension Variant {
     )
 
     static let okeyStandard = Variant(
-        id: "okey-standard",
+        id: "okey-21",
         game: .okey,
         label: "Okey 21",
         ruleText: "Teams of 2 count down from 21. The losing team takes \u{2212}2 each Round; each Gösterge find deducts 1 from the other team. First team to reach 0 loses.",

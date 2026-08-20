@@ -9,7 +9,18 @@ final class VariantTests: XCTestCase {
     }
 
     func test_okeyOffersStandardAnd101() {
-        XCTAssertEqual(Variant.all(for: .okey).map(\.id), ["okey-standard", "okey-101"])
+        XCTAssertEqual(Variant.all(for: .okey).map(\.id), ["okey-21", "okey-101"])
+    }
+
+    /// Variant ids are a persistence contract: a Match stores this string and
+    /// resolves its rules from it, so renaming one orphans every Match that
+    /// names it. Asserted explicitly so a rename fails here rather than
+    /// silently orphaning data.
+    func test_everyVariantIdIsFrozen() {
+        XCTAssertEqual(Variant.gonga101.id, "gonga-101")
+        XCTAssertEqual(Variant.gonga151.id, "gonga-151")
+        XCTAssertEqual(Variant.okeyStandard.id, "okey-21")
+        XCTAssertEqual(Variant.okey101.id, "okey-101")
     }
 
     func test_everyVariantBelongsToTheGameItIsListedUnder() {
