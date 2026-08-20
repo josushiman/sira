@@ -89,9 +89,23 @@ final class MatchTests: XCTestCase {
         XCTAssertEqual(match.rounds.map(\.sequence), [0])
     }
 
+    func test_entrantsReadInSeatOrderHoweverTheyAreStored() {
+        let seated = [Entrant(name: "Alice"), Entrant(name: "Bob"), Entrant(name: "Cem")]
+        let match = Match(
+            game: .gonga,
+            variant: .gonga101,
+            mode: .players,
+            entrants: seated
+        ).withEntrantsAndRoundsStoredOutOfOrder()
+
+        XCTAssertEqual(match.storedEntrants.map(\.name), ["Cem", "Bob", "Alice"])
+        XCTAssertEqual(match.entrants.map(\.name), ["Alice", "Bob", "Cem"])
+        XCTAssertEqual(match.entrants.map(\.sequence), [0, 1, 2])
+    }
+
     func test_roundsReadInSequenceOrderHoweverTheyAreStored() {
         let played = [Round(), Round(), Round()]
-        let match = gongaMatch(rounds: played).withRoundsStoredOutOfOrder()
+        let match = gongaMatch(rounds: played).withEntrantsAndRoundsStoredOutOfOrder()
 
         XCTAssertEqual(match.storedRounds.map(\.id), played.reversed().map(\.id))
         XCTAssertEqual(match.rounds.map(\.id), played.map(\.id))
@@ -112,7 +126,7 @@ final class MatchTests: XCTestCase {
 
     func test_undoRemovesTheHighestSequenceRatherThanTheLastStoredRound() {
         let played = [Round(), Round(), Round()]
-        let match = gongaMatch(rounds: played).withRoundsStoredOutOfOrder()
+        let match = gongaMatch(rounds: played).withEntrantsAndRoundsStoredOutOfOrder()
 
         _ = match.undoLastRound()
 
@@ -127,7 +141,7 @@ final class MatchTests: XCTestCase {
             mode: .players,
             entrants: [a],
             rounds: [Round(), Round()]
-        ).withRoundsStoredOutOfOrder()
+        ).withEntrantsAndRoundsStoredOutOfOrder()
 
         match.recordRejoin(RejoinEvent(id: a.id, to: 40))
 

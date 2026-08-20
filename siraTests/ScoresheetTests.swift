@@ -186,7 +186,7 @@ final class ScoresheetTests: XCTestCase {
             Round(deltas: [a.id: 10, b.id: 15]),
         ]
         let inOrder = makeMatch(entrants: [a, b], rounds: played)
-        let outOfOrder = inOrder.withRoundsStoredOutOfOrder()
+        let outOfOrder = inOrder.withEntrantsAndRoundsStoredOutOfOrder()
 
         let expected = Scoresheet(match: inOrder, engine: engine)
         let actual = Scoresheet(match: outOfOrder, engine: engine)

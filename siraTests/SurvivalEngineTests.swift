@@ -425,7 +425,7 @@ final class SurvivalEngineTests: XCTestCase {
         ])
 
         XCTAssertEqual(SurvivalEngine().newlyOutEntrantIDs(for: inOrder), [])
-        XCTAssertEqual(SurvivalEngine().newlyOutEntrantIDs(for: inOrder.withRoundsStoredOutOfOrder()), [])
+        XCTAssertEqual(SurvivalEngine().newlyOutEntrantIDs(for: inOrder.withEntrantsAndRoundsStoredOutOfOrder()), [])
 
         // Played the other way round she goes Out *on* the last Round, which is
         // what makes this fixture worth asserting on.

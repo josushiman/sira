@@ -259,7 +259,7 @@ final class EliminationEngineTests: XCTestCase {
         ])
 
         let expected = EliminationEngine().standings(for: inOrder)
-        let actual = EliminationEngine().standings(for: inOrder.withRoundsStoredOutOfOrder())
+        let actual = EliminationEngine().standings(for: inOrder.withEntrantsAndRoundsStoredOutOfOrder())
 
         XCTAssertEqual(actual, expected)
         // Team B took the −2 and the Gösterge deduction on the last Round.

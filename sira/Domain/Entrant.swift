@@ -21,7 +21,18 @@ final class Entrant {
     /// quietly retype the whole domain rather than fail where it was deleted.
     var id: UUID
     var name: String
-    /// The Match that owns this Entrant. The inverse of `Match.entrants`,
+    /// Where this Entrant sits at the table, assigned by the Match when it is
+    /// built and never changed afterwards — Entrants cannot be added to or
+    /// removed from a Match. Order is carried here rather than by position in
+    /// `Match.entrants` for the same reason `Round.sequence` exists: position
+    /// in a relationship array is not a guarantee a store can make, and an
+    /// Entrant's seat decides their dot-badge colour, which has no business
+    /// changing between launches of a Match whose scores have not moved.
+    ///
+    /// Deliberately absent from `init`: an Entrant has no opinion about where
+    /// they sit, so only a Match can stamp one, via `withSequence(_:)`.
+    private(set) var sequence = 0
+    /// The Match that owns this Entrant. The inverse of `Match.storedEntrants`,
     /// declared there.
     ///
     /// Settable only from this file, so an Entrant cannot be moved to another
@@ -40,6 +51,18 @@ final class Entrant {
     /// The uppercased first letter of `name` for dot-badge display, or `?`
     /// when the name is empty/whitespace-only.
     var initial: String { name.dotBadgeInitial }
+
+    /// Stamps this Entrant as sitting at `sequence` in their Match and returns
+    /// them. The only way to set a seat, so a caller reconstituting stored
+    /// Entrants has to say so explicitly.
+    ///
+    /// An Entrant is a reference type, so this stamps **in place** and hands
+    /// back the same object rather than a restamped copy.
+    @discardableResult
+    func withSequence(_ sequence: Int) -> Entrant {
+        self.sequence = sequence
+        return self
+    }
 }
 
 extension String {

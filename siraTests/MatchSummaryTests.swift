@@ -65,7 +65,7 @@ final class MatchSummaryTests: XCTestCase {
         )
 
         let expected = MatchSummary(match: inOrder, engine: engine).text
-        let actual = MatchSummary(match: inOrder.withRoundsStoredOutOfOrder(), engine: engine).text
+        let actual = MatchSummary(match: inOrder.withEntrantsAndRoundsStoredOutOfOrder(), engine: engine).text
 
         XCTAssertEqual(actual, expected)
 

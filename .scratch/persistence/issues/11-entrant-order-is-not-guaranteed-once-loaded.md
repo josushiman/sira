@@ -6,7 +6,7 @@
 
 **Blocked by:** None — but it must land no later than 06, which is the ticket that first puts Entrants on disk.
 
-**Status:** needs-triage
+**Status:** ready-for-human
 
 ## Why this is a real problem
 
@@ -23,7 +23,13 @@ Scoring itself is safe: Standings are sorted by Out-then-total, Elimination pick
 
 Ticket 05 runs the app on an in-memory container that is populated in one session and never reloaded, so the array order is simply the insertion order and the snapshot suites pass unchanged. The first launch that reads Entrants back off disk is the first chance for this to appear, and it may well appear intermittently rather than on every load — the worst kind to chase later.
 
-- [ ] A Match's Entrants come back in the order they were entered at Setup
-- [ ] Whatever carries that order is part of schema v1, not a later migration — the same "do it while it is free" reasoning that put the id rename and the `updatedAt` removal in ticket 01
-- [ ] A test that writes a Match with enough Entrants for an accidental reordering to be visible, discards the store, reads it back and asserts the order
-- [ ] Dot-badge colours are stable for a Match across a reload
+- [x] A Match's Entrants come back in the order they were entered at Setup
+- [x] Whatever carries that order is part of schema v1, not a later migration — the same "do it while it is free" reasoning that put the id rename and the `updatedAt` removal in ticket 01
+- [x] A test that writes a Match with enough Entrants for an accidental reordering to be visible, discards the store, reads it back and asserts the order
+- [x] Dot-badge colours are stable for a Match across a reload
+
+## Comments
+
+**2026-08-20** — Landed inside ticket 06 rather than as a change of its own, because 06 could not go green without it. The first explicit `context.save()` was enough to reorder `Match.entrants`, which turned 7 of the 8 `PlayViewSnapshotTests` red on dot-badge colours alone — the scores in those snapshots never moved. So this was never waiting for a relaunch to appear; it was waiting for a save.
+
+The fix is what this ticket predicted: `Entrant` carries a `sequence`, stamped by the Match at Setup and never renumbered (Entrants can be neither added nor removed), `Match.storedEntrants` is the relationship that carries no order, and `Match.entrants` sorts by it — the shape ticket 03 gave Rounds. It is part of schema v1, so no migration. `MatchStorageOrderFixture` now shuffles Entrants as well as Rounds and is renamed to match; `MatchTests` covers the domain sort and `MatchStorePersistenceTests` covers six Entrants surviving a reload in seat order. The snapshots went green with none re-recorded, which is the evidence for the dot-badge bullet.

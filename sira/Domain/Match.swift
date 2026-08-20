@@ -24,10 +24,12 @@ final class Match {
     /// in which case the Variant's own value stands.
     var roundCount: Int?
     var mode: EntrantMode
-    /// The Entrants playing, owned by this Match and deleted with it. Not
-    /// shared with any other Match (`docs/adr/0007`).
+    /// The Entrants as held, owned by this Match and deleted with it, and not
+    /// shared with any other Match (`docs/adr/0007`). Carries no ordering
+    /// guarantee of its own: never read this for seating order — read
+    /// `entrants`, which sorts by `Entrant.sequence`.
     @Relationship(deleteRule: .cascade, inverse: \Entrant.match)
-    var entrants: [Entrant]
+    private(set) var storedEntrants: [Entrant]
     /// The Rounds as held, carrying no ordering guarantee of their own. Never
     /// read this for order — read `rounds`, which sorts by `Round.sequence`.
     @Relationship(deleteRule: .cascade, inverse: \Round.match)
@@ -37,16 +39,17 @@ final class Match {
     /// and each card is titled with it, so it never changes after creation.
     var createdAt: Date
 
-    /// Builds a Match from Rounds that already carry their sequence, in
-    /// whatever order they happen to be in — so a caller holding Rounds whose
-    /// order means nothing doesn't have to invent one to build a Match.
+    /// Builds a Match from Entrants and Rounds that already carry their
+    /// sequence, in whatever order they happen to be in — so a caller holding
+    /// stored objects whose order means nothing doesn't have to invent one to
+    /// build a Match.
     init(
         id: UUID = UUID(),
         game: Game,
         variantId: String,
         roundCount: Int? = nil,
         mode: EntrantMode,
-        entrants: [Entrant],
+        storedEntrants: [Entrant],
         storedRounds: [Round],
         archived: Bool = false,
         createdAt: Date = Date()
@@ -56,7 +59,7 @@ final class Match {
         self.variantId = variantId
         self.roundCount = roundCount
         self.mode = mode
-        self.entrants = entrants
+        self.storedEntrants = storedEntrants
         self.storedRounds = storedRounds
         self.archived = archived
         self.createdAt = createdAt
@@ -79,16 +82,26 @@ final class Match {
             variantId: variantId,
             roundCount: roundCount,
             mode: mode,
-            entrants: entrants,
-            // `rounds` is given in the order it was played, so position is the
+            // `entrants` is given in the order Setup wrote the names down and
+            // `rounds` in the order they were played, so position is the
             // sequence — this is the only place that equivalence is allowed to
             // hold, and it holds because the caller has just stated the order.
+            storedEntrants: entrants.enumerated().map { index, entrant in
+                entrant.withSequence(index)
+            },
             storedRounds: rounds.enumerated().map { index, round in
                 round.withSequence(index)
             },
             archived: archived,
             createdAt: createdAt
         )
+    }
+
+    /// The Entrants in the order Setup seated them, which is the order the
+    /// player expects to read them in and the order their dot-badge colours
+    /// are picked from.
+    var entrants: [Entrant] {
+        storedEntrants.sorted { $0.sequence < $1.sequence }
     }
 
     /// The Rounds in the order they were played, which is the order every

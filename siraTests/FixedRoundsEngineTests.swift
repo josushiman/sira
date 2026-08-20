@@ -304,7 +304,7 @@ final class FixedRoundsEngineTests: XCTestCase {
         ])
 
         let expected = FixedRoundsEngine().standings(for: inOrder)
-        let actual = FixedRoundsEngine().standings(for: inOrder.withRoundsStoredOutOfOrder())
+        let actual = FixedRoundsEngine().standings(for: inOrder.withEntrantsAndRoundsStoredOutOfOrder())
 
         XCTAssertEqual(actual, expected)
         XCTAssertEqual(actual.ranked.first { $0.entrantID == b.id }?.deltaFromLastRound, 30)
