@@ -130,8 +130,15 @@ struct SetupView: View {
             let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
             return Entrant(name: trimmed.isEmpty ? "\(entrantLabel) \(index + 1)" : trimmed)
         }
-        let matchVariant = offersRoundCountChoice ? variant.choosingRoundCount(roundCount) : variant
-        let match = Match(game: matchVariant.game, variant: matchVariant, mode: mode, entrants: entrants)
+        // The Match names its Variant rather than copying it, so all Setup
+        // records is the id plus the Round count where the Variant takes one.
+        let match = Match(
+            game: variant.game,
+            variantId: variant.id,
+            roundCount: offersRoundCountChoice ? roundCount : variant.roundCount,
+            mode: mode,
+            entrants: entrants
+        )
         store.add(match)
         startedMatchID = match.id
     }

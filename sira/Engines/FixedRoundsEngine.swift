@@ -7,7 +7,7 @@ import Foundation
 /// than one loser for a winning caller to double.
 struct FixedRoundsEngine: MatchEngine {
     func standings(for match: Match) -> Standings {
-        let roundCount = match.variant.roundCount ?? .max
+        let roundCount = match.variant?.roundCount ?? .max
 
         var totals: [Entrant.ID: Int] = [:]
         for entrant in match.entrants {

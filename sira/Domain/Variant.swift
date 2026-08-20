@@ -23,9 +23,9 @@ struct Variant: Identifiable, Hashable {
     let limit: Int?
     /// Elimination: the score Entrants count down from.
     let startingScore: Int?
-    /// Fixed Rounds: the number of Rounds the Match runs for. Settable at
-    /// Setup so a chosen round count (Okey 101: 8 or 12) can be recorded on
-    /// the Match's own copy of the Variant via `choosingRoundCount(_:)`.
+    /// Fixed Rounds: the number of Rounds the Match runs for. Var rather than
+    /// let because a Match resolving this Variant applies the Round count
+    /// chosen at Setup (Okey 101: 8 or 12) on top of it.
     var roundCount: Int?
     /// The single Entrant mode this Variant is played in. Every Variant is
     /// fixed to one — only Okey standard is played in Teams of 2; Gonga
@@ -110,14 +110,5 @@ extension Variant {
         case .gonga: return [.gonga101, .gonga151]
         case .okey: return [.okeyStandard, .okey101]
         }
-    }
-
-    /// Returns a copy of this Variant with its Round count set to `roundCount`,
-    /// used by Setup to record Okey 101's 8-or-12 choice on the Match's own
-    /// copy before the Match is created.
-    func choosingRoundCount(_ roundCount: Int) -> Variant {
-        var copy = self
-        copy.roundCount = roundCount
-        return copy
     }
 }

@@ -4,7 +4,7 @@ import Foundation
 /// Variant's limit sends them Out; the last Entrant not Out wins.
 struct SurvivalEngine: MatchEngine {
     func standings(for match: Match) -> Standings {
-        let limit = match.variant.limit ?? .max
+        let limit = match.variant?.limit ?? .max
 
         var totals: [Entrant.ID: Int] = [:]
         var isOut: [Entrant.ID: Bool] = [:]
@@ -71,7 +71,7 @@ struct SurvivalEngine: MatchEngine {
     /// the Variant's limit so a Rejoin can never resume an Entrant already Out by
     /// the game's own rule.
     func rejoinTarget(for match: Match) -> Int {
-        let limit = match.variant.limit ?? .max
+        let limit = match.variant?.limit ?? .max
         let ranked = standings(for: match).ranked
         let stillIn = ranked.filter { !$0.isOut }.map(\.total).max()
         let target = stillIn ?? ranked.map(\.total).max() ?? 0

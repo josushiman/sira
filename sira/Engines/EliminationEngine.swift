@@ -13,7 +13,7 @@ import Foundation
 /// called.
 struct EliminationEngine: MatchEngine {
     func standings(for match: Match) -> Standings {
-        let startingScore = match.variant.startingScore ?? 0
+        let startingScore = match.variant?.startingScore ?? 0
 
         var totals: [Entrant.ID: Int] = [:]
         for entrant in match.entrants {

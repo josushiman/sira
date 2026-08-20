@@ -25,9 +25,19 @@ struct PlayView: View {
         _selectedTab = State(initialValue: initialTab)
     }
 
-    private var engine: MatchEngine { match.variant.winCondition.engine }
-
+    @ViewBuilder
     var body: some View {
+        // A Match naming a Variant this build doesn't know has no rules to
+        // score it by, so it is skipped rather than played under a substitute.
+        // Home never opens one, so in practice this always resolves.
+        if let variant = match.variant {
+            play(variant)
+        }
+    }
+
+    @ViewBuilder
+    private func play(_ variant: Variant) -> some View {
+        let engine = variant.winCondition.engine
         let standings = engine.standings(for: match)
 
         ScrollView {
@@ -38,7 +48,7 @@ struct PlayView: View {
 
                 switch selectedTab {
                 case .standings:
-                    standingsContent(standings)
+                    standingsContent(variant, standings)
                 case .scoresheet:
                     ScoresheetView(match: match, engine: engine)
                 }
@@ -50,19 +60,19 @@ struct PlayView: View {
         .foregroundStyle(theme.ink)
         .toolbar(.hidden, for: .navigationBar)
         .safeAreaInset(edge: .top, spacing: 0) {
-            header
+            header(variant)
                 .padding(.horizontal, 22)
                 .padding(.top, 6)
                 .background(theme.background)
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            addRoundButton(isOver: standings.isOver)
+            addRoundButton(variant, isOver: standings.isOver)
                 .padding(.horizontal, 22)
                 .padding(.vertical, 10)
                 .background(theme.background)
         }
         .navigationDestination(isPresented: $showingKeypadEntry) {
-            keypadRoundEntry(standings)
+            keypadRoundEntry(variant, standings)
         }
         .navigationDestination(isPresented: $showingOkeyEntry) {
             okeyStandardRoundEntry
@@ -72,16 +82,16 @@ struct PlayView: View {
                 RejoinSheet(
                     entrant: entrant,
                     score: standings.ranked.first { $0.entrantID == entrant.id }?.total ?? 0,
-                    limit: match.variant.limit ?? 0,
+                    limit: variant.limit ?? 0,
                     target: survivalEngine.rejoinTarget(for: match),
-                    onAccept: { acceptRejoin(for: entrant) }
+                    onAccept: { acceptRejoin(variant, for: entrant) }
                 )
             }
         }
     }
 
     @ViewBuilder
-    private func standingsContent(_ standings: Standings) -> some View {
+    private func standingsContent(_ variant: Variant, _ standings: Standings) -> some View {
         if standings.isOver {
             MatchOverBanner(text: standings.result ?? "Match over")
                 .padding(.bottom, 14)
@@ -95,7 +105,7 @@ struct PlayView: View {
                         rank: index + 1,
                         badgeIndex: badgeIndex(for: standing.entrantID),
                         isLeader: index == 0 && !standing.isOut && !standings.isOver,
-                        maxAbsTotal: maxAbsTotal(standings)
+                        maxAbsTotal: maxAbsTotal(variant, standings)
                     )
                 }
             }
@@ -115,13 +125,13 @@ struct PlayView: View {
 
     /// The largest total magnitude among all Standings, used to normalize
     /// each Standing's progress-bar width — matches the prototype's `maxAbs`.
-    private func maxAbsTotal(_ standings: Standings) -> Int {
+    private func maxAbsTotal(_ variant: Variant, _ standings: Standings) -> Int {
         let entrantMax = standings.ranked.map { abs($0.total) }.max() ?? 0
-        let variantScale = match.variant.limit ?? match.variant.startingScore ?? entrantMax
+        let variantScale = variant.limit ?? variant.startingScore ?? entrantMax
         return max(1, variantScale)
     }
 
-    private func keypadRoundEntry(_ standings: Standings) -> some View {
+    private func keypadRoundEntry(_ variant: Variant, _ standings: Standings) -> some View {
         let stillIn = match.entrants.filter { entrant in
             standings.ranked.first { $0.entrantID == entrant.id }.map { !$0.isOut } ?? true
         }
@@ -132,8 +142,8 @@ struct PlayView: View {
             roundNumber: match.rounds.count + 1,
             totals: totals,
             badgeIndices: badgeIndices,
-            neverLaidDownValue: match.variant.neverLaidDownValue,
-            supportsCifte: match.variant.supportsCifte,
+            neverLaidDownValue: variant.neverLaidDownValue,
+            supportsCifte: variant.supportsCifte,
             game: match.game
         ) { deltas, cifteCallers, okeyAtanID in
             // Pop this push first and defer the Round append (which may present
@@ -147,7 +157,7 @@ struct PlayView: View {
                     cifteCallers: cifteCallers,
                     okeyAtanID: okeyAtanID
                 ))
-                if let survivalEngine = engine as? SurvivalEngine {
+                if let survivalEngine = variant.winCondition.engine as? SurvivalEngine {
                     rejoinQueue.append(contentsOf: survivalEngine.newlyOutEntrantIDs(for: match))
                 }
             }
@@ -181,8 +191,8 @@ struct PlayView: View {
         )
     }
 
-    private func acceptRejoin(for entrant: Entrant) {
-        guard let survivalEngine = engine as? SurvivalEngine else { return }
+    private func acceptRejoin(_ variant: Variant, for entrant: Entrant) {
+        guard let survivalEngine = variant.winCondition.engine as? SurvivalEngine else { return }
         let target = survivalEngine.rejoinTarget(for: match)
         match.rounds[match.rounds.count - 1].rejoins.append(RejoinEvent(id: entrant.id, to: target))
     }
@@ -202,7 +212,7 @@ struct PlayView: View {
         match.undoLastRound()
     }
 
-    private var header: some View {
+    private func header(_ variant: Variant) -> some View {
         HStack(spacing: 11) {
             // Once Rounds exist, leaving means leaving the Match, not stepping
             // back into the Setup screen that built it.
@@ -213,7 +223,7 @@ struct PlayView: View {
             }
 
             VStack(alignment: .leading, spacing: 5) {
-                Text(match.variant.label)
+                Text(variant.label)
                     .siraStyle(.subheadline)
                 Text(sira: .monoLabel, playSubtitle)
                     .foregroundStyle(theme.ink.opacity(0.5))
@@ -276,9 +286,9 @@ struct PlayView: View {
     }
 
     @ViewBuilder
-    private func addRoundButton(isOver: Bool) -> some View {
+    private func addRoundButton(_ variant: Variant, isOver: Bool) -> some View {
         Button {
-            switch match.variant.entryStyle {
+            switch variant.entryStyle {
             case .keypad: showingKeypadEntry = true
             case .okeyStandard: showingOkeyEntry = true
             }

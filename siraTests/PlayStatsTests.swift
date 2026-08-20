@@ -43,7 +43,7 @@ final class PlayStatsTests: XCTestCase {
         let b = Entrant(name: "Bob")
         let match = Match(
             game: .okey,
-            variant: .okey101.choosingRoundCount(8),
+            variant: .okey101,
             mode: .players,
             entrants: [a, b],
             rounds: [Round(deltas: [a.id: 10, b.id: 5]), Round(deltas: [a.id: 10, b.id: 5])]

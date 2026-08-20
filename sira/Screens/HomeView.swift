@@ -36,17 +36,22 @@ struct HomeView: View {
                 }
             } else {
                 ForEach(filteredMatches) { match in
-                    Button {
-                        navigator.openMatchID = match.id
-                    } label: {
-                        MatchCard(match: match)
-                    }
-                    .buttonStyle(.plain)
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
-                    .listRowInsets(EdgeInsets(top: 0, leading: 22, bottom: 10, trailing: 22))
-                    .swipeActions {
-                        archiveButton(for: match)
+                    // A Match naming a Variant this build doesn't know has no
+                    // rules to score or label it by, so it is skipped rather
+                    // than shown under a substitute.
+                    if let variant = match.variant {
+                        Button {
+                            navigator.openMatchID = match.id
+                        } label: {
+                            MatchCard(match: match, variant: variant)
+                        }
+                        .buttonStyle(.plain)
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Color.clear)
+                        .listRowInsets(EdgeInsets(top: 0, leading: 22, bottom: 10, trailing: 22))
+                        .swipeActions {
+                            archiveButton(for: match)
+                        }
                     }
                 }
             }
@@ -269,15 +274,18 @@ private struct GameGlyphCard: View {
 /// dashed divider, then the leader/result line.
 private struct MatchCard: View {
     let match: Match
+    /// Resolved by Home before the card is built — a Match whose Variant id
+    /// resolves to nothing never gets a card at all.
+    let variant: Variant
 
     @Environment(\.theme) private var theme
 
     private var standings: Standings {
-        match.variant.winCondition.engine.standings(for: match)
+        variant.winCondition.engine.standings(for: match)
     }
 
     private var summary: MatchSummary {
-        MatchSummary(match: match, engine: match.variant.winCondition.engine)
+        MatchSummary(match: match, engine: variant.winCondition.engine)
     }
 
     /// When the Match was started, as "14th March 2026 · 9pm" — the minutes
@@ -367,7 +375,7 @@ private struct MatchCard: View {
                 background: statusIsMuted ? theme.track : theme.accent
             )
             metaPill(entrantsText)
-            metaPill(match.variant.label)
+            metaPill(variant.label)
         }
         .fixedSize(horizontal: true, vertical: false)
     }

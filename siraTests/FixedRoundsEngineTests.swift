@@ -2,7 +2,7 @@ import XCTest
 @testable import sira
 
 final class FixedRoundsEngineTests: XCTestCase {
-    private let variant = Variant.okey101.choosingRoundCount(8)
+    private let variant = Variant.okey101
 
     private func makeMatch(entrants: [Entrant], rounds: [Round]) -> Match {
         Match(game: .okey, variant: variant, mode: .players, entrants: entrants, rounds: rounds)
@@ -219,6 +219,29 @@ final class FixedRoundsEngineTests: XCTestCase {
 
         XCTAssertFalse(standings.isOver)
         XCTAssertNil(standings.result)
+    }
+
+    /// The Match runs for the Round count chosen at Setup, not the Variant's
+    /// default — a 12-Round Okey 101 Match is still going after 8 Rounds.
+    func test_matchRunsForTheSetupChosenRoundCountRatherThanTheVariantsDefault() {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        let rounds = (0..<8).map { _ in Round(deltas: [a.id: 5, b.id: 10]) }
+        let match = Match(
+            game: .okey,
+            variantId: Variant.okey101.id,
+            roundCount: 12,
+            mode: .players,
+            entrants: [a, b],
+            rounds: rounds
+        )
+
+        XCTAssertFalse(FixedRoundsEngine().standings(for: match).isOver)
+
+        var twelveRounds = match
+        twelveRounds.rounds += (0..<4).map { _ in Round(deltas: [a.id: 5, b.id: 10]) }
+
+        XCTAssertTrue(FixedRoundsEngine().standings(for: twelveRounds).isOver)
     }
 
     func test_lowestTotalWinsOnceTheConfiguredRoundCountIsReached() {
