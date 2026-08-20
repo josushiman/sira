@@ -18,13 +18,11 @@ struct HomeView: View {
 
     /// The Matches this filter shows, each with its Variant already resolved.
     /// A Match naming a Variant this build doesn't know has no rules to score
-    /// or label it by, so it is skipped rather than shown under a substitute —
-    /// and skipped here rather than inside the list, so that a filter holding
-    /// nothing else still reads as empty instead of showing nothing at all.
+    /// or label it by, so `scorable` skips it — and it is skipped here rather
+    /// than inside the list, so that a filter holding nothing else still reads
+    /// as empty instead of showing nothing at all.
     private var filteredMatches: [(match: Match, variant: Variant)] {
-        filter.apply(to: matches).compactMap { match in
-            match.variant.map { (match: match, variant: $0) }
-        }
+        filter.apply(to: matches).scorable
     }
 
     /// `.swipeActions` only has an effect on rows inside a `List` — a plain

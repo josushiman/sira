@@ -75,9 +75,10 @@ final class MatchStore {
     /// through the store is on the device, and a store built over the same url
     /// in a later launch reads it back.
     ///
-    /// Throws rather than crashing when the store cannot be opened. Ticket 07
-    /// turns that into recovery; until then it is at least a failure a caller
-    /// can see.
+    /// Throws rather than crashing when the store cannot be opened, leaving
+    /// what to do about that to the caller. The app itself does not use this
+    /// directly — it opens through `init(recoveringAt:)`, which is this plus a
+    /// second chance.
     convenience init(
         storedAt url: URL,
         saveContext: @escaping (ModelContext) throws -> Void = { try $0.save() }
@@ -87,6 +88,70 @@ final class MatchStore {
             saveContext: saveContext
         )
     }
+
+    /// A store over the database at `url`, recovering rather than failing when
+    /// that database cannot be opened: the unreadable files are moved aside
+    /// under a timestamped name and a fresh store is opened in their place, so
+    /// the app launches with an empty Home and the old data is still on the
+    /// device.
+    ///
+    /// There is deliberately no in-memory fallback. An app that opens, accepts
+    /// Rounds and writes none of them is the worse of the two failures — it
+    /// looks like it is working — so if the fresh store cannot be opened
+    /// either, this throws rather than pretending.
+    convenience init(
+        recoveringAt url: URL,
+        saveContext: @escaping (ModelContext) throws -> Void = { try $0.save() }
+    ) throws {
+        self.init(container: try Self.recoveredContainer(at: url), saveContext: saveContext)
+    }
+
+    private static func recoveredContainer(at url: URL) throws -> ModelContainer {
+        do {
+            return try container(for: ModelConfiguration(url: url))
+        } catch {
+            try moveAside(url)
+            return try container(for: ModelConfiguration(url: url))
+        }
+    }
+
+    /// Moves the store at `url` out of the way, along with the sidecar files
+    /// SQLite keeps beside it, under a name stamped with the moment they were
+    /// set aside.
+    ///
+    /// Moved rather than removed, always: data that cannot be read today may
+    /// be readable by the build that ships next week, and deleting a player's
+    /// Matches to make the app start again is not a trade this app gets to
+    /// make on their behalf. The stamp carries milliseconds so that recovering
+    /// twice in quick succession cannot collide with itself and turn a
+    /// recoverable launch into a failed one.
+    private static func moveAside(_ url: URL) throws {
+        let directory = url.deletingLastPathComponent()
+        let name = url.deletingPathExtension().lastPathComponent
+        let extensionSuffix = url.pathExtension.isEmpty ? "" : ".\(url.pathExtension)"
+        let movedName = "\(name)-unreadable-\(unreadableStamp.string(from: Date()))\(extensionSuffix)"
+
+        // The store file itself plus SQLite's write-ahead log and shared
+        // memory files, which are named after it and are as much a part of the
+        // data as it is — leaving them behind would hand the fresh store the
+        // tail of the old one.
+        for sidecar in ["", "-wal", "-shm"] {
+            let source = directory.appending(path: url.lastPathComponent + sidecar)
+            guard FileManager.default.fileExists(atPath: source.path) else { continue }
+            try FileManager.default.moveItem(
+                at: source,
+                to: directory.appending(path: movedName + sidecar)
+            )
+        }
+    }
+
+    private static let unreadableStamp: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = "yyyy-MM-dd-HHmmss.SSS"
+        return formatter
+    }()
 
     private static func container(for configuration: ModelConfiguration) throws -> ModelContainer {
         try ModelContainer(
@@ -184,16 +249,17 @@ extension MatchStore {
 
     /// The store the app itself runs on, over the database on the device.
     ///
-    /// Crashes when that store cannot be opened, which is a stopgap and is
-    /// ticket 07's whole subject: an unreadable file should be moved aside and
-    /// the app should open empty. It is written this way rather than falling
-    /// back to an in-memory container because an app that looks like it is
-    /// working while saving nothing is the worse of the two failures.
+    /// Unreadable data does not stop the app: it is moved aside and a fresh
+    /// store opened, so a corrupt file costs the player their history rather
+    /// than their app, and even then only until a build that can read it comes
+    /// along. Crashing here therefore means a store that could not be opened
+    /// *and* could not be replaced — the device is not writable — which no
+    /// amount of falling back can turn into a working app.
     static func forApp() -> MatchStore {
         do {
-            return try MatchStore(storedAt: defaultStoreURL())
+            return try MatchStore(recoveringAt: defaultStoreURL())
         } catch {
-            fatalError("Could not open the Match store: \(error)")
+            fatalError("Could not open or replace the Match store: \(error)")
         }
     }
 }

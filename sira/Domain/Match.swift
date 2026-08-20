@@ -176,6 +176,25 @@ final class Match {
     }
 }
 
+extension Sequence<Match> {
+    /// The Matches this build can score, each with its Variant already
+    /// resolved.
+    ///
+    /// A Match naming a Variant id that resolves to nothing is skipped — never
+    /// deleted, and never scored under a substitute. Its data stays exactly
+    /// where it is, so a downgrade or a bad write is recoverable by the build
+    /// that knows the id rather than terminal (`docs/adr/0007`).
+    ///
+    /// This is the one place that rule is applied, and skipping here is what
+    /// keeps an unscorable Match out of every screen that would otherwise have
+    /// to guess what to do with one.
+    var scorable: [(match: Match, variant: Variant)] {
+        compactMap { match in
+            match.variant.map { (match: match, variant: $0) }
+        }
+    }
+}
+
 extension Match {
     /// Starts a Match under `variant`, recording its id and the Round count it
     /// carries. The Variant itself is not stored — `variant` resolves it afresh
