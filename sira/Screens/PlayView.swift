@@ -14,7 +14,7 @@ struct PlayView: View {
     /// visible there without anything being written back (`docs/adr/0006`).
     let match: Match
     @State private var showingKeypadEntry = false
-    @State private var showingOkeyEntry = false
+    @State private var showingOkey21Entry = false
     @State private var rejoinQueue: [Entrant.ID] = []
     @State private var selectedTab: PlayTab
 
@@ -83,7 +83,7 @@ struct PlayView: View {
         .navigationDestination(isPresented: $showingKeypadEntry) {
             keypadRoundEntry(variant, standings)
         }
-        .navigationDestination(isPresented: $showingOkeyEntry) {
+        .navigationDestination(isPresented: $showingOkey21Entry) {
             okey21RoundEntry
         }
         .sheet(item: rejoinBinding) { entrant in
@@ -178,7 +178,7 @@ struct PlayView: View {
 
     private var okey21RoundEntry: some View {
         Okey21RoundEntryView(entrants: match.entrants, roundNumber: match.rounds.count + 1) { losingEntrantID, gostergeFinderID, cifteCallers, okeyAtti in
-            showingOkeyEntry = false
+            showingOkey21Entry = false
             DispatchQueue.main.async {
                 // Okey atmak is winning the Round, so the atan is the other team.
                 let winnerID = match.entrants.first { $0.id != losingEntrantID }?.id
@@ -305,7 +305,7 @@ struct PlayView: View {
         Button {
             switch variant.entryStyle {
             case .keypad: showingKeypadEntry = true
-            case .okey21: showingOkeyEntry = true
+            case .okey21: showingOkey21Entry = true
             }
         } label: {
             Text(isOver ? "Match finished" : "Add round \(match.rounds.count + 1) scores")

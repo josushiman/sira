@@ -28,9 +28,9 @@ struct Variant: Identifiable, Hashable {
     /// chosen at Setup (Okey 101: 8 or 12) on top of it.
     var roundCount: Int?
     /// The single Entrant mode this Variant is played in. Every Variant is
-    /// fixed to one — only Okey 21 is played in Teams of 2; Gonga
-    /// 101/151 and Okey 101 are individuals only — so Setup records this
-    /// rather than offering a Players/Teams choice.
+    /// fixed to one — only Okey 21 is played in Teams of 2; Gonga 101/151
+    /// and Okey 101 are individuals only — so Setup records this rather than
+    /// offering a Players/Teams choice.
     let entrantMode: EntrantMode
     /// The largest number of Entrants Setup will let you pick. Teams Variants
     /// are always exactly 2; Gonga seats up to 8 players, Okey 101 up to 4.
