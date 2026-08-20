@@ -1,5 +1,6 @@
 import XCTest
 import SwiftUI
+import SwiftData
 import SnapshotTesting
 @testable import sira
 
@@ -10,6 +11,10 @@ final class HomeViewSnapshotTests: XCTestCase {
         }
         .environment(store)
         .environment(Navigator())
+        // Home reads its Matches with `@Query`, which reads the container
+        // rather than the store object — without this it renders an empty list
+        // whatever the store holds.
+        .modelContainer(store.container)
         .environment(\.theme, theme)
         .frame(width: 402, height: 1200)
 

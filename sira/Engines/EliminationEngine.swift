@@ -12,7 +12,7 @@ import Foundation
 /// callers are still recorded per Entrant, because the scoresheet shows who
 /// called.
 struct EliminationEngine: MatchEngine {
-    func standings(for match: Match) -> Standings {
+    func standings(for match: Match, rounds: [Round]) -> Standings {
         let startingScore = match.variant?.startingScore ?? 0
 
         var totals: [Entrant.ID: Int] = [:]
@@ -22,7 +22,7 @@ struct EliminationEngine: MatchEngine {
 
         var lastRoundDeltas: [Entrant.ID: Int] = [:]
 
-        for round in match.rounds {
+        for round in rounds {
             lastRoundDeltas = [:]
             let multipliers = round.multipliers(in: match, winCondition: .elimination)
 

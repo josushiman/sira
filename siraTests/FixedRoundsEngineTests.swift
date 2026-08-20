@@ -238,12 +238,13 @@ final class FixedRoundsEngineTests: XCTestCase {
 
         XCTAssertFalse(FixedRoundsEngine().standings(for: match).isOver)
 
-        var twelveRounds = match
+        // Grown to twelve in place: a Match is a reference type, so a second
+        // name for it would be the same Match rather than an eight-Round copy.
         for _ in 0..<4 {
-            twelveRounds.addRound(Round(deltas: [a.id: 5, b.id: 10]))
+            match.addRound(Round(deltas: [a.id: 5, b.id: 10]))
         }
 
-        XCTAssertTrue(FixedRoundsEngine().standings(for: twelveRounds).isOver)
+        XCTAssertTrue(FixedRoundsEngine().standings(for: match).isOver)
     }
 
     func test_lowestTotalWinsOnceTheConfiguredRoundCountIsReached() {
@@ -276,7 +277,7 @@ final class FixedRoundsEngineTests: XCTestCase {
     func test_standingsAfterAppendingThenUndoingARoundMatchStandingsBeforeAppending() {
         let a = Entrant(name: "Alice")
         let b = Entrant(name: "Bob")
-        var match = makeMatch(
+        let match = makeMatch(
             entrants: [a, b],
             rounds: [Round(deltas: [a.id: 20, b.id: 5])]
         )

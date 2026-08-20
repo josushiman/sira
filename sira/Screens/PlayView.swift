@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 
 enum PlayTab: String, CaseIterable, Identifiable {
     case standings = "Standings"
@@ -8,7 +9,10 @@ enum PlayTab: String, CaseIterable, Identifiable {
 }
 
 struct PlayView: View {
-    @Binding var match: Match
+    /// The Match itself, not a `Binding` to it. A Match is a model class, so
+    /// this screen and Home hold the same object and a Round added here is
+    /// visible there without anything being written back (`docs/adr/0006`).
+    let match: Match
     @State private var showingKeypadEntry = false
     @State private var showingOkeyEntry = false
     @State private var rejoinQueue: [Entrant.ID] = []
@@ -19,9 +23,13 @@ struct PlayView: View {
     /// Optional so Play still renders on its own in a preview or a snapshot,
     /// where nothing above it is doing any navigating.
     @Environment(Navigator.self) private var navigator: Navigator?
+    /// Optional for the same reason: a snapshot of Play renders a Match without
+    /// ever changing one. Every mutation below goes through the store, so where
+    /// there is no store there is nothing to mutate with.
+    @Environment(MatchStore.self) private var store: MatchStore?
 
-    init(match: Binding<Match>, initialTab: PlayTab = .standings) {
-        _match = match
+    init(match: Match, initialTab: PlayTab = .standings) {
+        self.match = match
         _selectedTab = State(initialValue: initialTab)
     }
 
@@ -152,11 +160,14 @@ struct PlayView: View {
             // lose, silently dropping the Rejoin sheet.
             showingKeypadEntry = false
             DispatchQueue.main.async {
-                match.addRound(Round(
-                    deltas: deltas,
-                    cifteCallers: cifteCallers,
-                    okeyAtanID: okeyAtanID
-                ))
+                store?.addRound(
+                    Round(
+                        deltas: deltas,
+                        cifteCallers: cifteCallers,
+                        okeyAtanID: okeyAtanID
+                    ),
+                    to: match
+                )
                 if let survivalEngine = variant.winCondition.engine as? SurvivalEngine {
                     rejoinQueue.append(contentsOf: survivalEngine.newlyOutEntrantIDs(for: match))
                 }
@@ -170,12 +181,15 @@ struct PlayView: View {
             DispatchQueue.main.async {
                 // Okey atmak is winning the Round, so the atan is the other team.
                 let winnerID = match.entrants.first { $0.id != losingEntrantID }?.id
-                match.addRound(Round(
-                    cifteCallers: cifteCallers,
-                    okeyAtanID: okeyAtti ? winnerID : nil,
-                    losingEntrantID: losingEntrantID,
-                    gostergeFinderID: gostergeFinderID
-                ))
+                store?.addRound(
+                    Round(
+                        cifteCallers: cifteCallers,
+                        okeyAtanID: okeyAtti ? winnerID : nil,
+                        losingEntrantID: losingEntrantID,
+                        gostergeFinderID: gostergeFinderID
+                    ),
+                    to: match
+                )
             }
         }
     }
@@ -194,7 +208,7 @@ struct PlayView: View {
     private func acceptRejoin(_ variant: Variant, for entrant: Entrant) {
         guard let survivalEngine = variant.winCondition.engine as? SurvivalEngine else { return }
         let target = survivalEngine.rejoinTarget(for: match)
-        match.recordRejoin(RejoinEvent(id: entrant.id, to: target))
+        store?.recordRejoin(RejoinEvent(id: entrant.id, to: target), in: match)
     }
 
     /// Leaves the Match for Home, falling back to an ordinary dismiss where
@@ -209,7 +223,7 @@ struct PlayView: View {
 
     private func undoLastRound() {
         rejoinQueue.removeAll()
-        match.undoLastRound()
+        store?.undoLastRound(in: match)
     }
 
     private func header(_ variant: Variant) -> some View {
@@ -247,9 +261,9 @@ struct PlayView: View {
     private var archiveButton: some View {
         Button {
             if match.archived {
-                match.restore()
+                store?.restore(match)
             } else {
-                match.archive()
+                store?.archive(match)
                 // Archiving is done with this Match, so it lands on Home
                 // rather than on whatever screen happened to push it.
                 leave()
@@ -515,37 +529,58 @@ struct MatchOverBanner: View {
 }
 
 #Preview {
-    NavigationStack {
-        PlayView(match: .constant(Match(
-            game: .gonga,
-            variant: .gonga101,
-            mode: .players,
-            entrants: [Entrant(name: "Alice"), Entrant(name: "Bob")]
-        )))
-    }
-    .themed()
+    PlayPreview(
+        game: .gonga,
+        variant: .gonga101,
+        mode: .players,
+        names: ["Alice", "Bob"]
+    )
 }
 
 #Preview("Okey standard") {
-    NavigationStack {
-        PlayView(match: .constant(Match(
-            game: .okey,
-            variant: .okeyStandard,
-            mode: .teams,
-            entrants: [Entrant(name: "Team A"), Entrant(name: "Team B")]
-        )))
-    }
-    .themed()
+    PlayPreview(
+        game: .okey,
+        variant: .okeyStandard,
+        mode: .teams,
+        names: ["Team A", "Team B"]
+    )
 }
 
 #Preview("Okey 101") {
-    NavigationStack {
-        PlayView(match: .constant(Match(
-            game: .okey,
-            variant: .okey101,
-            mode: .players,
-            entrants: [Entrant(name: "Alice"), Entrant(name: "Bob")]
-        )))
+    PlayPreview(
+        game: .okey,
+        variant: .okey101,
+        mode: .players,
+        names: ["Alice", "Bob"]
+    )
+}
+
+/// Play over a store of its own, so the buttons that change the Match have
+/// somewhere to change it — a Match now has to be inserted somewhere to be
+/// played, where a `.constant` binding used to do.
+private struct PlayPreview: View {
+    @State private var store: MatchStore
+    private let match: Match
+
+    init(game: Game, variant: Variant, mode: EntrantMode, names: [String]) {
+        let store = MatchStore()
+        let match = Match(
+            game: game,
+            variant: variant,
+            mode: mode,
+            entrants: names.map { Entrant(name: $0) }
+        )
+        store.add(match)
+        _store = State(initialValue: store)
+        self.match = match
     }
-    .themed()
+
+    var body: some View {
+        NavigationStack {
+            PlayView(match: match)
+        }
+        .environment(store)
+        .modelContainer(store.container)
+        .themed()
+    }
 }

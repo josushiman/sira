@@ -39,14 +39,11 @@ struct Scoresheet {
         var rows: [ScoresheetRow] = []
         var previousTotals: [Entrant.ID: Int] = Dictionary(uniqueKeysWithValues: match.entrants.map { ($0.id, 0) })
 
-        var partial = match
-        partial.removeAllRounds()
-
         // `match.rounds` is sequence-ordered, so a row's number is its position
         // in that order — never its position in however the Rounds were stored.
-        for (index, round) in match.rounds.enumerated() {
-            partial.addRound(round)
-            let standings = engine.standings(for: partial)
+        let played = match.rounds
+        for (index, round) in played.enumerated() {
+            let standings = engine.standings(for: match, rounds: Array(played.prefix(index + 1)))
 
             var deltas: [Entrant.ID: Int] = [:]
             for standing in standings.ranked {
@@ -65,6 +62,6 @@ struct Scoresheet {
         }
 
         self.rows = rows
-        self.totals = engine.standings(for: partial)
+        self.totals = engine.standings(for: match, rounds: played)
     }
 }

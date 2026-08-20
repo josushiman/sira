@@ -1,18 +1,31 @@
 import Foundation
+import SwiftData
 
-struct RejoinEvent: Hashable {
+/// An Entrant returning to a Survival Match at a given total, recorded against
+/// the Round that put them Out so that undoing that Round undoes the Rejoin
+/// with it.
+///
+/// Stored inline on its Round rather than as a relationship of its own: per
+/// `docs/adr/0005` the Engines read a whole Round and derive from it, and
+/// nothing queries into Rejoins, so a relationship would buy query power that
+/// is never used (`docs/adr/0006`).
+struct RejoinEvent: Codable, Hashable {
     let id: Entrant.ID
     let to: Int
 }
 
-struct Round: Identifiable, Hashable {
-    let id: UUID
+@Model
+final class Round {
+    /// The identity a Scoresheet row is keyed on, and the one `undoLastRound`
+    /// matches against. Our own UUID rather than `persistentModelID` so it
+    /// means the same thing before a Round is stored as after.
+    var id: UUID
     /// Where this Round sits in its Match, assigned by the Match when the
     /// Round is added and never renumbered afterwards. Order is carried here
     /// rather than by position in `Match.rounds` because position is not a
-    /// guarantee a store can make: once Rounds are loaded from a database the
-    /// array arrives in whatever order the framework pleases, and every
-    /// cumulative total in the app depends on getting it right.
+    /// guarantee a store can make: Rounds loaded from the database arrive in
+    /// whatever order the framework pleases, and every cumulative total in the
+    /// app depends on getting it right.
     ///
     /// Only the last Round is ever removed (Undo), so removal frees the
     /// highest sequence and the next Round added takes it again.
@@ -29,6 +42,10 @@ struct Round: Identifiable, Hashable {
     /// place a multiplier is applied (`docs/adr/0005`). Unused by Elimination
     /// Rounds, which are described instead by `losingEntrantID` and
     /// `gostergeFinderID`.
+    ///
+    /// Keyed by `Entrant.ID`, which SwiftData gives no referential integrity —
+    /// a removed Entrant would orphan these keys. Safe only because Entrants
+    /// cannot be removed from a Match (`docs/adr/0006`).
     var deltas: [Entrant.ID: Int]
     var rejoins: [RejoinEvent]
     /// The Entrants who called Çifte this Round. A fact, not an instruction:
@@ -44,6 +61,9 @@ struct Round: Identifiable, Hashable {
     /// `nil` if nobody did. There is one Gösterge per Round, so at most one
     /// Entrant can find it.
     var gostergeFinderID: Entrant.ID?
+    /// The Match that owns this Round. The inverse of `Match.storedRounds`,
+    /// declared there.
+    var match: Match?
 
     init(
         id: UUID = UUID(),
@@ -65,13 +85,17 @@ struct Round: Identifiable, Hashable {
 }
 
 extension Round {
-    /// This Round, stamped as sitting at `sequence` in its Match. The only way
-    /// to set a sequence other than by adding the Round to a Match, so a
-    /// caller reconstituting stored Rounds has to say so explicitly.
+    /// Stamps this Round as sitting at `sequence` in its Match and returns it.
+    /// The only way to set a sequence other than by adding the Round to a
+    /// Match, so a caller reconstituting stored Rounds has to say so
+    /// explicitly.
+    ///
+    /// A Round is a reference type, so this stamps **in place** and hands back
+    /// the same object rather than a restamped copy.
+    @discardableResult
     func withSequence(_ sequence: Int) -> Round {
-        var stamped = self
-        stamped.sequence = sequence
-        return stamped
+        self.sequence = sequence
+        return self
     }
 
     /// This Round's multiplier per Entrant — the one derivation all three

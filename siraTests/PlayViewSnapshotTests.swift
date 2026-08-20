@@ -6,7 +6,7 @@ import SnapshotTesting
 final class PlayViewSnapshotTests: XCTestCase {
     private func assertPlay(_ match: Match, tab: PlayTab, theme: Theme, testName: String = #function) {
         let view = NavigationStack {
-            PlayView(match: .constant(match), initialTab: tab)
+            PlayView(match: match, initialTab: tab)
         }
         .environment(\.theme, theme)
         .frame(width: 402, height: 874)

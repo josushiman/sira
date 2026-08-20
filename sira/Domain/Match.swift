@@ -1,28 +1,68 @@
 import Foundation
+import SwiftData
 
-struct Match: Identifiable, Hashable {
-    let id: UUID
+/// One game being kept score of: who is playing, under which Variant's rules,
+/// and every Round entered so far.
+///
+/// A model class rather than a value type — the domain types *are* the stored
+/// types, with no mapping layer between them (`docs/adr/0006`). The practical
+/// consequence for callers is that a Match handed around is one shared object:
+/// mutating it is visible everywhere at once, and screens hold it directly
+/// instead of through a `Binding`.
+@Model
+final class Match {
+    var id: UUID
     var game: Game
     /// The id of the Variant this Match is played under, rather than a copy of
     /// the Variant itself, so a rule correction shipped in a later release
     /// reaches Matches that already exist instead of only new ones. See
-    /// `Variant.id` for the frozen-id contract this creates.
+    /// `Variant.id` for the frozen-id contract this creates, and
+    /// `docs/adr/0007` for why it is stored this way.
     var variantId: String
     /// The Round count chosen at Setup, for the Variants that take one
     /// (Okey 101's 8 or 12). `nil` where the Round count isn't a Setup choice,
     /// in which case the Variant's own value stands.
     var roundCount: Int?
     var mode: EntrantMode
+    /// The Entrants playing, owned by this Match and deleted with it. Not
+    /// shared with any other Match (`docs/adr/0007`).
+    @Relationship(deleteRule: .cascade, inverse: \Entrant.match)
     var entrants: [Entrant]
     /// The Rounds as held, carrying no ordering guarantee of their own. Never
     /// read this for order — read `rounds`, which sorts by `Round.sequence`.
+    @Relationship(deleteRule: .cascade, inverse: \Round.match)
     private(set) var storedRounds: [Round]
     var archived: Bool
     /// When the Match was started. Home lists Matches newest-first by this,
     /// and each card is titled with it, so it never changes after creation.
-    let createdAt: Date
+    var createdAt: Date
 
+    /// Builds a Match from Rounds that already carry their sequence, in
+    /// whatever order they happen to be in — so a caller holding Rounds whose
+    /// order means nothing doesn't have to invent one to build a Match.
     init(
+        id: UUID = UUID(),
+        game: Game,
+        variantId: String,
+        roundCount: Int? = nil,
+        mode: EntrantMode,
+        entrants: [Entrant],
+        storedRounds: [Round],
+        archived: Bool = false,
+        createdAt: Date = Date()
+    ) {
+        self.id = id
+        self.game = game
+        self.variantId = variantId
+        self.roundCount = roundCount
+        self.mode = mode
+        self.entrants = entrants
+        self.storedRounds = storedRounds
+        self.archived = archived
+        self.createdAt = createdAt
+    }
+
+    convenience init(
         id: UUID = UUID(),
         game: Game,
         variantId: String,
@@ -51,31 +91,6 @@ struct Match: Identifiable, Hashable {
         )
     }
 
-    /// Builds a Match from Rounds that already carry their sequence, in
-    /// whatever order they happen to be in — so a caller holding Rounds whose
-    /// order means nothing doesn't have to invent one to build a Match.
-    init(
-        id: UUID = UUID(),
-        game: Game,
-        variantId: String,
-        roundCount: Int? = nil,
-        mode: EntrantMode,
-        entrants: [Entrant],
-        storedRounds: [Round],
-        archived: Bool = false,
-        createdAt: Date = Date()
-    ) {
-        self.id = id
-        self.game = game
-        self.variantId = variantId
-        self.roundCount = roundCount
-        self.mode = mode
-        self.entrants = entrants
-        self.storedRounds = storedRounds
-        self.archived = archived
-        self.createdAt = createdAt
-    }
-
     /// The Rounds in the order they were played, which is the order every
     /// cumulative total, delta, Scoresheet row number and Undo depends on.
     var rounds: [Round] {
@@ -91,25 +106,15 @@ struct Match: Identifiable, Hashable {
     /// Adds `round` as the Match's latest, stamping it with the next sequence.
     /// Whatever sequence the Round arrived with is overwritten: where a Round
     /// sits is the Match's to say, not the Round's.
-    mutating func addRound(_ round: Round) {
+    func addRound(_ round: Round) {
         storedRounds.append(round.withSequence(nextSequence))
     }
 
     /// Attaches `rejoin` to the latest Round, so undoing that Round undoes the
     /// Rejoin with it. A no-op with no Rounds, which the Rejoin flow can't
     /// reach — it is only offered in response to a Round just added.
-    mutating func recordRejoin(_ rejoin: RejoinEvent) {
-        guard let latest = rounds.last,
-              let index = storedRounds.firstIndex(where: { $0.id == latest.id })
-        else { return }
-        storedRounds[index].rejoins.append(rejoin)
-    }
-
-    /// Empties the Match of Rounds, freeing every sequence. Used to rebuild a
-    /// Match Round by Round — the Scoresheet's derivation — rather than to
-    /// discard history.
-    mutating func removeAllRounds() {
-        storedRounds.removeAll()
+    func recordRejoin(_ rejoin: RejoinEvent) {
+        rounds.last?.rejoins.append(rejoin)
     }
 
     /// The Variant this Match is played under, resolved from `variantId`
@@ -129,45 +134,28 @@ struct Match: Identifiable, Hashable {
         return resolved
     }
 
-    /// Removes the most recently added Round, including any Rejoin attached to it.
-    /// Every downstream Standing recomputes from `rounds`, so this alone reverses
-    /// totals, Out status, and Rejoins for any Engine.
-    mutating func undoLastRound() {
-        guard let latest = rounds.last else { return }
+    /// Detaches the most recently added Round, including any Rejoin attached to
+    /// it, and hands it back so its owner can delete it — leaving the Round out
+    /// of the relationship is not the same as it ceasing to exist, and a Round
+    /// belonging to no Match is an orphan (`MatchStore.undoLastRound(in:)`).
+    ///
+    /// Every downstream Standing recomputes from `rounds`, so this alone
+    /// reverses totals, Out status, and Rejoins for any Engine.
+    @discardableResult
+    func undoLastRound() -> Round? {
+        guard let latest = rounds.last else { return nil }
         storedRounds.removeAll { $0.id == latest.id }
-    }
-
-    /// Two Matches are equal when they hold the same Rounds in the same
-    /// *played* order, never merely when their storage happens to be arranged
-    /// alike. Written out rather than synthesized because synthesis compares
-    /// `storedRounds`, which would let array position back into the semantics
-    /// `sequence` exists to take it out of.
-    static func == (lhs: Match, rhs: Match) -> Bool {
-        lhs.id == rhs.id
-            && lhs.game == rhs.game
-            && lhs.variantId == rhs.variantId
-            && lhs.roundCount == rhs.roundCount
-            && lhs.mode == rhs.mode
-            && lhs.entrants == rhs.entrants
-            && lhs.archived == rhs.archived
-            && lhs.createdAt == rhs.createdAt
-            && lhs.rounds == rhs.rounds
-    }
-
-    /// The id alone: it is unique per Match, so equal Matches necessarily hash
-    /// alike, and no Round has to be sorted to put one in a Set.
-    func hash(into hasher: inout Hasher) {
-        hasher.combine(id)
+        return latest
     }
 
     /// Hides this Match from the Active filter without locking it — Rounds can
     /// still be added and standings still recompute normally.
-    mutating func archive() {
+    func archive() {
         archived = true
     }
 
     /// Returns an archived Match to the Active filter.
-    mutating func restore() {
+    func restore() {
         archived = false
     }
 }
@@ -176,7 +164,7 @@ extension Match {
     /// Starts a Match under `variant`, recording its id and the Round count it
     /// carries. The Variant itself is not stored — `variant` resolves it afresh
     /// on every read — so this is a starting point rather than a copy.
-    init(
+    convenience init(
         id: UUID = UUID(),
         game: Game,
         variant: Variant,

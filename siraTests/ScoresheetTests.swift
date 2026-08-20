@@ -157,7 +157,7 @@ final class ScoresheetTests: XCTestCase {
     func test_undoingARoundRemovesItsRowAndUpdatesTotalsImmediately() {
         let a = Entrant(name: "Alice")
         let b = Entrant(name: "Bob")
-        var match = makeMatch(
+        let match = makeMatch(
             entrants: [a, b],
             rounds: [
                 Round(deltas: [a.id: 20, b.id: 5]),

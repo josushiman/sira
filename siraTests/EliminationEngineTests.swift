@@ -217,7 +217,7 @@ final class EliminationEngineTests: XCTestCase {
     func test_standingsAfterAppendingThenUndoingARoundMatchStandingsBeforeAppending() {
         let a = Entrant(name: "Team A")
         let b = Entrant(name: "Team B")
-        var match = makeMatch(
+        let match = makeMatch(
             entrants: [a, b],
             rounds: [Round(losingEntrantID: a.id)]
         )

@@ -1,7 +1,14 @@
 import SwiftUI
+import SwiftData
 
 struct HomeView: View {
     @Environment(MatchStore.self) private var store
+    /// Every Match there is, read through the framework rather than kept in a
+    /// hand-maintained array: `@Query` re-runs itself when the context changes,
+    /// so a Match started in Setup or a Round added in Play reaches this list
+    /// without anything having to tell it to. Filtering and ordering stay with
+    /// `MatchFilter`, which is where Home's own rules live.
+    @Query private var matches: [Match]
     /// What's pushed above Home. Held outside this view so that Play, however
     /// deep it sits, can clear it and come straight back here — see
     /// `Navigator`.
@@ -15,7 +22,7 @@ struct HomeView: View {
     /// and skipped here rather than inside the list, so that a filter holding
     /// nothing else still reads as empty instead of showing nothing at all.
     private var filteredMatches: [(match: Match, variant: Variant)] {
-        filter.apply(to: store.matches).compactMap { match in
+        filter.apply(to: matches).compactMap { match in
             match.variant.map { (match: match, variant: $0) }
         }
     }
@@ -67,7 +74,12 @@ struct HomeView: View {
             VariantPickerView(game: game)
         }
         .navigationDestination(item: $navigator.openMatchID) { id in
-            PlayView(match: store.binding(for: id))
+            // Looked up rather than handed over: the Match a route names may
+            // not be there to open, which is no longer the impossible case it
+            // was when the store's binding crashed on an unknown id.
+            if let match = matches.first(where: { $0.id == id }) {
+                PlayView(match: match)
+            }
         }
     }
 
@@ -170,11 +182,11 @@ struct HomeView: View {
     }
 
     private func archive(_ match: Match) {
-        store.binding(for: match.id).wrappedValue.archive()
+        store.archive(match)
     }
 
     private func restore(_ match: Match) {
-        store.binding(for: match.id).wrappedValue.restore()
+        store.restore(match)
     }
 }
 
@@ -414,19 +426,25 @@ private struct MatchCard: View {
 }
 
 #Preview("Home — populated") {
-    NavigationStack {
-        HomeView()
-    }
-    .environment(MatchStore.seeded())
-    .environment(Navigator())
-    .themed()
+    HomePreview(store: .seeded())
 }
 
 #Preview("Home — empty") {
-    NavigationStack {
-        HomeView()
+    HomePreview(store: MatchStore())
+}
+
+/// Home with a store and its container wired together, which `@Query` needs and
+/// a bare `.environment(store)` no longer supplies.
+private struct HomePreview: View {
+    let store: MatchStore
+
+    var body: some View {
+        NavigationStack {
+            HomeView()
+        }
+        .environment(store)
+        .environment(Navigator())
+        .modelContainer(store.container)
+        .themed()
     }
-    .environment(MatchStore())
-    .environment(Navigator())
-    .themed()
 }

@@ -3,7 +3,7 @@ import Foundation
 /// Win Condition for Gonga 101/151: Entrants accumulate score; passing the
 /// Variant's limit sends them Out; the last Entrant not Out wins.
 struct SurvivalEngine: MatchEngine {
-    func standings(for match: Match) -> Standings {
+    func standings(for match: Match, rounds: [Round]) -> Standings {
         let limit = match.variant?.limit ?? .max
 
         var totals: [Entrant.ID: Int] = [:]
@@ -15,7 +15,7 @@ struct SurvivalEngine: MatchEngine {
 
         var lastRoundDeltas: [Entrant.ID: Int] = [:]
 
-        for round in match.rounds {
+        for round in rounds {
             lastRoundDeltas = [:]
             let multipliers = round.multipliers(in: match, winCondition: .survival)
             for entrant in match.entrants {
@@ -81,13 +81,11 @@ struct SurvivalEngine: MatchEngine {
     /// IDs of Entrants who are Out after the last Round but were not Out before it,
     /// i.e. entrants a Rejoin sheet should be offered to right now.
     func newlyOutEntrantIDs(for match: Match) -> [Entrant.ID] {
-        guard !match.rounds.isEmpty else { return [] }
+        let played = match.rounds
+        guard !played.isEmpty else { return [] }
 
-        var priorMatch = match
-        priorMatch.undoLastRound()
-
-        let before = standings(for: priorMatch)
-        let after = standings(for: match)
+        let before = standings(for: match, rounds: Array(played.dropLast()))
+        let after = standings(for: match, rounds: played)
 
         let outBefore = Set(before.ranked.filter(\.isOut).map(\.entrantID))
         return after.ranked

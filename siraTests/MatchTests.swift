@@ -66,7 +66,7 @@ final class MatchTests: XCTestCase {
     }
 
     func test_addRoundStampsEachRoundWithTheNextSequence() {
-        var match = gongaMatch()
+        let match = gongaMatch()
 
         match.addRound(Round())
         match.addRound(Round())
@@ -82,7 +82,7 @@ final class MatchTests: XCTestCase {
     }
 
     func test_addRoundIgnoresWhateverSequenceTheRoundArrivedWith() {
-        var match = gongaMatch()
+        let match = gongaMatch()
 
         match.addRound(Round().withSequence(99))
 
@@ -99,7 +99,7 @@ final class MatchTests: XCTestCase {
     }
 
     func test_undoFreesTheHighestSequenceAndTheNextRoundTakesItAgain() {
-        var match = gongaMatch(rounds: [Round(), Round(), Round()])
+        let match = gongaMatch(rounds: [Round(), Round(), Round()])
 
         match.undoLastRound()
         let replacement = Round()
@@ -112,7 +112,7 @@ final class MatchTests: XCTestCase {
 
     func test_undoRemovesTheHighestSequenceRatherThanTheLastStoredRound() {
         let played = [Round(), Round(), Round()]
-        var match = gongaMatch(rounds: played).withRoundsStoredOutOfOrder()
+        let match = gongaMatch(rounds: played).withRoundsStoredOutOfOrder()
 
         match.undoLastRound()
 
@@ -121,7 +121,7 @@ final class MatchTests: XCTestCase {
 
     func test_recordRejoinAttachesToTheHighestSequenceRound() {
         let a = Entrant(name: "Alice")
-        var match = Match(
+        let match = Match(
             game: .gonga,
             variant: .gonga101,
             mode: .players,
@@ -140,7 +140,7 @@ final class MatchTests: XCTestCase {
     func test_undoLastRoundRemovesTheMostRecentRound() {
         let a = Entrant(name: "Alice")
         let firstRound = Round(deltas: [a.id: 10])
-        var match = Match(
+        let match = Match(
             game: .gonga,
             variant: .gonga101,
             mode: .players,
@@ -158,7 +158,7 @@ final class MatchTests: XCTestCase {
 
     func test_undoLastRoundRemovesAnyRejoinAttachedToThatRound() {
         let a = Entrant(name: "Alice")
-        var match = Match(
+        let match = Match(
             game: .gonga,
             variant: .gonga101,
             mode: .players,
@@ -174,7 +174,7 @@ final class MatchTests: XCTestCase {
     }
 
     func test_undoLastRoundOnMatchWithNoRoundsIsANoOp() {
-        var match = Match(game: .gonga, variant: .gonga101, mode: .players, entrants: [Entrant(name: "Alice")])
+        let match = Match(game: .gonga, variant: .gonga101, mode: .players, entrants: [Entrant(name: "Alice")])
 
         match.undoLastRound()
 
@@ -182,7 +182,7 @@ final class MatchTests: XCTestCase {
     }
 
     func test_archiveSetsTheArchivedFlag() {
-        var match = Match(game: .gonga, variant: .gonga101, mode: .players, entrants: [Entrant(name: "Alice")])
+        let match = Match(game: .gonga, variant: .gonga101, mode: .players, entrants: [Entrant(name: "Alice")])
 
         match.archive()
 
@@ -190,7 +190,7 @@ final class MatchTests: XCTestCase {
     }
 
     func test_restoreClearsTheArchivedFlag() {
-        var match = Match(
+        let match = Match(
             game: .gonga,
             variant: .gonga101,
             mode: .players,
@@ -206,7 +206,7 @@ final class MatchTests: XCTestCase {
     func test_archivingAndRestoringPreservesRoundsAndStandings() {
         let a = Entrant(name: "Alice")
         let round = Round(deltas: [a.id: 10])
-        var match = Match(
+        let match = Match(
             game: .gonga,
             variant: .gonga101,
             mode: .players,

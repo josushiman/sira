@@ -320,7 +320,7 @@ final class SurvivalEngineTests: XCTestCase {
     func test_standingsAfterAppendingThenUndoingARoundMatchStandingsBeforeAppending() {
         let a = Entrant(name: "Alice")
         let b = Entrant(name: "Bob")
-        var match = makeMatch(
+        let match = makeMatch(
             entrants: [a, b],
             rounds: [Round(deltas: [a.id: 20, b.id: 5])]
         )
@@ -338,7 +338,7 @@ final class SurvivalEngineTests: XCTestCase {
     func test_undoReversesAnEntrantGoingOut() {
         let a = Entrant(name: "Alice")
         let b = Entrant(name: "Bob")
-        var match = makeMatch(
+        let match = makeMatch(
             entrants: [a, b],
             rounds: [Round(deltas: [a.id: 105, b.id: 20])]
         )
@@ -352,7 +352,7 @@ final class SurvivalEngineTests: XCTestCase {
     func test_undoReversesADoubledRound() {
         let a = Entrant(name: "Alice")
         let b = Entrant(name: "Bob")
-        var match = makeMatch(
+        let match = makeMatch(
             entrants: [a, b],
             rounds: [Round(deltas: [a.id: 20, b.id: 5])]
         )
@@ -370,7 +370,7 @@ final class SurvivalEngineTests: XCTestCase {
     func test_undoOfRoundThatTriggeredARejoinReversesTheRejoin() {
         let a = Entrant(name: "Alice")
         let b = Entrant(name: "Bob")
-        var match = makeMatch(
+        let match = makeMatch(
             entrants: [a, b],
             rounds: [
                 Round(deltas: [a.id: 110, b.id: 20]),

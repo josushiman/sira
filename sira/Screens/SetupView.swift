@@ -8,7 +8,9 @@ struct SetupView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var entrantNames: [String]
     @State private var roundCount: Int
-    @State private var startedMatchID: Match.ID?
+    /// The Match this screen started, held directly rather than by id: it is a
+    /// model class, so there is nothing to look it back up from.
+    @State private var startedMatch: Match?
 
     init(variant: Variant) {
         self.variant = variant
@@ -76,8 +78,8 @@ struct SetupView: View {
                 .padding(.vertical, 10)
                 .background(theme.background)
         }
-        .navigationDestination(item: $startedMatchID) { id in
-            PlayView(match: store.binding(for: id))
+        .navigationDestination(item: $startedMatch) { match in
+            PlayView(match: match)
         }
     }
 
@@ -142,7 +144,7 @@ struct SetupView: View {
             entrants: entrants
         )
         store.add(match)
-        startedMatchID = match.id
+        startedMatch = match
     }
 }
 
