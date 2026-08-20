@@ -84,7 +84,7 @@ struct PlayView: View {
             keypadRoundEntry(variant, standings)
         }
         .navigationDestination(isPresented: $showingOkeyEntry) {
-            okeyStandardRoundEntry
+            okey21RoundEntry
         }
         .sheet(item: rejoinBinding) { entrant in
             if let survivalEngine = engine as? SurvivalEngine {
@@ -176,8 +176,8 @@ struct PlayView: View {
         }
     }
 
-    private var okeyStandardRoundEntry: some View {
-        OkeyStandardRoundEntryView(entrants: match.entrants, roundNumber: match.rounds.count + 1) { losingEntrantID, gostergeFinderID, cifteCallers, okeyAtti in
+    private var okey21RoundEntry: some View {
+        Okey21RoundEntryView(entrants: match.entrants, roundNumber: match.rounds.count + 1) { losingEntrantID, gostergeFinderID, cifteCallers, okeyAtti in
             showingOkeyEntry = false
             DispatchQueue.main.async {
                 // Okey atmak is winning the Round, so the atan is the other team.
@@ -305,7 +305,7 @@ struct PlayView: View {
         Button {
             switch variant.entryStyle {
             case .keypad: showingKeypadEntry = true
-            case .okeyStandard: showingOkeyEntry = true
+            case .okey21: showingOkeyEntry = true
             }
         } label: {
             Text(isOver ? "Match finished" : "Add round \(match.rounds.count + 1) scores")
@@ -499,10 +499,10 @@ struct MatchOverBanner: View {
     )
 }
 
-#Preview("Okey standard") {
+#Preview("Okey 21") {
     PlayPreview(
         game: .okey,
-        variant: .okeyStandard,
+        variant: .okey21,
         mode: .teams,
         names: ["Team A", "Team B"]
     )

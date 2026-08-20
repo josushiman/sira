@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The Okey-standard Round-entry screen. Everything this Round records is a
+/// The Okey 21 Round-entry screen. Everything this Round records is a
 /// question about *who*, so all three choices take the same shape — the
 /// losing-team choice as two full-width team cards (checkmark on the winner),
 /// then who found the Gösterge and who called Çifte as rows of team chips.
@@ -15,7 +15,7 @@ import SwiftUI
 /// Round, so the winning team is the Okey atan by construction. Either
 /// modifier alone doubles the loss to −4, both together take it to −8, and
 /// neither ever touches the Gösterge deduction.
-struct OkeyStandardRoundEntryView: View {
+struct Okey21RoundEntryView: View {
     let entrants: [Entrant]
     /// This round's number, shown in the top bar ("Round 3").
     let roundNumber: Int
@@ -167,7 +167,7 @@ struct OkeyStandardRoundEntryView: View {
         entrants.firstIndex { $0.id == id } ?? 0
     }
 
-    /// The other team in this two-team Elimination Match — Okey standard is
+    /// The other team in this two-team Elimination Match — Okey 21 is
     /// always exactly two Entrants (Teams of 2), so "the other one" is
     /// unambiguous, matching the prototype's team-pick model.
     private func otherEntrant(for entrant: Entrant) -> Entrant? {
@@ -323,14 +323,14 @@ private struct TeamPickSection: View {
 #Preview("No team selected") {
     let a = Entrant(name: "Ekrem & Su")
     let b = Entrant(name: "Ada & Barış")
-    return OkeyStandardRoundEntryView(entrants: [a, b], roundNumber: 3) { _, _, _, _ in }
+    return Okey21RoundEntryView(entrants: [a, b], roundNumber: 3) { _, _, _, _ in }
         .themed()
 }
 
 #Preview("Team selected, Gösterge, both modifiers") {
     let a = Entrant(name: "Ekrem & Su")
     let b = Entrant(name: "Ada & Barış")
-    return OkeyStandardRoundEntryView(
+    return Okey21RoundEntryView(
         entrants: [a, b],
         roundNumber: 3,
         losingEntrantID: b.id,

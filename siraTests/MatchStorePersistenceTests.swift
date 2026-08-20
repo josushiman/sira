@@ -65,7 +65,7 @@ final class MatchStorePersistenceTests: XCTestCase {
         let matchID = try launch { store -> Match.ID in
             let match = Match(
                 game: .okey,
-                variant: .okeyStandard,
+                variant: .okey21,
                 mode: .teams,
                 entrants: [Entrant(name: "Kırmızı"), Entrant(name: "Mavi")]
             )
@@ -78,7 +78,7 @@ final class MatchStorePersistenceTests: XCTestCase {
             let reloaded = try match(matchID, in: store)
 
             XCTAssertEqual(reloaded.game, .okey)
-            XCTAssertEqual(reloaded.variant, .okeyStandard)
+            XCTAssertEqual(reloaded.variant, .okey21)
             XCTAssertEqual(reloaded.mode, .teams)
             XCTAssertEqual(reloaded.entrants.map(\.name).sorted(), ["Kırmızı", "Mavi"])
             XCTAssertTrue(reloaded.archived)
@@ -235,7 +235,7 @@ final class MatchStorePersistenceTests: XCTestCase {
         let (matchID, before) = try launch { store -> (Match.ID, Standings) in
             let kirmizi = Entrant(name: "Kırmızı")
             let mavi = Entrant(name: "Mavi")
-            let match = Match(game: .okey, variant: .okeyStandard, mode: .teams, entrants: [kirmizi, mavi])
+            let match = Match(game: .okey, variant: .okey21, mode: .teams, entrants: [kirmizi, mavi])
             store.add(match)
             // Ten Rounds at −2 leaves Mavi on 1; the eleventh is doubled by a
             // Çifte call, which takes them past 0 and ends the Match.

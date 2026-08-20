@@ -6,16 +6,16 @@ Nothing a player can see changes. `CONTEXT.md` already names the four Variants a
 
 **Blocked by:** None — but best done when no other branch is mid-flight, since it renames files the snapshot suites key off.
 
-**Status:** ready-for-agent
+**Status:** ready-for-human
 
-- [ ] `Variant.okeyStandard` becomes `Variant.okey21`
-- [ ] `RoundEntryStyle.okeyStandard` becomes `RoundEntryStyle.okey21`, along with its doc comment
-- [ ] `OkeyStandardRoundEntryView` becomes `Okey21RoundEntryView`, and its file is renamed to match
-- [ ] Doc comments and inline prose stop saying "Okey standard" — `Variant.swift`'s entrant-mode and entry-style comments and `SetupView`'s entrant-count comment are the ones that do
-- [ ] Test names follow: `test_okeyOffersStandardAnd101`, `test_okeyStandardCountsDownFromTwentyOne`, `test_okeyStandardIsLabelledOkey21` and the `OkeyStandardRoundEntryViewSnapshotTests` cases all read "okey21"
-- [ ] **No snapshot is re-recorded.** Snapshot PNGs are named after their test function and live in a directory named after their test class, so both are renamed on disk with `git mv` — a re-record would hide any visual change the rename accidentally caused
-- [ ] The renamed snapshot files are byte-identical to the ones they replace
-- [ ] Full suite green
+- [x] `Variant.okeyStandard` becomes `Variant.okey21`
+- [x] `RoundEntryStyle.okeyStandard` becomes `RoundEntryStyle.okey21`, along with its doc comment
+- [x] `OkeyStandardRoundEntryView` becomes `Okey21RoundEntryView`, and its file is renamed to match
+- [x] Doc comments and inline prose stop saying "Okey standard" — `Variant.swift`'s entrant-mode and entry-style comments and `SetupView`'s entrant-count comment are the ones that do
+- [x] Test names follow: `test_okeyOffersStandardAnd101`, `test_okeyStandardCountsDownFromTwentyOne`, `test_okeyStandardIsLabelledOkey21` and the `OkeyStandardRoundEntryViewSnapshotTests` cases all read "okey21"
+- [x] **No snapshot is re-recorded.** Snapshot PNGs are named after their test function and live in a directory named after their test class, so both are renamed on disk with `git mv` — a re-record would hide any visual change the rename accidentally caused
+- [x] The renamed snapshot files are byte-identical to the ones they replace
+- [x] Full suite green
 
 ## Comments
 

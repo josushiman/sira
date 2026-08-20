@@ -4,8 +4,8 @@ import Foundation
 enum RoundEntryStyle: Hashable {
     /// Per-Entrant numeric keypad (Gonga 101/151, Okey 101).
     case keypad
-    /// Pick the losing team plus Gösterge steppers (Okey standard).
-    case okeyStandard
+    /// Pick the losing team plus Gösterge steppers (Okey 21).
+    case okey21
 }
 
 struct Variant: Identifiable, Hashable {
@@ -28,7 +28,7 @@ struct Variant: Identifiable, Hashable {
     /// chosen at Setup (Okey 101: 8 or 12) on top of it.
     var roundCount: Int?
     /// The single Entrant mode this Variant is played in. Every Variant is
-    /// fixed to one — only Okey standard is played in Teams of 2; Gonga
+    /// fixed to one — only Okey 21 is played in Teams of 2; Gonga
     /// 101/151 and Okey 101 are individuals only — so Setup records this
     /// rather than offering a Players/Teams choice.
     let entrantMode: EntrantMode
@@ -73,7 +73,7 @@ extension Variant {
         supportsCifte: false
     )
 
-    static let okeyStandard = Variant(
+    static let okey21 = Variant(
         id: "okey-21",
         game: .okey,
         label: "Okey 21",
@@ -85,7 +85,7 @@ extension Variant {
         entrantMode: .teams,
         maxEntrants: 2,
         supportsCifte: true,
-        entryStyle: .okeyStandard
+        entryStyle: .okey21
     )
 
     static let okey101 = Variant(
@@ -108,7 +108,7 @@ extension Variant {
     static func all(for game: Game) -> [Variant] {
         switch game {
         case .gonga: return [.gonga101, .gonga151]
-        case .okey: return [.okeyStandard, .okey101]
+        case .okey: return [.okey21, .okey101]
         }
     }
 }

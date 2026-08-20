@@ -2,7 +2,7 @@ import SwiftUI
 
 /// The Round-entry screen's shared top bar — Cancel, "Round N", and a Save
 /// button that dims until the screen's own ready-to-save check passes. Used
-/// by both the keypad (Survival/Fixed Rounds) and Okey-standard entry
+/// by both the keypad (Survival/Fixed Rounds) and Okey 21 entry
 /// screens so neither re-implements the same chrome (`docs/adr/0003`).
 struct EntryTopBar: View {
     let roundNumber: Int
