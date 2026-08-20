@@ -14,15 +14,18 @@ final class Navigator {
     var openMatchID: Match.ID?
 
     /// Drops the route to `id` if that is the Match currently open, landing
-    /// the player back on Home. Two things can make a route name a Match that
-    /// cannot be presented — it was deleted, or its Variant id resolves to
-    /// nothing this build can score — and the app can never present either.
-    /// The reason doesn't change the remedy, so both come here.
+    /// the player back on Home. Deletion is the one thing that can make a
+    /// route name a Match that no longer exists, and the app can never present
+    /// one that doesn't.
+    ///
+    /// A Match this build cannot score needs no equivalent: Home resolves the
+    /// route through `scorableMatch` before presenting anything, so that one
+    /// is never pushed in the first place rather than closed after the fact.
     ///
     /// Only that route is cleared, not everything pushed: `goHome()` would
-    /// also throw away a Variant choice being made above Home, which some
-    /// other Match becoming unpresentable has no business undoing.
-    func closeMatch(_ id: Match.ID) {
+    /// also throw away a Variant choice being made above Home, which the
+    /// deletion of some other Match has no business undoing.
+    func closeDeletedMatch(_ id: Match.ID) {
         guard openMatchID == id else { return }
         openMatchID = nil
     }

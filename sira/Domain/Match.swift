@@ -189,8 +189,8 @@ extension Sequence<Match> {
     /// will still score a Match whose Variant is `nil` — against a substitute
     /// limit, because there is nothing else for them to read — so what keeps
     /// that from happening is that such a Match is filtered out here, before
-    /// any screen can open it. Ticket 10 is about the one route that does not
-    /// come through here.
+    /// any screen can open it. The route into Play does not come through here:
+    /// it names one Match by id, and gates on `scorableMatch` instead.
     var scorable: [(match: Match, variant: Variant)] {
         compactMap { match in
             match.variant.map { (match: match, variant: $0) }
@@ -199,14 +199,19 @@ extension Sequence<Match> {
 
     /// The Match a route names, if this build can score it.
     ///
-    /// Home's list is not the only way into Play: a `Navigator` can name a
-    /// Match by id, and that id is resolved here rather than against every
-    /// stored Match, so the two ways it can stop being presentable — the Match
-    /// was deleted, or its Variant id resolves to nothing — both come back as
-    /// `nil` instead of a Match with no rules to score it by.
+    /// Home's list is not the only way into Play: a route names a Match by id,
+    /// and that id is resolved here rather than against every stored Match, so
+    /// the two ways it can stop being scorable — the Match was deleted, or its
+    /// Variant id resolves to nothing — both come back as `nil` rather than as
+    /// a Match with no rules to score it by.
+    ///
+    /// One id, so one Variant resolved: `scorable` would resolve every Match's
+    /// Variant to build a list this throws away.
     func scorableMatch(_ id: Match.ID?) -> Match? {
-        guard let id else { return nil }
-        return scorable.first { $0.match.id == id }?.match
+        guard let id, let match = first(where: { $0.id == id }), match.variant != nil else {
+            return nil
+        }
+        return match
     }
 }
 

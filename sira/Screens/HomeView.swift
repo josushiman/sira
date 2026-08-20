@@ -23,6 +23,26 @@ struct HomeView: View {
     /// properties from.
     @State private var pendingDeletion: PendingDeletion?
 
+    /// The Match the route into Play resolves to, or nothing.
+    ///
+    /// The route names a Match by id, and the id is resolved through
+    /// `scorableMatch` rather than against every stored Match: it can name one
+    /// that was deleted, or one whose Variant id this build doesn't know, and
+    /// Play has no rules to score either. Resolving here rather than inside
+    /// the destination is what keeps such a Match from ever being pushed —
+    /// there is no screen to retreat from, so the player simply stays on Home
+    /// instead of watching a blank one appear and go away again.
+    ///
+    /// Not `filteredMatches`: archiving the Match being played is no reason to
+    /// close it, and the Archived filter is a view of Home's list rather than
+    /// a statement about what can be scored.
+    private var openMatch: Binding<Match?> {
+        Binding(
+            get: { matches.scorableMatch(navigator.openMatchID) },
+            set: { navigator.openMatchID = $0?.id }
+        )
+    }
+
     /// The Matches this filter shows, each with its Variant already resolved.
     /// A Match naming a Variant this build doesn't know has no rules to score
     /// or label it by, so `scorable` skips it — and it is skipped here rather
@@ -92,20 +112,8 @@ struct HomeView: View {
         .navigationDestination(item: $navigator.pickingVariantsFor) { game in
             VariantPickerView(game: game)
         }
-        .navigationDestination(item: $navigator.openMatchID) { id in
-            // Looked up rather than handed over, and looked up through
-            // `scorableMatch` rather than among every stored Match: a route
-            // can name a Match that was deleted, or one whose Variant id this
-            // build doesn't know. Play has no rules for either, and drawing
-            // nothing would strand the player on a blank screen — Play hides
-            // the navigation bar and keeps its own back button inside a header
-            // it never rendered. So the route is dropped instead, which lands
-            // them back on Home.
-            if let match = matches.scorableMatch(id) {
-                PlayView(match: match)
-            } else {
-                Color.clear.onAppear { navigator.closeMatch(id) }
-            }
+        .navigationDestination(item: openMatch) { match in
+            PlayView(match: match)
         }
     }
 
@@ -209,7 +217,7 @@ struct HomeView: View {
     private func delete(_ deletion: PendingDeletion) {
         pendingDeletion = nil
         guard let match = matches.first(where: { $0.id == deletion.id }) else { return }
-        navigator.closeMatch(match.id)
+        navigator.closeDeletedMatch(match.id)
         store.delete(match)
     }
 

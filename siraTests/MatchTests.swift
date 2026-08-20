@@ -237,9 +237,9 @@ final class MatchTests: XCTestCase {
     // MARK: - Route resolution
 
     /// The one route into Play that does not come through Home's list: a
-    /// `Navigator` naming a Match by id. Both ways that id can stop being
-    /// presentable have to resolve to nothing, or Play is left standing in
-    /// front of a Match it has no rules for.
+    /// `Navigator` naming a Match by id. Both ways that id can stop naming a
+    /// Match this build can score have to resolve to nothing, or Play is left
+    /// standing in front of a Match it has no rules for.
     func test_aRouteNamingAScorableMatchResolvesToIt() {
         let playable = match(game: .gonga, variantId: "gonga-101")
         let matches = [playable, match(game: .okey, variantId: "okey-21")]
@@ -254,8 +254,8 @@ final class MatchTests: XCTestCase {
         XCTAssertNil(matches.scorableMatch(stranger.id))
     }
 
-    /// Deletion is the other way a route stops being presentable: the id names
-    /// a Match that is simply no longer among them.
+    /// Deletion is the other way a route stops resolving: the id names a Match
+    /// that is simply no longer among them.
     func test_aRouteNamingAMatchThatIsNoLongerThereResolvesToNothing() {
         let matches = [match(game: .gonga, variantId: "gonga-101")]
 
