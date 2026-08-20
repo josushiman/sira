@@ -95,7 +95,8 @@ struct PlayView: View {
                         rank: index + 1,
                         badgeIndex: badgeIndex(for: standing.entrantID),
                         isLeader: index == 0 && !standing.isOut && !standings.isOver,
-                        maxAbsTotal: maxAbsTotal(standings)
+                        maxAbsTotal: maxAbsTotal(standings),
+                        roomLeft: roomLeft(for: standing)
                     )
                 }
             }
@@ -111,6 +112,14 @@ struct PlayView: View {
 
     private func badgeIndex(for entrantID: Entrant.ID) -> Int {
         match.entrants.firstIndex { $0.id == entrantID } ?? 0
+    }
+
+    /// How much an Entrant can still take before passing the Variant's limit.
+    /// Only Survival Variants have a limit to run out of, and an Entrant
+    /// already Out has none left to report — both read as `nil`.
+    private func roomLeft(for standing: EntrantStanding) -> Int? {
+        guard let limit = match.variant.limit, !standing.isOut else { return nil }
+        return max(0, limit - standing.total)
     }
 
     /// The largest total magnitude among all Standings, used to normalize
@@ -308,13 +317,16 @@ struct PlayView: View {
 }
 
 /// A Standings row: rank, dot badge, name with LEADS/OUT tag, a progress bar
-/// scaled to the Match's biggest total, and the score with its last delta.
+/// scaled to the Match's biggest total with the Entrant's Room left beside it,
+/// and the score with its last delta.
 struct StandingRow: View {
     let standing: EntrantStanding
     let rank: Int
     let badgeIndex: Int
     let isLeader: Bool
     let maxAbsTotal: Int
+    /// Points before this Entrant passes the limit, where the Variant has one.
+    var roomLeft: Int?
 
     @Environment(\.theme) private var theme
 
@@ -339,7 +351,14 @@ struct StandingRow: View {
                     }
                 }
 
-                progressBar
+                HStack(spacing: 10) {
+                    progressBar
+                    if let roomLeft {
+                        Text(sira: .monoLabel, "\(roomLeft) left")
+                            .foregroundStyle(theme.ink.opacity(0.42))
+                            .fixedSize()
+                    }
+                }
             }
 
             VStack(alignment: .trailing, spacing: 7) {
