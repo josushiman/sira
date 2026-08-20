@@ -2,7 +2,7 @@ import XCTest
 @testable import sira
 
 final class PlayStatsTests: XCTestCase {
-    func test_survivalInProgress_showsLeaderAndRoomLeft() {
+    func test_survivalInProgress_showsLeaderAndClosestToOut() {
         let a = Entrant(name: "Alice")
         let b = Entrant(name: "Bob")
         let match = Match(
@@ -17,11 +17,29 @@ final class PlayStatsTests: XCTestCase {
 
         XCTAssertEqual(stats.leadLabel, "Leader")
         XCTAssertEqual(stats.leadValue, "Alice · 20")
-        XCTAssertEqual(stats.secondaryLabel, "Room left")
-        XCTAssertEqual(stats.secondaryValue, "81")
+        XCTAssertEqual(stats.secondaryLabel, "Closest to out")
+        XCTAssertEqual(stats.secondaryValue, "Bob · 41 left")
     }
 
-    func test_survivalOver_showsResultAndZeroRoomLeft() {
+    func test_survivalClosestToOut_ignoresEntrantsAlreadyOut() {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        let c = Entrant(name: "Cem")
+        let match = Match(
+            game: .gonga,
+            variant: .gonga151,
+            mode: .players,
+            entrants: [a, b, c],
+            rounds: [Round(deltas: [a.id: 20, b.id: 90, c.id: 160])]
+        )
+
+        let stats = PlayStats(match: match, engine: SurvivalEngine())
+
+        XCTAssertEqual(stats.secondaryLabel, "Closest to out")
+        XCTAssertEqual(stats.secondaryValue, "Bob · 61 left")
+    }
+
+    func test_survivalOver_showsResultAndTheSurvivorsRoomLeft() {
         let a = Entrant(name: "Alice")
         let b = Entrant(name: "Bob")
         let match = Match(
@@ -36,6 +54,8 @@ final class PlayStatsTests: XCTestCase {
 
         XCTAssertEqual(stats.leadLabel, "Result")
         XCTAssertEqual(stats.leadValue, "Alice · 20")
+        XCTAssertEqual(stats.secondaryLabel, "Room left")
+        XCTAssertEqual(stats.secondaryValue, "81")
     }
 
     func test_fixedRounds_showsRoundsLeft() {

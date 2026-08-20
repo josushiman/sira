@@ -2,8 +2,8 @@ import Foundation
 
 /// The Play screen's two stat tiles, derived purely from a Match's Engine
 /// Standings — Leader/Result plus a second tile whose label and value depend
-/// on the Variant's Win Condition (Survival: Room left, Fixed Rounds: Rounds
-/// left, Elimination: Gap between the best and worst Standing).
+/// on the Variant's Win Condition (Survival: Closest to out, Fixed Rounds:
+/// Rounds left, Elimination: Gap between the best and worst Standing).
 struct PlayStats {
     let leadLabel: String
     let leadValue: String
@@ -22,9 +22,20 @@ struct PlayStats {
 
         switch match.variant.winCondition {
         case .survival:
-            secondaryLabel = "Room left"
+            // The Entrant with the least Room left is the one the Match is
+            // about to lose — more telling than the leader's own headroom,
+            // which the rows now spell out for every Entrant anyway.
             let limit = match.variant.limit ?? 0
-            secondaryValue = "\(max(0, limit - (leader?.total ?? 0)))"
+            let atRisk = standings.ranked.filter { !$0.isOut }.max { $0.total < $1.total }
+            if standings.isOver {
+                // Over means one Entrant is left in, so nobody is close to
+                // anything — report the survivor's headroom instead.
+                secondaryLabel = "Room left"
+                secondaryValue = atRisk.map { "\(max(0, limit - $0.total))" } ?? "—"
+            } else {
+                secondaryLabel = "Closest to out"
+                secondaryValue = atRisk.map { "\($0.name) · \(max(0, limit - $0.total)) left" } ?? "—"
+            }
         case .fixedRounds:
             secondaryLabel = "Rounds left"
             let roundCount = match.variant.roundCount ?? 0
