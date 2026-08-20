@@ -62,19 +62,16 @@ extension Round {
     /// What each Engine scales with the result is its own business: Survival
     /// and Fixed Rounds scale every delta, Elimination scales only the loss
     /// penalty and never a Gösterge find. The Match comes in whole because
-    /// "won the Round" is read differently per Win Condition.
-    func multipliers(in match: Match) -> [Entrant.ID: Int] {
+    /// "won the Round" is read differently per Win Condition — which the
+    /// calling Engine states, rather than it being re-derived from the Match.
+    func multipliers(in match: Match, winCondition: WinCondition) -> [Entrant.ID: Int] {
         let entrantIDs = match.entrants.map(\.id)
-        switch match.variant?.winCondition {
+        switch winCondition {
         case .elimination:
             // Okey 21 records the team that lost; the other one won.
             return multipliers(for: entrantIDs) { $0 != losingEntrantID }
         case .survival, .fixedRounds:
             return keypadMultipliers(for: entrantIDs)
-        case .none:
-            // A Match whose Variant id resolves to nothing is skipped rather
-            // than scored, so there are no rules to read "won the Round" by.
-            return [:]
         }
     }
 

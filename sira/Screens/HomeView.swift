@@ -9,8 +9,15 @@ struct HomeView: View {
     @Environment(\.theme) private var theme
     @State private var filter: MatchFilter = .active
 
-    private var filteredMatches: [Match] {
-        filter.apply(to: store.matches)
+    /// The Matches this filter shows, each with its Variant already resolved.
+    /// A Match naming a Variant this build doesn't know has no rules to score
+    /// or label it by, so it is skipped rather than shown under a substitute —
+    /// and skipped here rather than inside the list, so that a filter holding
+    /// nothing else still reads as empty instead of showing nothing at all.
+    private var filteredMatches: [(match: Match, variant: Variant)] {
+        filter.apply(to: store.matches).compactMap { match in
+            match.variant.map { (match: match, variant: $0) }
+        }
     }
 
     /// `.swipeActions` only has an effect on rows inside a `List` — a plain
@@ -35,23 +42,18 @@ struct HomeView: View {
                         .padding(.vertical, 26)
                 }
             } else {
-                ForEach(filteredMatches) { match in
-                    // A Match naming a Variant this build doesn't know has no
-                    // rules to score or label it by, so it is skipped rather
-                    // than shown under a substitute.
-                    if let variant = match.variant {
-                        Button {
-                            navigator.openMatchID = match.id
-                        } label: {
-                            MatchCard(match: match, variant: variant)
-                        }
-                        .buttonStyle(.plain)
-                        .listRowSeparator(.hidden)
-                        .listRowBackground(Color.clear)
-                        .listRowInsets(EdgeInsets(top: 0, leading: 22, bottom: 10, trailing: 22))
-                        .swipeActions {
-                            archiveButton(for: match)
-                        }
+                ForEach(filteredMatches, id: \.match.id) { match, variant in
+                    Button {
+                        navigator.openMatchID = match.id
+                    } label: {
+                        MatchCard(match: match, variant: variant)
+                    }
+                    .buttonStyle(.plain)
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets(top: 0, leading: 22, bottom: 10, trailing: 22))
+                    .swipeActions {
+                        archiveButton(for: match)
                     }
                 }
             }

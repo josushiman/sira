@@ -132,10 +132,12 @@ struct SetupView: View {
         }
         // The Match names its Variant rather than copying it, so all Setup
         // records is the id plus the Round count where the Variant takes one.
+        // Only Fixed Rounds Variants offer that choice, so every other Variant
+        // records nothing and resolves its Round count from the constant.
         let match = Match(
             game: variant.game,
             variantId: variant.id,
-            roundCount: offersRoundCountChoice ? roundCount : variant.roundCount,
+            roundCount: offersRoundCountChoice ? roundCount : nil,
             mode: mode,
             entrants: entrants
         )

@@ -111,7 +111,7 @@ struct PlayView: View {
             }
         }
 
-        let stats = PlayStats(match: match, standings: standings)
+        let stats = PlayStats(variant: variant, match: match, standings: standings)
         HStack(spacing: 10) {
             StatTile(label: stats.leadLabel, value: stats.leadValue)
             StatTile(label: stats.secondaryLabel, value: stats.secondaryValue)

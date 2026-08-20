@@ -18,7 +18,7 @@ struct FixedRoundsEngine: MatchEngine {
 
         for round in match.rounds {
             lastRoundDeltas = [:]
-            let multipliers = round.multipliers(in: match)
+            let multipliers = round.multipliers(in: match, winCondition: .fixedRounds)
             for entrant in match.entrants {
                 guard let delta = round.deltas[entrant.id] else { continue }
                 let appliedDelta = delta * (multipliers[entrant.id] ?? 1)

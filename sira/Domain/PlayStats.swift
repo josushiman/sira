@@ -10,30 +10,27 @@ struct PlayStats {
     let secondaryLabel: String
     let secondaryValue: String
 
-    init(match: Match, engine: MatchEngine) {
-        self.init(match: match, standings: engine.standings(for: match))
+    init(variant: Variant, match: Match, engine: MatchEngine) {
+        self.init(variant: variant, match: match, standings: engine.standings(for: match))
     }
 
-    init(match: Match, standings: Standings) {
+    /// The Variant comes in already resolved: Play has one in hand before it
+    /// renders, so the tiles never have to describe a Match without rules.
+    init(variant: Variant, match: Match, standings: Standings) {
         let leader = standings.ranked.first
 
         leadLabel = standings.isOver ? "Result" : "Leader"
         leadValue = leader.map { "\($0.name) · \($0.total)" } ?? "—"
 
-        switch match.variant?.winCondition {
+        switch variant.winCondition {
         case .survival:
             secondaryLabel = "Room left"
-            let limit = match.variant?.limit ?? 0
+            let limit = variant.limit ?? 0
             secondaryValue = "\(max(0, limit - (leader?.total ?? 0)))"
         case .fixedRounds:
             secondaryLabel = "Rounds left"
-            let roundCount = match.variant?.roundCount ?? 0
+            let roundCount = variant.roundCount ?? 0
             secondaryValue = "\(max(0, roundCount - match.rounds.count))"
-        case .none:
-            // A Match whose Variant id resolves to nothing is skipped rather
-            // than scored, so there is no Win Condition to derive a tile from.
-            secondaryLabel = "—"
-            secondaryValue = "—"
         case .elimination:
             secondaryLabel = "Gap"
             let best = standings.ranked.first?.total ?? 0

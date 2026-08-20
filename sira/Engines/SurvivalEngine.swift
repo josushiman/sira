@@ -17,7 +17,7 @@ struct SurvivalEngine: MatchEngine {
 
         for round in match.rounds {
             lastRoundDeltas = [:]
-            let multipliers = round.multipliers(in: match)
+            let multipliers = round.multipliers(in: match, winCondition: .survival)
             for entrant in match.entrants {
                 guard isOut[entrant.id] == false, let delta = round.deltas[entrant.id] else { continue }
                 let appliedDelta = delta * (multipliers[entrant.id] ?? 1)

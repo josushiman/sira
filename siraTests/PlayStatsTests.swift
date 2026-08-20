@@ -13,7 +13,7 @@ final class PlayStatsTests: XCTestCase {
             rounds: [Round(deltas: [a.id: 20, b.id: 60])]
         )
 
-        let stats = PlayStats(match: match, engine: SurvivalEngine())
+        let stats = PlayStats(variant: .gonga101, match: match, engine: SurvivalEngine())
 
         XCTAssertEqual(stats.leadLabel, "Leader")
         XCTAssertEqual(stats.leadValue, "Alice · 20")
@@ -32,7 +32,7 @@ final class PlayStatsTests: XCTestCase {
             rounds: [Round(deltas: [a.id: 20, b.id: 110])]
         )
 
-        let stats = PlayStats(match: match, engine: SurvivalEngine())
+        let stats = PlayStats(variant: .gonga101, match: match, engine: SurvivalEngine())
 
         XCTAssertEqual(stats.leadLabel, "Result")
         XCTAssertEqual(stats.leadValue, "Alice · 20")
@@ -49,7 +49,7 @@ final class PlayStatsTests: XCTestCase {
             rounds: [Round(deltas: [a.id: 10, b.id: 5]), Round(deltas: [a.id: 10, b.id: 5])]
         )
 
-        let stats = PlayStats(match: match, engine: FixedRoundsEngine())
+        let stats = PlayStats(variant: .okey101, match: match, engine: FixedRoundsEngine())
 
         XCTAssertEqual(stats.secondaryLabel, "Rounds left")
         XCTAssertEqual(stats.secondaryValue, "6")
@@ -66,7 +66,7 @@ final class PlayStatsTests: XCTestCase {
             rounds: [Round(losingEntrantID: b.id)]
         )
 
-        let stats = PlayStats(match: match, engine: EliminationEngine())
+        let stats = PlayStats(variant: .okeyStandard, match: match, engine: EliminationEngine())
 
         XCTAssertEqual(stats.secondaryLabel, "Gap")
         XCTAssertEqual(stats.secondaryValue, "2")

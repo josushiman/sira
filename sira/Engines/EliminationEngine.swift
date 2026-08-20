@@ -24,7 +24,7 @@ struct EliminationEngine: MatchEngine {
 
         for round in match.rounds {
             lastRoundDeltas = [:]
-            let multipliers = round.multipliers(in: match)
+            let multipliers = round.multipliers(in: match, winCondition: .elimination)
 
             if let losingID = round.losingEntrantID, totals[losingID] != nil {
                 let penalty = -2 * (multipliers[losingID] ?? 1)
