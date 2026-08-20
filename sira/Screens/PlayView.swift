@@ -38,7 +38,11 @@ struct PlayView: View {
     var body: some View {
         // A Match naming a Variant this build doesn't know has no rules to
         // score it by, so it is skipped rather than played under a substitute.
-        // Home never opens one, so in practice this always resolves.
+        // In practice this always resolves: Home names a Match by id and
+        // resolves it through `scorableMatch` first, and Setup only ever hands
+        // over a Match it just built from the Variant it is holding. So this
+        // stays as the last word on a Match Play cannot score, rather than as
+        // the thing keeping the player off a blank screen.
         if let variant = match.variant {
             play(variant)
         }

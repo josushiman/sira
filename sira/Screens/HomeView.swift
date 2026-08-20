@@ -93,11 +93,18 @@ struct HomeView: View {
             VariantPickerView(game: game)
         }
         .navigationDestination(item: $navigator.openMatchID) { id in
-            // Looked up rather than handed over: the Match a route names may
-            // not be there to open, which is no longer the impossible case it
-            // was when the store's binding crashed on an unknown id.
-            if let match = matches.first(where: { $0.id == id }) {
+            // Looked up rather than handed over, and looked up through
+            // `scorableMatch` rather than among every stored Match: a route
+            // can name a Match that was deleted, or one whose Variant id this
+            // build doesn't know. Play has no rules for either, and drawing
+            // nothing would strand the player on a blank screen — Play hides
+            // the navigation bar and keeps its own back button inside a header
+            // it never rendered. So the route is dropped instead, which lands
+            // them back on Home.
+            if let match = matches.scorableMatch(id) {
                 PlayView(match: match)
+            } else {
+                Color.clear.onAppear { navigator.closeMatch(id) }
             }
         }
     }
@@ -202,7 +209,7 @@ struct HomeView: View {
     private func delete(_ deletion: PendingDeletion) {
         pendingDeletion = nil
         guard let match = matches.first(where: { $0.id == deletion.id }) else { return }
-        navigator.closeDeletedMatch(match.id)
+        navigator.closeMatch(match.id)
         store.delete(match)
     }
 

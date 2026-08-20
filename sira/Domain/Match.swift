@@ -196,6 +196,18 @@ extension Sequence<Match> {
             match.variant.map { (match: match, variant: $0) }
         }
     }
+
+    /// The Match a route names, if this build can score it.
+    ///
+    /// Home's list is not the only way into Play: a `Navigator` can name a
+    /// Match by id, and that id is resolved here rather than against every
+    /// stored Match, so the two ways it can stop being presentable — the Match
+    /// was deleted, or its Variant id resolves to nothing — both come back as
+    /// `nil` instead of a Match with no rules to score it by.
+    func scorableMatch(_ id: Match.ID?) -> Match? {
+        guard let id else { return nil }
+        return scorable.first { $0.match.id == id }?.match
+    }
 }
 
 extension Match {
