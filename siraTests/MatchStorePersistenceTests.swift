@@ -429,6 +429,32 @@ final class MatchStorePersistenceTests: XCTestCase {
         )
     }
 
+    /// A deletion is a change like any other, and fails like one: the Match is
+    /// gone from Home, the player is told it could not be written, and the
+    /// next save that succeeds takes the deletion with it. The one thing that
+    /// must not happen is silence.
+    func test_aDeletionThatCannotBeSavedIsSurfacedAndStillStands() throws {
+        var failing = false
+        let store = MatchStore { context in
+            if failing { throw DiskFull() }
+            try context.save()
+        }
+        let match = Match(game: .gonga, variant: .gonga101, mode: .players, entrants: [Entrant(name: "Alice")])
+        store.add(match)
+
+        failing = true
+        store.delete(match)
+
+        XCTAssertNotNil(store.saveFailure)
+        XCTAssertEqual(try store.context.fetch(FetchDescriptor<Match>()).count, 0)
+
+        failing = false
+        store.add(Match(game: .gonga, variant: .gonga101, mode: .players, entrants: [Entrant(name: "Bob")]))
+
+        XCTAssertNil(store.saveFailure)
+        XCTAssertEqual(try store.context.fetch(FetchDescriptor<Match>()).map(\.entrants.first?.name), ["Bob"])
+    }
+
     func test_aSaveThatSucceedsClearsAnEarlierFailure() throws {
         var failing = true
         let store = MatchStore { context in

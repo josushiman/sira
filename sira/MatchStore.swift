@@ -237,6 +237,13 @@ final class MatchStore {
     /// deleted-but-restorable is a third durability state, and this app
     /// persists exactly one thing. The confirmation on the way in is where the
     /// player gets to change their mind.
+    ///
+    /// A deletion whose save fails behaves like every other change here: it
+    /// stands in memory, the failure is surfaced, and the next save that
+    /// succeeds writes it out along with it. Until one does, the Match is off
+    /// Home and still on the disk — which is the same window every other
+    /// mutation has, and is why the player is told rather than left to find
+    /// out at the next launch.
     func delete(_ match: Match) {
         context.delete(match)
         save()

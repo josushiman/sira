@@ -451,59 +451,20 @@ struct RejoinSheet: View {
     @Environment(\.theme) private var theme
 
     var body: some View {
-        VStack(spacing: 0) {
-            Spacer(minLength: 0)
-            bottomSheet
-        }
-        .presentationDetents([.medium])
-        .presentationDragIndicator(.hidden)
-        .presentationBackground(.clear)
-    }
-
-    private var bottomSheet: some View {
-        BottomSheetContent {
-            VStack(alignment: .leading, spacing: 10) {
-                Text("\(entrant.name) is Out")
-                    .siraStyle(.displayTitle)
-                Text("\(entrant.name) passed \(limit) on \(score). They can rejoin at the highest score still on the table.")
-                    .siraStyle(.body)
-                    .foregroundStyle(theme.ink.opacity(0.6))
-
-                VStack(spacing: 9) {
-                    Button {
-                        onAccept()
-                        dismiss()
-                    } label: {
-                        Text("Rejoin at \(target)")
-                            .siraStyle(.subheadline)
-                            .fontWeight(.semibold)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 52)
-                            .contentShape(RoundedRectangle(cornerRadius: 17, style: .continuous))
-                    }
-                    .foregroundStyle(theme.background)
-                    .background(theme.ink, in: RoundedRectangle(cornerRadius: 17, style: .continuous))
-                    .buttonStyle(.plain)
-
-                    Button {
-                        dismiss()
-                    } label: {
-                        Text("They're out")
-                            .siraStyle(.subheadline)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 52)
-                            .contentShape(RoundedRectangle(cornerRadius: 17, style: .continuous))
-                    }
-                    .foregroundStyle(theme.ink.opacity(0.75))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 17, style: .continuous)
-                            .stroke(theme.line, lineWidth: 1)
-                    }
-                    .buttonStyle(.plain)
-                }
-                .padding(.top, 12)
+        DecisionSheet(
+            title: "\(entrant.name) is Out",
+            explanation: "\(entrant.name) passed \(limit) on \(score). They can rejoin at the highest score still on the table."
+        ) {
+            SheetButton(
+                title: "Rejoin at \(target)",
+                emphasis: .filled(background: theme.ink, foreground: theme.background)
+            ) {
+                onAccept()
+                dismiss()
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            SheetButton(title: "They're out", emphasis: .outlined) {
+                dismiss()
+            }
         }
     }
 }

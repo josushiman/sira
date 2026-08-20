@@ -11,7 +11,7 @@ import SnapshotTesting
 /// context menu is presented by the system, in the system's own chrome, and
 /// nothing renders it into an image. What these pin down is what this app
 /// supplies: the wording, the ordering, and Delete's destructive role.
-final class MatchDeletionSnapshotTests: XCTestCase {
+final class MatchDeletionTests: XCTestCase {
     /// A Match dated like the fixtures, so the confirmation names a date that
     /// reads the same on every run.
     private func match(rounds: Int) -> Match {
@@ -44,6 +44,31 @@ final class MatchDeletionSnapshotTests: XCTestCase {
             .frame(width: 402, height: 437)
 
         assertSnapshot(of: view, as: .image(layout: .fixed(width: 402, height: 437)), testName: testName)
+    }
+
+    /// The confirmation's wording is the only thing standing between a mis-tap
+    /// and an evening's scores, so what it says is asserted rather than left to
+    /// a reader of the snapshot.
+    func test_theConfirmationNamesTheMatchWhatGoesWithItAndThatThereIsNoUndo() {
+        let text = DeleteMatchSheet.explanation(for: PendingDeletion(match: match(rounds: 6)))
+
+        XCTAssertEqual(
+            text,
+            "14th March 2026 · 9pm, its players and all 6 Rounds played will be deleted for good. There is no undo."
+        )
+    }
+
+    /// A Match with one Round, and one with none, are the two the plural
+    /// wording would read wrong for.
+    func test_theConfirmationCountsRoundsInWordsThatFitTheNumber() {
+        XCTAssertEqual(
+            DeleteMatchSheet.explanation(for: PendingDeletion(match: match(rounds: 1))),
+            "14th March 2026 · 9pm, its players and the 1 Round played will be deleted for good. There is no undo."
+        )
+        XCTAssertEqual(
+            DeleteMatchSheet.explanation(for: PendingDeletion(match: match(rounds: 0))),
+            "14th March 2026 · 9pm and its players will be deleted for good. There is no undo."
+        )
     }
 
     func test_contextMenu_paper() {

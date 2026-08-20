@@ -119,6 +119,7 @@ final class MatchStoreTests: XCTestCase {
         let entrantIDs = matches.flatMap { $0.entrants.map(\.id) }
         XCTAssertEqual(Set(entrantIDs).count, entrantIDs.count)
     }
+
     // MARK: - Deleting
 
     /// Delete means deleted: the Match goes, and the Rounds and Entrants it

@@ -25,3 +25,15 @@ Two decisions worth flagging for review:
 
 - **The confirmation is a themed bottom sheet, not `.confirmationDialog`.** The ticket asks for the confirmation to be snapshot in both themes, and a system dialog is system chrome that answers to neither theme. The Rejoin offer is the prior art: a decision the app asks the player to make, drawn on the app's own surface (`DeleteMatchSheet`, alongside `RejoinSheet`).
 - **The context menu's snapshot is of its items, not of the menu as iOS draws it.** A context menu is presented by the system and nothing renders it into an image; what the two `test_contextMenu_*` cases pin down is the wording, the ordering and Delete's destructive role.
+
+**Review** (`/code-review`, Standards + Spec). Four findings taken:
+
+- The confirmation duplicated `RejoinSheet` almost line for line. Both now compose `DecisionSheet` + `SheetButton` in the design system; Rejoin's recorded snapshots pass unchanged, which is what proves the extraction faithful.
+- The four deletion types moved out of `HomeView.swift` into `MatchDeletion.swift`, and the card's date formatting into `MatchDateTitle.swift`.
+- A deletion whose save fails was untested. It behaves like every other mutation — stands in memory, failure surfaced, written out by the next save that succeeds — and now says so in `MatchStore.delete(_:)` and is covered by `test_aDeletionThatCannotBeSavedIsSurfacedAndStillStands`.
+- The confirmation's wording is now asserted (`DeleteMatchSheet.explanation(for:)`), including the 0-Round and 1-Round cases the plural would read wrong for.
+
+Two notes left open rather than acted on:
+
+- **Worth a device check:** presenting a sheet from a `.contextMenu` action has historically been a dropped-presentation case on iOS. Nothing in the suite can exercise the menu → sheet transition.
+- `navigationDestination(item:)` renders an empty destination if `openMatchID` ever names a Match that is gone — a blank pushed screen rather than a pop. Not reachable from this ticket's flow (Delete is offered only from Home, where nothing is pushed), and it is ticket 10's territory.
