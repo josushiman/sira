@@ -18,7 +18,7 @@ final class MatchStoreTests: XCTestCase {
 
         let binding = store.binding(for: match.id)
         let round = Round(deltas: [a.id: 10])
-        match.rounds.append(round)
+        match.addRound(round)
         binding.wrappedValue = match
 
         XCTAssertEqual(store.matches.first?.rounds, [round])

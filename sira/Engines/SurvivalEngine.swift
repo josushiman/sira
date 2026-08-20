@@ -84,7 +84,7 @@ struct SurvivalEngine: MatchEngine {
         guard !match.rounds.isEmpty else { return [] }
 
         var priorMatch = match
-        priorMatch.rounds.removeLast()
+        priorMatch.undoLastRound()
 
         let before = standings(for: priorMatch)
         let after = standings(for: match)

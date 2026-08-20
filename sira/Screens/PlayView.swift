@@ -152,7 +152,7 @@ struct PlayView: View {
             // lose, silently dropping the Rejoin sheet.
             showingKeypadEntry = false
             DispatchQueue.main.async {
-                match.rounds.append(Round(
+                match.addRound(Round(
                     deltas: deltas,
                     cifteCallers: cifteCallers,
                     okeyAtanID: okeyAtanID
@@ -170,7 +170,7 @@ struct PlayView: View {
             DispatchQueue.main.async {
                 // Okey atmak is winning the Round, so the atan is the other team.
                 let winnerID = match.entrants.first { $0.id != losingEntrantID }?.id
-                match.rounds.append(Round(
+                match.addRound(Round(
                     cifteCallers: cifteCallers,
                     okeyAtanID: okeyAtti ? winnerID : nil,
                     losingEntrantID: losingEntrantID,
@@ -194,7 +194,7 @@ struct PlayView: View {
     private func acceptRejoin(_ variant: Variant, for entrant: Entrant) {
         guard let survivalEngine = variant.winCondition.engine as? SurvivalEngine else { return }
         let target = survivalEngine.rejoinTarget(for: match)
-        match.rounds[match.rounds.count - 1].rejoins.append(RejoinEvent(id: entrant.id, to: target))
+        match.recordRejoin(RejoinEvent(id: entrant.id, to: target))
     }
 
     /// Leaves the Match for Home, falling back to an ordinary dismiss where

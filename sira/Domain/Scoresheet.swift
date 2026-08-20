@@ -40,10 +40,12 @@ struct Scoresheet {
         var previousTotals: [Entrant.ID: Int] = Dictionary(uniqueKeysWithValues: match.entrants.map { ($0.id, 0) })
 
         var partial = match
-        partial.rounds = []
+        partial.removeAllRounds()
 
+        // `match.rounds` is sequence-ordered, so a row's number is its position
+        // in that order — never its position in however the Rounds were stored.
         for (index, round) in match.rounds.enumerated() {
-            partial.rounds.append(round)
+            partial.addRound(round)
             let standings = engine.standings(for: partial)
 
             var deltas: [Entrant.ID: Int] = [:]

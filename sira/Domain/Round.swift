@@ -7,6 +7,16 @@ struct RejoinEvent: Hashable {
 
 struct Round: Identifiable, Hashable {
     let id: UUID
+    /// Where this Round sits in its Match, assigned by the Match when the
+    /// Round is added and never renumbered afterwards. Order is carried here
+    /// rather than by position in `Match.rounds` because position is not a
+    /// guarantee a store can make: once Rounds are loaded from a database the
+    /// array arrives in whatever order the framework pleases, and every
+    /// cumulative total in the app depends on getting it right.
+    ///
+    /// Only the last Round is ever removed (Undo), so removal frees the
+    /// highest sequence and the next Round added takes it again.
+    var sequence: Int
     /// Per-Entrant deltas for the keypad entry styles (Survival, Fixed Rounds),
     /// stored **raw** — exactly the counts the player entered, never scaled by
     /// Çifte, Okey atmak or any other Round modifier. The Engines are the only
@@ -31,6 +41,7 @@ struct Round: Identifiable, Hashable {
 
     init(
         id: UUID = UUID(),
+        sequence: Int = 0,
         deltas: [Entrant.ID: Int] = [:],
         rejoins: [RejoinEvent] = [],
         cifteCallers: Set<Entrant.ID> = [],
@@ -39,6 +50,7 @@ struct Round: Identifiable, Hashable {
         gostergeFinderID: Entrant.ID? = nil
     ) {
         self.id = id
+        self.sequence = sequence
         self.deltas = deltas
         self.rejoins = rejoins
         self.cifteCallers = cifteCallers

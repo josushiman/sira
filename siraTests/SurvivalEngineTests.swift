@@ -327,7 +327,7 @@ final class SurvivalEngineTests: XCTestCase {
 
         let before = SurvivalEngine().standings(for: match)
 
-        match.rounds.append(Round(deltas: [a.id: 10, b.id: 15]))
+        match.addRound(Round(deltas: [a.id: 10, b.id: 15]))
         match.undoLastRound()
 
         let after = SurvivalEngine().standings(for: match)
@@ -359,7 +359,7 @@ final class SurvivalEngineTests: XCTestCase {
 
         let before = SurvivalEngine().standings(for: match)
 
-        match.rounds.append(Round(deltas: [a.id: 10, b.id: 15], okeyAtanID: b.id))
+        match.addRound(Round(deltas: [a.id: 10, b.id: 15], okeyAtanID: b.id))
         match.undoLastRound()
 
         let after = SurvivalEngine().standings(for: match)

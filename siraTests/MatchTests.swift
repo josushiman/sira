@@ -53,6 +53,106 @@ final class MatchTests: XCTestCase {
         XCTAssertNil(match(game: .gonga, variantId: "okey-21").variant)
     }
 
+    // MARK: - Round sequence
+
+    private func gongaMatch(rounds: [Round] = []) -> Match {
+        Match(
+            game: .gonga,
+            variant: .gonga101,
+            mode: .players,
+            entrants: [Entrant(name: "Alice")],
+            rounds: rounds
+        )
+    }
+
+    func test_addRoundStampsEachRoundWithTheNextSequence() {
+        var match = gongaMatch()
+
+        match.addRound(Round())
+        match.addRound(Round())
+        match.addRound(Round())
+
+        XCTAssertEqual(match.rounds.map(\.sequence), [0, 1, 2])
+    }
+
+    func test_roundsGivenInPlayedOrderTakeTheirPositionAsTheirSequence() {
+        let match = gongaMatch(rounds: [Round(), Round(), Round()])
+
+        XCTAssertEqual(match.rounds.map(\.sequence), [0, 1, 2])
+    }
+
+    func test_addRoundIgnoresWhateverSequenceTheRoundArrivedWith() {
+        var match = gongaMatch()
+
+        match.addRound(Round(sequence: 99))
+
+        XCTAssertEqual(match.rounds.map(\.sequence), [0])
+    }
+
+    func test_roundsReadInSequenceOrderHoweverTheyAreStored() {
+        let played = [Round(), Round(), Round()]
+        let match = Match(
+            game: .gonga,
+            variantId: Variant.gonga101.id,
+            mode: .players,
+            entrants: [Entrant(name: "Alice")],
+            unorderedRounds: played.enumerated().map { index, round in
+                Round(id: round.id, sequence: index)
+            }.shuffled()
+        )
+
+        XCTAssertEqual(match.rounds.map(\.id), played.map(\.id))
+        XCTAssertEqual(match.rounds.map(\.sequence), [0, 1, 2])
+    }
+
+    func test_undoFreesTheHighestSequenceAndTheNextRoundTakesItAgain() {
+        var match = gongaMatch(rounds: [Round(), Round(), Round()])
+
+        match.undoLastRound()
+        let replacement = Round()
+        match.addRound(replacement)
+
+        XCTAssertEqual(match.rounds.count, 3)
+        XCTAssertEqual(match.rounds.map(\.sequence), [0, 1, 2])
+        XCTAssertEqual(match.rounds.last?.id, replacement.id)
+    }
+
+    func test_undoRemovesTheHighestSequenceRatherThanTheLastStoredRound() {
+        let played = [Round(), Round(), Round()]
+        var match = Match(
+            game: .gonga,
+            variantId: Variant.gonga101.id,
+            mode: .players,
+            entrants: [Entrant(name: "Alice")],
+            unorderedRounds: played.enumerated().map { index, round in
+                Round(id: round.id, sequence: index)
+            }.reversed()
+        )
+
+        match.undoLastRound()
+
+        XCTAssertEqual(match.rounds.map(\.id), [played[0].id, played[1].id])
+    }
+
+    func test_recordRejoinAttachesToTheHighestSequenceRound() {
+        let a = Entrant(name: "Alice")
+        let played = [Round(), Round()]
+        var match = Match(
+            game: .gonga,
+            variantId: Variant.gonga101.id,
+            mode: .players,
+            entrants: [a],
+            unorderedRounds: played.enumerated().map { index, round in
+                Round(id: round.id, sequence: index)
+            }.reversed()
+        )
+
+        match.recordRejoin(RejoinEvent(id: a.id, to: 40))
+
+        XCTAssertEqual(match.rounds.first?.rejoins, [])
+        XCTAssertEqual(match.rounds.last?.rejoins, [RejoinEvent(id: a.id, to: 40)])
+    }
+
     // MARK: - Undo
 
     func test_undoLastRoundRemovesTheMostRecentRound() {

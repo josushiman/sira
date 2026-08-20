@@ -239,7 +239,9 @@ final class FixedRoundsEngineTests: XCTestCase {
         XCTAssertFalse(FixedRoundsEngine().standings(for: match).isOver)
 
         var twelveRounds = match
-        twelveRounds.rounds += (0..<4).map { _ in Round(deltas: [a.id: 5, b.id: 10]) }
+        for _ in 0..<4 {
+            twelveRounds.addRound(Round(deltas: [a.id: 5, b.id: 10]))
+        }
 
         XCTAssertTrue(FixedRoundsEngine().standings(for: twelveRounds).isOver)
     }
@@ -281,7 +283,7 @@ final class FixedRoundsEngineTests: XCTestCase {
 
         let before = FixedRoundsEngine().standings(for: match)
 
-        match.rounds.append(Round(deltas: [a.id: 10, b.id: 15], cifteCallers: [a.id, b.id]))
+        match.addRound(Round(deltas: [a.id: 10, b.id: 15], cifteCallers: [a.id, b.id]))
         match.undoLastRound()
 
         let after = FixedRoundsEngine().standings(for: match)
