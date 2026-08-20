@@ -213,13 +213,10 @@ struct PlayView: View {
 
     private var header: some View {
         HStack(spacing: 11) {
-            // Once Rounds exist, leaving means leaving the Match, not stepping
-            // back into the Setup screen that built it.
-            if match.rounds.isEmpty {
-                BackButton { dismiss() }
-            } else {
-                HomeButton { leave() }
-            }
+            // The Match exists from the moment Play opens, so leaving means
+            // leaving the Match — never stepping back into the Setup screen
+            // that built it, Rounds scored or not.
+            HomeButton { leave() }
 
             VStack(alignment: .leading, spacing: 5) {
                 Text(match.variant.label)
