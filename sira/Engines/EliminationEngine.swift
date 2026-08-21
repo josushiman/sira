@@ -1,6 +1,6 @@
 import Foundation
 
-/// Win Condition for Okey standard: two Entrants (Teams of 2) count down from
+/// Win Condition for Okey 21: two Entrants (Teams of 2) count down from
 /// the Variant's starting score. Each Round the losing team takes a −2
 /// penalty, scaled by that Round's modifiers, and the Gösterge find — one per
 /// Round at most — deducts 1 from the *other* team, never scaled. The Match
@@ -12,8 +12,8 @@ import Foundation
 /// callers are still recorded per Entrant, because the scoresheet shows who
 /// called.
 struct EliminationEngine: MatchEngine {
-    func standings(for match: Match) -> Standings {
-        let startingScore = match.variant.startingScore ?? 0
+    func standings(for match: Match, rounds: [Round]) -> Standings {
+        let startingScore = match.variant?.startingScore ?? 0
 
         var totals: [Entrant.ID: Int] = [:]
         for entrant in match.entrants {
@@ -22,9 +22,9 @@ struct EliminationEngine: MatchEngine {
 
         var lastRoundDeltas: [Entrant.ID: Int] = [:]
 
-        for round in match.rounds {
+        for round in rounds {
             lastRoundDeltas = [:]
-            let multipliers = round.multipliers(in: match)
+            let multipliers = round.multipliers(in: match, winCondition: .elimination)
 
             if let losingID = round.losingEntrantID, totals[losingID] != nil {
                 let penalty = -2 * (multipliers[losingID] ?? 1)

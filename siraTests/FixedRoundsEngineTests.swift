@@ -2,7 +2,7 @@ import XCTest
 @testable import sira
 
 final class FixedRoundsEngineTests: XCTestCase {
-    private let variant = Variant.okey101.choosingRoundCount(8)
+    private let variant = Variant.okey101
 
     private func makeMatch(entrants: [Entrant], rounds: [Round]) -> Match {
         Match(game: .okey, variant: variant, mode: .players, entrants: entrants, rounds: rounds)
@@ -221,6 +221,32 @@ final class FixedRoundsEngineTests: XCTestCase {
         XCTAssertNil(standings.result)
     }
 
+    /// The Match runs for the Round count chosen at Setup, not the Variant's
+    /// default — a 12-Round Okey 101 Match is still going after 8 Rounds.
+    func test_matchRunsForTheSetupChosenRoundCountRatherThanTheVariantsDefault() {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        let rounds = (0..<8).map { _ in Round(deltas: [a.id: 5, b.id: 10]) }
+        let match = Match(
+            game: .okey,
+            variantId: Variant.okey101.id,
+            roundCount: 12,
+            mode: .players,
+            entrants: [a, b],
+            rounds: rounds
+        )
+
+        XCTAssertFalse(FixedRoundsEngine().standings(for: match).isOver)
+
+        // Grown to twelve in place: a Match is a reference type, so a second
+        // name for it would be the same Match rather than an eight-Round copy.
+        for _ in 0..<4 {
+            match.addRound(Round(deltas: [a.id: 5, b.id: 10]))
+        }
+
+        XCTAssertTrue(FixedRoundsEngine().standings(for: match).isOver)
+    }
+
     func test_lowestTotalWinsOnceTheConfiguredRoundCountIsReached() {
         let a = Entrant(name: "Alice")
         let b = Entrant(name: "Bob")
@@ -251,18 +277,41 @@ final class FixedRoundsEngineTests: XCTestCase {
     func test_standingsAfterAppendingThenUndoingARoundMatchStandingsBeforeAppending() {
         let a = Entrant(name: "Alice")
         let b = Entrant(name: "Bob")
-        var match = makeMatch(
+        let match = makeMatch(
             entrants: [a, b],
             rounds: [Round(deltas: [a.id: 20, b.id: 5])]
         )
 
         let before = FixedRoundsEngine().standings(for: match)
 
-        match.rounds.append(Round(deltas: [a.id: 10, b.id: 15], cifteCallers: [a.id, b.id]))
-        match.undoLastRound()
+        match.addRound(Round(deltas: [a.id: 10, b.id: 15], cifteCallers: [a.id, b.id]))
+        _ = match.undoLastRound()
 
         let after = FixedRoundsEngine().standings(for: match)
 
         XCTAssertEqual(before, after)
+    }
+
+    /// The delta from the last Round is the order-sensitive half of Standings:
+    /// totals are a sum and would survive any arrangement, but "last" only
+    /// means something if order does. Storage order must not get to answer it.
+    func test_roundsStoredOutOfOrderStillScoreInSequenceOrder() {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        let inOrder = makeMatch(entrants: [a, b], rounds: [
+            Round(deltas: [a.id: 20, b.id: 0]),
+            Round(deltas: [a.id: 5, b.id: 30]),
+        ])
+
+        let expected = FixedRoundsEngine().standings(for: inOrder)
+        let actual = FixedRoundsEngine().standings(for: inOrder.withEntrantsAndRoundsStoredOutOfOrder())
+
+        XCTAssertEqual(actual, expected)
+        XCTAssertEqual(actual.ranked.first { $0.entrantID == b.id }?.deltaFromLastRound, 30)
+
+        // And the fixture really is order-sensitive, so the equality above
+        // isn't passing because both arrangements happen to score alike.
+        let reversed = makeMatch(entrants: [a, b], rounds: inOrder.rounds.reversed())
+        XCTAssertNotEqual(FixedRoundsEngine().standings(for: reversed), expected)
     }
 }

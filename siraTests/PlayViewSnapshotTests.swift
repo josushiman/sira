@@ -1,13 +1,21 @@
 import XCTest
 import SwiftUI
+import SwiftData
 import SnapshotTesting
 @testable import sira
 
 final class PlayViewSnapshotTests: XCTestCase {
     private func assertPlay(_ match: Match, tab: PlayTab, theme: Theme, testName: String = #function) {
+        // Play mutates only through the store, so it needs one even to render a
+        // Match it never changes — the alternative was an optional store, which
+        // would have left the buttons looking live while dropping every Round.
+        let store = MatchStore()
+        store.add(match)
         let view = NavigationStack {
-            PlayView(match: .constant(match), initialTab: tab)
+            PlayView(match: match, initialTab: tab)
         }
+        .environment(store)
+        .modelContainer(store.container)
         .environment(\.theme, theme)
         .frame(width: 402, height: 874)
 

@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 
 enum PlayTab: String, CaseIterable, Identifiable {
     case standings = "Standings"
@@ -8,9 +9,12 @@ enum PlayTab: String, CaseIterable, Identifiable {
 }
 
 struct PlayView: View {
-    @Binding var match: Match
+    /// The Match itself, not a `Binding` to it. A Match is a model class, so
+    /// this screen and Home hold the same object and a Round added here is
+    /// visible there without anything being written back (`docs/adr/0006`).
+    let match: Match
     @State private var showingKeypadEntry = false
-    @State private var showingOkeyEntry = false
+    @State private var showingOkey21Entry = false
     @State private var rejoinQueue: [Entrant.ID] = []
     @State private var selectedTab: PlayTab
 
@@ -19,15 +23,34 @@ struct PlayView: View {
     /// Optional so Play still renders on its own in a preview or a snapshot,
     /// where nothing above it is doing any navigating.
     @Environment(Navigator.self) private var navigator: Navigator?
+    /// Not optional, unlike `navigator`: every mutation on this screen goes
+    /// through the store, so a missing one would not disable the buttons — it
+    /// would leave them looking live and silently drop the Round. A Match being
+    /// played always has a store behind it.
+    @Environment(MatchStore.self) private var store
 
-    init(match: Binding<Match>, initialTab: PlayTab = .standings) {
-        _match = match
+    init(match: Match, initialTab: PlayTab = .standings) {
+        self.match = match
         _selectedTab = State(initialValue: initialTab)
     }
 
-    private var engine: MatchEngine { match.variant.winCondition.engine }
-
+    @ViewBuilder
     var body: some View {
+        // A Match naming a Variant this build doesn't know has no rules to
+        // score it by, so it is skipped rather than played under a substitute.
+        // In practice this always resolves: Home names a Match by id and
+        // resolves it through `scorableMatch` first, and Setup only ever hands
+        // over a Match it just built from the Variant it is holding. So this
+        // stays as the last word on a Match Play cannot score, rather than as
+        // the thing keeping the player off a blank screen.
+        if let variant = match.variant {
+            play(variant)
+        }
+    }
+
+    @ViewBuilder
+    private func play(_ variant: Variant) -> some View {
+        let engine = variant.winCondition.engine
         let standings = engine.standings(for: match)
 
         ScrollView {
@@ -38,7 +61,7 @@ struct PlayView: View {
 
                 switch selectedTab {
                 case .standings:
-                    standingsContent(standings)
+                    standingsContent(variant, standings)
                 case .scoresheet:
                     ScoresheetView(match: match, engine: engine)
                 }
@@ -50,38 +73,38 @@ struct PlayView: View {
         .foregroundStyle(theme.ink)
         .toolbar(.hidden, for: .navigationBar)
         .safeAreaInset(edge: .top, spacing: 0) {
-            header
+            header(variant)
                 .padding(.horizontal, 22)
                 .padding(.top, 6)
                 .background(theme.background)
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            addRoundButton(isOver: standings.isOver)
+            addRoundButton(variant, isOver: standings.isOver)
                 .padding(.horizontal, 22)
                 .padding(.vertical, 10)
                 .background(theme.background)
         }
         .navigationDestination(isPresented: $showingKeypadEntry) {
-            keypadRoundEntry(standings)
+            keypadRoundEntry(variant, standings)
         }
-        .navigationDestination(isPresented: $showingOkeyEntry) {
-            okeyStandardRoundEntry
+        .navigationDestination(isPresented: $showingOkey21Entry) {
+            okey21RoundEntry
         }
         .sheet(item: rejoinBinding) { entrant in
             if let survivalEngine = engine as? SurvivalEngine {
                 RejoinSheet(
                     entrant: entrant,
                     score: standings.ranked.first { $0.entrantID == entrant.id }?.total ?? 0,
-                    limit: match.variant.limit ?? 0,
+                    limit: variant.limit ?? 0,
                     target: survivalEngine.rejoinTarget(for: match),
-                    onAccept: { acceptRejoin(for: entrant) }
+                    onAccept: { acceptRejoin(variant, for: entrant) }
                 )
             }
         }
     }
 
     @ViewBuilder
-    private func standingsContent(_ standings: Standings) -> some View {
+    private func standingsContent(_ variant: Variant, _ standings: Standings) -> some View {
         if standings.isOver {
             MatchOverBanner(text: standings.result ?? "Match over")
                 .padding(.bottom, 14)
@@ -95,14 +118,14 @@ struct PlayView: View {
                         rank: index + 1,
                         badgeIndex: badgeIndex(for: standing.entrantID),
                         isLeader: index == 0 && !standing.isOut && !standings.isOver,
-                        maxAbsTotal: maxAbsTotal(standings),
-                        roomLeft: roomLeft(for: standing)
+                        maxAbsTotal: maxAbsTotal(variant, standings),
+                        roomLeft: roomLeft(variant, for: standing)
                     )
                 }
             }
         }
 
-        let stats = PlayStats(match: match, standings: standings)
+        let stats = PlayStats(variant: variant, match: match, standings: standings)
         HStack(spacing: 10) {
             StatTile(label: stats.leadLabel, value: stats.leadValue)
             StatTile(label: stats.secondaryLabel, value: stats.secondaryValue)
@@ -117,20 +140,20 @@ struct PlayView: View {
     /// How much an Entrant can still take before passing the Variant's limit.
     /// Only Survival Variants have a limit to run out of, and an Entrant
     /// already Out has none left to report — both read as `nil`.
-    private func roomLeft(for standing: EntrantStanding) -> Int? {
-        guard let limit = match.variant.limit, !standing.isOut else { return nil }
+    private func roomLeft(_ variant: Variant, for standing: EntrantStanding) -> Int? {
+        guard let limit = variant.limit, !standing.isOut else { return nil }
         return max(0, limit - standing.total)
     }
 
     /// The largest total magnitude among all Standings, used to normalize
     /// each Standing's progress-bar width — matches the prototype's `maxAbs`.
-    private func maxAbsTotal(_ standings: Standings) -> Int {
+    private func maxAbsTotal(_ variant: Variant, _ standings: Standings) -> Int {
         let entrantMax = standings.ranked.map { abs($0.total) }.max() ?? 0
-        let variantScale = match.variant.limit ?? match.variant.startingScore ?? entrantMax
+        let variantScale = variant.limit ?? variant.startingScore ?? entrantMax
         return max(1, variantScale)
     }
 
-    private func keypadRoundEntry(_ standings: Standings) -> some View {
+    private func keypadRoundEntry(_ variant: Variant, _ standings: Standings) -> some View {
         let stillIn = match.entrants.filter { entrant in
             standings.ranked.first { $0.entrantID == entrant.id }.map { !$0.isOut } ?? true
         }
@@ -141,8 +164,8 @@ struct PlayView: View {
             roundNumber: match.rounds.count + 1,
             totals: totals,
             badgeIndices: badgeIndices,
-            neverLaidDownValue: match.variant.neverLaidDownValue,
-            supportsCifte: match.variant.supportsCifte,
+            neverLaidDownValue: variant.neverLaidDownValue,
+            supportsCifte: variant.supportsCifte,
             game: match.game
         ) { deltas, cifteCallers, okeyAtanID in
             // Pop this push first and defer the Round append (which may present
@@ -151,30 +174,36 @@ struct PlayView: View {
             // lose, silently dropping the Rejoin sheet.
             showingKeypadEntry = false
             DispatchQueue.main.async {
-                match.rounds.append(Round(
-                    deltas: deltas,
-                    cifteCallers: cifteCallers,
-                    okeyAtanID: okeyAtanID
-                ))
-                if let survivalEngine = engine as? SurvivalEngine {
+                store.addRound(
+                    Round(
+                        deltas: deltas,
+                        cifteCallers: cifteCallers,
+                        okeyAtanID: okeyAtanID
+                    ),
+                    to: match
+                )
+                if let survivalEngine = variant.winCondition.engine as? SurvivalEngine {
                     rejoinQueue.append(contentsOf: survivalEngine.newlyOutEntrantIDs(for: match))
                 }
             }
         }
     }
 
-    private var okeyStandardRoundEntry: some View {
-        OkeyStandardRoundEntryView(entrants: match.entrants, roundNumber: match.rounds.count + 1) { losingEntrantID, gostergeFinderID, cifteCallers, okeyAtti in
-            showingOkeyEntry = false
+    private var okey21RoundEntry: some View {
+        Okey21RoundEntryView(entrants: match.entrants, roundNumber: match.rounds.count + 1) { losingEntrantID, gostergeFinderID, cifteCallers, okeyAtti in
+            showingOkey21Entry = false
             DispatchQueue.main.async {
                 // Okey atmak is winning the Round, so the atan is the other team.
                 let winnerID = match.entrants.first { $0.id != losingEntrantID }?.id
-                match.rounds.append(Round(
-                    cifteCallers: cifteCallers,
-                    okeyAtanID: okeyAtti ? winnerID : nil,
-                    losingEntrantID: losingEntrantID,
-                    gostergeFinderID: gostergeFinderID
-                ))
+                store.addRound(
+                    Round(
+                        cifteCallers: cifteCallers,
+                        okeyAtanID: okeyAtti ? winnerID : nil,
+                        losingEntrantID: losingEntrantID,
+                        gostergeFinderID: gostergeFinderID
+                    ),
+                    to: match
+                )
             }
         }
     }
@@ -190,10 +219,10 @@ struct PlayView: View {
         )
     }
 
-    private func acceptRejoin(for entrant: Entrant) {
-        guard let survivalEngine = engine as? SurvivalEngine else { return }
+    private func acceptRejoin(_ variant: Variant, for entrant: Entrant) {
+        guard let survivalEngine = variant.winCondition.engine as? SurvivalEngine else { return }
         let target = survivalEngine.rejoinTarget(for: match)
-        match.rounds[match.rounds.count - 1].rejoins.append(RejoinEvent(id: entrant.id, to: target))
+        store.recordRejoin(RejoinEvent(id: entrant.id, to: target), in: match)
     }
 
     /// Leaves the Match for Home, falling back to an ordinary dismiss where
@@ -208,10 +237,10 @@ struct PlayView: View {
 
     private func undoLastRound() {
         rejoinQueue.removeAll()
-        match.undoLastRound()
+        store.undoLastRound(in: match)
     }
 
-    private var header: some View {
+    private func header(_ variant: Variant) -> some View {
         HStack(spacing: 11) {
             // The Match exists from the moment Play opens, so leaving means
             // leaving the Match — never stepping back into the Setup screen
@@ -219,7 +248,7 @@ struct PlayView: View {
             HomeButton { leave() }
 
             VStack(alignment: .leading, spacing: 5) {
-                Text(match.variant.label)
+                Text(variant.label)
                     .siraStyle(.subheadline)
                 Text(sira: .monoLabel, playSubtitle)
                     .foregroundStyle(theme.ink.opacity(0.5))
@@ -243,9 +272,9 @@ struct PlayView: View {
     private var archiveButton: some View {
         Button {
             if match.archived {
-                match.restore()
+                store.restore(match)
             } else {
-                match.archive()
+                store.archive(match)
                 // Archiving is done with this Match, so it lands on Home
                 // rather than on whatever screen happened to push it.
                 leave()
@@ -282,11 +311,11 @@ struct PlayView: View {
     }
 
     @ViewBuilder
-    private func addRoundButton(isOver: Bool) -> some View {
+    private func addRoundButton(_ variant: Variant, isOver: Bool) -> some View {
         Button {
-            switch match.variant.entryStyle {
+            switch variant.entryStyle {
             case .keypad: showingKeypadEntry = true
-            case .okeyStandard: showingOkeyEntry = true
+            case .okey21: showingOkey21Entry = true
             }
         } label: {
             Text(isOver ? "Match finished" : "Add round \(match.rounds.count + 1) scores")
@@ -442,59 +471,20 @@ struct RejoinSheet: View {
     @Environment(\.theme) private var theme
 
     var body: some View {
-        VStack(spacing: 0) {
-            Spacer(minLength: 0)
-            bottomSheet
-        }
-        .presentationDetents([.medium])
-        .presentationDragIndicator(.hidden)
-        .presentationBackground(.clear)
-    }
-
-    private var bottomSheet: some View {
-        BottomSheetContent {
-            VStack(alignment: .leading, spacing: 10) {
-                Text("\(entrant.name) is Out")
-                    .siraStyle(.displayTitle)
-                Text("\(entrant.name) passed \(limit) on \(score). They can rejoin at the highest score still on the table.")
-                    .siraStyle(.body)
-                    .foregroundStyle(theme.ink.opacity(0.6))
-
-                VStack(spacing: 9) {
-                    Button {
-                        onAccept()
-                        dismiss()
-                    } label: {
-                        Text("Rejoin at \(target)")
-                            .siraStyle(.subheadline)
-                            .fontWeight(.semibold)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 52)
-                            .contentShape(RoundedRectangle(cornerRadius: 17, style: .continuous))
-                    }
-                    .foregroundStyle(theme.background)
-                    .background(theme.ink, in: RoundedRectangle(cornerRadius: 17, style: .continuous))
-                    .buttonStyle(.plain)
-
-                    Button {
-                        dismiss()
-                    } label: {
-                        Text("They're out")
-                            .siraStyle(.subheadline)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 52)
-                            .contentShape(RoundedRectangle(cornerRadius: 17, style: .continuous))
-                    }
-                    .foregroundStyle(theme.ink.opacity(0.75))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 17, style: .continuous)
-                            .stroke(theme.line, lineWidth: 1)
-                    }
-                    .buttonStyle(.plain)
-                }
-                .padding(.top, 12)
+        DecisionSheet(
+            title: "\(entrant.name) is Out",
+            explanation: "\(entrant.name) passed \(limit) on \(score). They can rejoin at the highest score still on the table."
+        ) {
+            SheetButton(
+                title: "Rejoin at \(target)",
+                emphasis: .filled(background: theme.ink, foreground: theme.background)
+            ) {
+                onAccept()
+                dismiss()
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            SheetButton(title: "They're out", emphasis: .outlined) {
+                dismiss()
+            }
         }
     }
 }
@@ -521,37 +511,58 @@ struct MatchOverBanner: View {
 }
 
 #Preview {
-    NavigationStack {
-        PlayView(match: .constant(Match(
-            game: .gonga,
-            variant: .gonga101,
-            mode: .players,
-            entrants: [Entrant(name: "Alice"), Entrant(name: "Bob")]
-        )))
-    }
-    .themed()
+    PlayPreview(
+        game: .gonga,
+        variant: .gonga101,
+        mode: .players,
+        names: ["Alice", "Bob"]
+    )
 }
 
-#Preview("Okey standard") {
-    NavigationStack {
-        PlayView(match: .constant(Match(
-            game: .okey,
-            variant: .okeyStandard,
-            mode: .teams,
-            entrants: [Entrant(name: "Team A"), Entrant(name: "Team B")]
-        )))
-    }
-    .themed()
+#Preview("Okey 21") {
+    PlayPreview(
+        game: .okey,
+        variant: .okey21,
+        mode: .teams,
+        names: ["Team A", "Team B"]
+    )
 }
 
 #Preview("Okey 101") {
-    NavigationStack {
-        PlayView(match: .constant(Match(
-            game: .okey,
-            variant: .okey101,
-            mode: .players,
-            entrants: [Entrant(name: "Alice"), Entrant(name: "Bob")]
-        )))
+    PlayPreview(
+        game: .okey,
+        variant: .okey101,
+        mode: .players,
+        names: ["Alice", "Bob"]
+    )
+}
+
+/// Play over a store of its own, so the buttons that change the Match have
+/// somewhere to change it — a Match now has to be inserted somewhere to be
+/// played, where a `.constant` binding used to do.
+private struct PlayPreview: View {
+    @State private var store: MatchStore
+    private let match: Match
+
+    init(game: Game, variant: Variant, mode: EntrantMode, names: [String]) {
+        let store = MatchStore()
+        let match = Match(
+            game: game,
+            variant: variant,
+            mode: mode,
+            entrants: names.map { Entrant(name: $0) }
+        )
+        store.add(match)
+        _store = State(initialValue: store)
+        self.match = match
     }
-    .themed()
+
+    var body: some View {
+        NavigationStack {
+            PlayView(match: match)
+        }
+        .environment(store)
+        .modelContainer(store.container)
+        .themed()
+    }
 }

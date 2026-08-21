@@ -6,8 +6,8 @@ import Foundation
 /// the only Win Condition where Çifte's asymmetry is observable, having more
 /// than one loser for a winning caller to double.
 struct FixedRoundsEngine: MatchEngine {
-    func standings(for match: Match) -> Standings {
-        let roundCount = match.variant.roundCount ?? .max
+    func standings(for match: Match, rounds: [Round]) -> Standings {
+        let roundCount = match.variant?.roundCount ?? .max
 
         var totals: [Entrant.ID: Int] = [:]
         for entrant in match.entrants {
@@ -16,9 +16,9 @@ struct FixedRoundsEngine: MatchEngine {
 
         var lastRoundDeltas: [Entrant.ID: Int] = [:]
 
-        for round in match.rounds {
+        for round in rounds {
             lastRoundDeltas = [:]
-            let multipliers = round.multipliers(in: match)
+            let multipliers = round.multipliers(in: match, winCondition: .fixedRounds)
             for entrant in match.entrants {
                 guard let delta = round.deltas[entrant.id] else { continue }
                 let appliedDelta = delta * (multipliers[entrant.id] ?? 1)
@@ -27,7 +27,7 @@ struct FixedRoundsEngine: MatchEngine {
             }
         }
 
-        let isOver = match.rounds.count >= roundCount
+        let isOver = rounds.count >= roundCount
 
         let ranked = match.entrants
             .map { entrant in

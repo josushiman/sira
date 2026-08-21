@@ -157,7 +157,7 @@ final class ScoresheetTests: XCTestCase {
     func test_undoingARoundRemovesItsRowAndUpdatesTotalsImmediately() {
         let a = Entrant(name: "Alice")
         let b = Entrant(name: "Bob")
-        var match = makeMatch(
+        let match = makeMatch(
             entrants: [a, b],
             rounds: [
                 Round(deltas: [a.id: 20, b.id: 5]),
@@ -165,7 +165,7 @@ final class ScoresheetTests: XCTestCase {
             ]
         )
 
-        match.undoLastRound()
+        _ = match.undoLastRound()
 
         let scoresheet = Scoresheet(match: match, engine: engine)
 
@@ -173,5 +173,32 @@ final class ScoresheetTests: XCTestCase {
         XCTAssertEqual(scoresheet.totals, engine.standings(for: match))
         let aliceTotal = scoresheet.totals.ranked.first { $0.entrantID == a.id }!.total
         XCTAssertEqual(aliceTotal, 20)
+    }
+
+    func test_aMatchWhoseRoundsAreStoredOutOfOrderScoresAndReadsInSequenceOrder() {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        // Order is load-bearing here: Alice goes Out on the first Round and
+        // rejoins at 20, so the second Round's 10 lands on 20 rather than on
+        // the 105 it would if these Rounds were scored the other way round.
+        let played = [
+            Round(deltas: [a.id: 105, b.id: 5], rejoins: [RejoinEvent(id: a.id, to: 20)]),
+            Round(deltas: [a.id: 10, b.id: 15]),
+        ]
+        let inOrder = makeMatch(entrants: [a, b], rounds: played)
+        let outOfOrder = inOrder.withEntrantsAndRoundsStoredOutOfOrder()
+
+        let expected = Scoresheet(match: inOrder, engine: engine)
+        let actual = Scoresheet(match: outOfOrder, engine: engine)
+
+        XCTAssertEqual(actual.rows.map(\.id), played.map(\.id))
+        XCTAssertEqual(actual.rows.map(\.roundNumber), [1, 2])
+        XCTAssertEqual(actual.rows.map(\.deltas), expected.rows.map(\.deltas))
+        XCTAssertEqual(actual.totals, expected.totals)
+
+        // And the fixture really is order-sensitive, so the assertions above
+        // aren't passing because both orders happen to score the same.
+        let reversed = makeMatch(entrants: [a, b], rounds: played.reversed())
+        XCTAssertNotEqual(engine.standings(for: reversed), expected.totals)
     }
 }

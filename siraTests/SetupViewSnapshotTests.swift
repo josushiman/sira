@@ -23,12 +23,12 @@ final class SetupViewSnapshotTests: XCTestCase {
         assertSetup(.gonga101, theme: .felt)
     }
 
-    func test_okeyStandard_teamsOnlyVariant_paper() {
-        assertSetup(.okeyStandard, theme: .paper)
+    func test_okey21_teamsOnlyVariant_paper() {
+        assertSetup(.okey21, theme: .paper)
     }
 
-    func test_okeyStandard_teamsOnlyVariant_felt() {
-        assertSetup(.okeyStandard, theme: .felt)
+    func test_okey21_teamsOnlyVariant_felt() {
+        assertSetup(.okey21, theme: .felt)
     }
 
     func test_okey101_roundCountChips_paper() {

@@ -1,6 +1,9 @@
 import Foundation
 
-enum Game: String, Hashable, CaseIterable {
+/// One of the two games Sıra keeps score for. Stored on a Match, so its raw
+/// values are part of the stored form and must stay stable — the same contract
+/// `Variant.id` carries.
+enum Game: String, Codable, Hashable, CaseIterable {
     case gonga
     case okey
 

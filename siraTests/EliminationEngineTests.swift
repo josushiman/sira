@@ -2,7 +2,7 @@ import XCTest
 @testable import sira
 
 final class EliminationEngineTests: XCTestCase {
-    private let variant = Variant.okeyStandard
+    private let variant = Variant.okey21
 
     private func makeMatch(entrants: [Entrant], rounds: [Round]) -> Match {
         Match(game: .okey, variant: variant, mode: .teams, entrants: entrants, rounds: rounds)
@@ -217,15 +217,15 @@ final class EliminationEngineTests: XCTestCase {
     func test_standingsAfterAppendingThenUndoingARoundMatchStandingsBeforeAppending() {
         let a = Entrant(name: "Team A")
         let b = Entrant(name: "Team B")
-        var match = makeMatch(
+        let match = makeMatch(
             entrants: [a, b],
             rounds: [Round(losingEntrantID: a.id)]
         )
 
         let before = EliminationEngine().standings(for: match)
 
-        match.rounds.append(Round(losingEntrantID: b.id, gostergeFinderID: a.id))
-        match.undoLastRound()
+        match.addRound(Round(losingEntrantID: b.id, gostergeFinderID: a.id))
+        _ = match.undoLastRound()
 
         let after = EliminationEngine().standings(for: match)
 
@@ -245,5 +245,27 @@ final class EliminationEngineTests: XCTestCase {
         let standings = EliminationEngine().standings(for: match)
 
         XCTAssertEqual(standings.ranked.map(\.name), ["Team B", "Team A"])
+    }
+
+    /// As for the keypad Engines: the countdown totals would survive any
+    /// arrangement, but the delta from the last Round only means something if
+    /// order does.
+    func test_roundsStoredOutOfOrderStillScoreInSequenceOrder() {
+        let a = Entrant(name: "Team A")
+        let b = Entrant(name: "Team B")
+        let inOrder = makeMatch(entrants: [a, b], rounds: [
+            Round(losingEntrantID: a.id),
+            Round(losingEntrantID: b.id, gostergeFinderID: a.id),
+        ])
+
+        let expected = EliminationEngine().standings(for: inOrder)
+        let actual = EliminationEngine().standings(for: inOrder.withEntrantsAndRoundsStoredOutOfOrder())
+
+        XCTAssertEqual(actual, expected)
+        // Team B took the −2 and the Gösterge deduction on the last Round.
+        XCTAssertEqual(actual.ranked.first { $0.entrantID == b.id }?.deltaFromLastRound, -3)
+
+        let reversed = makeMatch(entrants: [a, b], rounds: inOrder.rounds.reversed())
+        XCTAssertNotEqual(EliminationEngine().standings(for: reversed), expected)
     }
 }

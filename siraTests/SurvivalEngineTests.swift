@@ -320,15 +320,15 @@ final class SurvivalEngineTests: XCTestCase {
     func test_standingsAfterAppendingThenUndoingARoundMatchStandingsBeforeAppending() {
         let a = Entrant(name: "Alice")
         let b = Entrant(name: "Bob")
-        var match = makeMatch(
+        let match = makeMatch(
             entrants: [a, b],
             rounds: [Round(deltas: [a.id: 20, b.id: 5])]
         )
 
         let before = SurvivalEngine().standings(for: match)
 
-        match.rounds.append(Round(deltas: [a.id: 10, b.id: 15]))
-        match.undoLastRound()
+        match.addRound(Round(deltas: [a.id: 10, b.id: 15]))
+        _ = match.undoLastRound()
 
         let after = SurvivalEngine().standings(for: match)
 
@@ -338,12 +338,12 @@ final class SurvivalEngineTests: XCTestCase {
     func test_undoReversesAnEntrantGoingOut() {
         let a = Entrant(name: "Alice")
         let b = Entrant(name: "Bob")
-        var match = makeMatch(
+        let match = makeMatch(
             entrants: [a, b],
             rounds: [Round(deltas: [a.id: 105, b.id: 20])]
         )
 
-        match.undoLastRound()
+        _ = match.undoLastRound()
 
         let standings = SurvivalEngine().standings(for: match)
         XCTAssertTrue(standings.ranked.allSatisfy { !$0.isOut })
@@ -352,15 +352,15 @@ final class SurvivalEngineTests: XCTestCase {
     func test_undoReversesADoubledRound() {
         let a = Entrant(name: "Alice")
         let b = Entrant(name: "Bob")
-        var match = makeMatch(
+        let match = makeMatch(
             entrants: [a, b],
             rounds: [Round(deltas: [a.id: 20, b.id: 5])]
         )
 
         let before = SurvivalEngine().standings(for: match)
 
-        match.rounds.append(Round(deltas: [a.id: 10, b.id: 15], okeyAtanID: b.id))
-        match.undoLastRound()
+        match.addRound(Round(deltas: [a.id: 10, b.id: 15], okeyAtanID: b.id))
+        _ = match.undoLastRound()
 
         let after = SurvivalEngine().standings(for: match)
 
@@ -370,7 +370,7 @@ final class SurvivalEngineTests: XCTestCase {
     func test_undoOfRoundThatTriggeredARejoinReversesTheRejoin() {
         let a = Entrant(name: "Alice")
         let b = Entrant(name: "Bob")
-        var match = makeMatch(
+        let match = makeMatch(
             entrants: [a, b],
             rounds: [
                 Round(deltas: [a.id: 110, b.id: 20]),
@@ -378,7 +378,7 @@ final class SurvivalEngineTests: XCTestCase {
             ]
         )
 
-        match.undoLastRound()
+        _ = match.undoLastRound()
 
         let standings = SurvivalEngine().standings(for: match)
         let alice = standings.ranked.first { $0.entrantID == a.id }!
@@ -409,5 +409,27 @@ final class SurvivalEngineTests: XCTestCase {
         XCTAssertEqual(alice.total, 40)
         XCTAssertFalse(bob.isOut)
         XCTAssertEqual(bob.total, 40)
+    }
+
+    /// The Rejoin offer is the one place that compares a Match to itself minus
+    /// its last Round, so it depends on `undoLastRound()` taking the highest
+    /// sequence rather than whatever happens to sit last in storage.
+    func test_newlyOutIsReadFromSequenceOrderNotStorageOrder() {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        // Alice passes 101 on the *first* Round, so by the last one she is
+        // already Out and no Rejoin is owed.
+        let inOrder = makeMatch(entrants: [a, b], rounds: [
+            Round(deltas: [a.id: 105, b.id: 10]),
+            Round(deltas: [a.id: 0, b.id: 10]),
+        ])
+
+        XCTAssertEqual(SurvivalEngine().newlyOutEntrantIDs(for: inOrder), [])
+        XCTAssertEqual(SurvivalEngine().newlyOutEntrantIDs(for: inOrder.withEntrantsAndRoundsStoredOutOfOrder()), [])
+
+        // Played the other way round she goes Out *on* the last Round, which is
+        // what makes this fixture worth asserting on.
+        let reversed = makeMatch(entrants: [a, b], rounds: inOrder.rounds.reversed())
+        XCTAssertEqual(SurvivalEngine().newlyOutEntrantIDs(for: reversed), [a.id])
     }
 }

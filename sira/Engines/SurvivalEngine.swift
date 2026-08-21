@@ -3,8 +3,8 @@ import Foundation
 /// Win Condition for Gonga 101/151: Entrants accumulate score; passing the
 /// Variant's limit sends them Out; the last Entrant not Out wins.
 struct SurvivalEngine: MatchEngine {
-    func standings(for match: Match) -> Standings {
-        let limit = match.variant.limit ?? .max
+    func standings(for match: Match, rounds: [Round]) -> Standings {
+        let limit = match.variant?.limit ?? .max
 
         var totals: [Entrant.ID: Int] = [:]
         var isOut: [Entrant.ID: Bool] = [:]
@@ -15,9 +15,9 @@ struct SurvivalEngine: MatchEngine {
 
         var lastRoundDeltas: [Entrant.ID: Int] = [:]
 
-        for round in match.rounds {
+        for round in rounds {
             lastRoundDeltas = [:]
-            let multipliers = round.multipliers(in: match)
+            let multipliers = round.multipliers(in: match, winCondition: .survival)
             for entrant in match.entrants {
                 guard isOut[entrant.id] == false, let delta = round.deltas[entrant.id] else { continue }
                 let appliedDelta = delta * (multipliers[entrant.id] ?? 1)
@@ -71,7 +71,7 @@ struct SurvivalEngine: MatchEngine {
     /// the Variant's limit so a Rejoin can never resume an Entrant already Out by
     /// the game's own rule.
     func rejoinTarget(for match: Match) -> Int {
-        let limit = match.variant.limit ?? .max
+        let limit = match.variant?.limit ?? .max
         let ranked = standings(for: match).ranked
         let stillIn = ranked.filter { !$0.isOut }.map(\.total).max()
         let target = stillIn ?? ranked.map(\.total).max() ?? 0
@@ -81,13 +81,11 @@ struct SurvivalEngine: MatchEngine {
     /// IDs of Entrants who are Out after the last Round but were not Out before it,
     /// i.e. entrants a Rejoin sheet should be offered to right now.
     func newlyOutEntrantIDs(for match: Match) -> [Entrant.ID] {
-        guard !match.rounds.isEmpty else { return [] }
+        let played = match.rounds
+        guard !played.isEmpty else { return [] }
 
-        var priorMatch = match
-        priorMatch.rounds.removeLast()
-
-        let before = standings(for: priorMatch)
-        let after = standings(for: match)
+        let before = standings(for: match, rounds: Array(played.dropLast()))
+        let after = standings(for: match, rounds: played)
 
         let outBefore = Set(before.ranked.filter(\.isOut).map(\.entrantID))
         return after.ranked

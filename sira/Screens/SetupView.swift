@@ -8,7 +8,9 @@ struct SetupView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var entrantNames: [String]
     @State private var roundCount: Int
-    @State private var startedMatchID: Match.ID?
+    /// The Match this screen started, held directly rather than by id: it is a
+    /// model class, so there is nothing to look it back up from.
+    @State private var startedMatch: Match?
 
     init(variant: Variant) {
         self.variant = variant
@@ -21,7 +23,7 @@ struct SetupView: View {
     private var mode: EntrantMode { variant.entrantMode }
     private var entrantLabel: String { mode == .teams ? "Team" : "Player" }
     /// Only worth showing when the Variant actually allows more than the
-    /// minimum — Okey standard is always exactly two teams.
+    /// minimum — Okey 21 is always exactly two teams.
     private var showsCountSelector: Bool { variant.maxEntrants > 2 }
     private var entrantCountOptions: [Int] { Array(2...variant.maxEntrants) }
     private var offersRoundCountChoice: Bool { variant.winCondition == .fixedRounds }
@@ -76,8 +78,8 @@ struct SetupView: View {
                 .padding(.vertical, 10)
                 .background(theme.background)
         }
-        .navigationDestination(item: $startedMatchID) { id in
-            PlayView(match: store.binding(for: id))
+        .navigationDestination(item: $startedMatch) { match in
+            PlayView(match: match)
         }
     }
 
@@ -130,10 +132,19 @@ struct SetupView: View {
             let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
             return Entrant(name: trimmed.isEmpty ? "\(entrantLabel) \(index + 1)" : trimmed)
         }
-        let matchVariant = offersRoundCountChoice ? variant.choosingRoundCount(roundCount) : variant
-        let match = Match(game: matchVariant.game, variant: matchVariant, mode: mode, entrants: entrants)
+        // The Match names its Variant rather than copying it, so all Setup
+        // records is the id plus the Round count where the Variant takes one.
+        // Only Fixed Rounds Variants offer that choice, so every other Variant
+        // records nothing and resolves its Round count from the constant.
+        let match = Match(
+            game: variant.game,
+            variantId: variant.id,
+            roundCount: offersRoundCountChoice ? roundCount : nil,
+            mode: mode,
+            entrants: entrants
+        )
         store.add(match)
-        startedMatchID = match.id
+        startedMatch = match
     }
 }
 
@@ -171,9 +182,9 @@ private struct NameRow: View {
     .themed()
 }
 
-#Preview("Okey standard") {
+#Preview("Okey 21") {
     NavigationStack {
-        SetupView(variant: .okeyStandard)
+        SetupView(variant: .okey21)
     }
     .environment(MatchStore())
     .themed()

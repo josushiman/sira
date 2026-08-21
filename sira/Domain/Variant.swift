@@ -4,11 +4,16 @@ import Foundation
 enum RoundEntryStyle: Hashable {
     /// Per-Entrant numeric keypad (Gonga 101/151, Okey 101).
     case keypad
-    /// Pick the losing team plus Gösterge steppers (Okey standard).
-    case okeyStandard
+    /// Pick the losing team plus Gösterge steppers (Okey 21).
+    case okey21
 }
 
 struct Variant: Identifiable, Hashable {
+    /// Stable identity for this Variant, and a persistence contract once the
+    /// app ships: a Match stores this string and resolves its rules from it,
+    /// so renaming one orphans every Match that names it. Treat these ids as
+    /// frozen — add a new Variant rather than retitling an existing id, and
+    /// keep `VariantTests` asserting each one explicitly.
     let id: String
     let game: Game
     let label: String
@@ -18,14 +23,14 @@ struct Variant: Identifiable, Hashable {
     let limit: Int?
     /// Elimination: the score Entrants count down from.
     let startingScore: Int?
-    /// Fixed Rounds: the number of Rounds the Match runs for. Settable at
-    /// Setup so a chosen round count (Okey 101: 8 or 12) can be recorded on
-    /// the Match's own copy of the Variant via `choosingRoundCount(_:)`.
+    /// Fixed Rounds: the number of Rounds the Match runs for. Var rather than
+    /// let because a Match resolving this Variant applies the Round count
+    /// chosen at Setup (Okey 101: 8 or 12) on top of it.
     var roundCount: Int?
     /// The single Entrant mode this Variant is played in. Every Variant is
-    /// fixed to one — only Okey standard is played in Teams of 2; Gonga
-    /// 101/151 and Okey 101 are individuals only — so Setup records this
-    /// rather than offering a Players/Teams choice.
+    /// fixed to one — only Okey 21 is played in Teams of 2; Gonga 101/151
+    /// and Okey 101 are individuals only — so Setup records this rather than
+    /// offering a Players/Teams choice.
     let entrantMode: EntrantMode
     /// The largest number of Entrants Setup will let you pick. Teams Variants
     /// are always exactly 2; Gonga seats up to 8 players, Okey 101 up to 4.
@@ -68,8 +73,8 @@ extension Variant {
         supportsCifte: false
     )
 
-    static let okeyStandard = Variant(
-        id: "okey-standard",
+    static let okey21 = Variant(
+        id: "okey-21",
         game: .okey,
         label: "Okey 21",
         ruleText: "Teams of 2 count down from 21. The losing team takes \u{2212}2 each Round; each Gösterge find deducts 1 from the other team. First team to reach 0 loses.",
@@ -80,7 +85,7 @@ extension Variant {
         entrantMode: .teams,
         maxEntrants: 2,
         supportsCifte: true,
-        entryStyle: .okeyStandard
+        entryStyle: .okey21
     )
 
     static let okey101 = Variant(
@@ -103,16 +108,7 @@ extension Variant {
     static func all(for game: Game) -> [Variant] {
         switch game {
         case .gonga: return [.gonga101, .gonga151]
-        case .okey: return [.okeyStandard, .okey101]
+        case .okey: return [.okey21, .okey101]
         }
-    }
-
-    /// Returns a copy of this Variant with its Round count set to `roundCount`,
-    /// used by Setup to record Okey 101's 8-or-12 choice on the Match's own
-    /// copy before the Match is created.
-    func choosingRoundCount(_ roundCount: Int) -> Variant {
-        var copy = self
-        copy.roundCount = roundCount
-        return copy
     }
 }

@@ -20,7 +20,8 @@ A player or a team of two, scored uniformly regardless of which. A Match is eith
 _Avoid_: player, team, side (as a generic term — use Entrant when talking about either).
 
 **Round**:
-One scored turn within a Match. Produces a per-Entrant delta and, for limit Variants, may trigger an Entrant going Out.
+One scored turn within a Match. Produces a per-Entrant delta and, for limit Variants, may trigger an Entrant going Out. Every Round knows where it sits in its Match — its **sequence** — rather than that being implied by the order it happens to be held in; cumulative totals, the delta from the last Round, Scoresheet row numbers and Undo all read that sequence. Sequences are assigned when a Round is added and never renumbered: Undo removes only the last Round, freeing the highest sequence for the next one to take again.
+_Avoid_: hand, turn, game (a Round is not a Match).
 
 **Out**:
 An Entrant that has passed a Variant's score limit. Permanent for the rest of the Match — declining to Rejoin means no way back in.
@@ -34,6 +35,11 @@ _Avoid_: "headroom," "remaining," using it for Okey 21's countdown (that total *
 
 **Archived**:
 A Match hidden from the default "Active" view. Purely a visibility flag — an Archived Match is not locked, and Rounds can still be added to it.
+_Avoid_: using "Archived" and "Deleted" for each other. Archiving hides a Match and is reversible; deleting destroys it and is not.
+
+**Delete**:
+Removing a Match and everything it owns — its Entrants and every Round — from the device for good. Offered from the Match's Home card, behind a confirmation, in both the Active and Archived filters; a Match does not have to be Archived first. There is no undo and no restorable state: a deleted Match is gone, where an Archived one is only out of sight.
+_Avoid_: "remove," "hide," "archive permanently."
 
 **Gösterge**:
 An Okey-21-only find. There is one Gösterge per Round, so at most one Entrant can find it — the Round records who, or nobody — and the find deducts 1 point from the *other* team's total that Round. Not translated — kept as the Turkish term.
