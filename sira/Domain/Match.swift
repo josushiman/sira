@@ -19,9 +19,20 @@ final class Match {
     /// `Variant.id` for the frozen-id contract this creates, and
     /// `docs/adr/0007` for why it is stored this way.
     var variantId: String
-    /// The Round count chosen at Setup, for the Variants that take one
-    /// (Okey 101's 8 or 12). `nil` where the Round count isn't a Setup choice,
-    /// in which case the Variant's own value stands.
+    // The number this Match is played at, in the three shapes the Win
+    // Conditions take it in. At most one is non-`nil` for any given Match —
+    // the one its Variant's Win Condition calls for — because a number that
+    // does not describe a Match is worse than an absent one. Read through
+    // `variantNumber`, never directly: that accessor is the only place that
+    // knows which of the three this Match's Win Condition means.
+    /// The score limit this Match is played to, for a Survival Match. `nil`
+    /// on any other Win Condition, which is not played to a limit at all.
+    var limit: Int?
+    /// The score this Match's Entrants count down from, for an Elimination
+    /// Match. `nil` on any other Win Condition.
+    var startingScore: Int?
+    /// The number of Rounds this Match runs for, for a Fixed Rounds Match.
+    /// `nil` on any other Win Condition.
     var roundCount: Int?
     var mode: EntrantMode
     /// The Entrants as held, owned by this Match and deleted with it, and not
@@ -47,6 +58,8 @@ final class Match {
         id: UUID = UUID(),
         game: Game,
         variantId: String,
+        limit: Int? = nil,
+        startingScore: Int? = nil,
         roundCount: Int? = nil,
         mode: EntrantMode,
         storedEntrants: [Entrant],
@@ -57,6 +70,8 @@ final class Match {
         self.id = id
         self.game = game
         self.variantId = variantId
+        self.limit = limit
+        self.startingScore = startingScore
         self.roundCount = roundCount
         self.mode = mode
         self.storedEntrants = storedEntrants
@@ -69,6 +84,8 @@ final class Match {
         id: UUID = UUID(),
         game: Game,
         variantId: String,
+        limit: Int? = nil,
+        startingScore: Int? = nil,
         roundCount: Int? = nil,
         mode: EntrantMode,
         entrants: [Entrant],
@@ -80,6 +97,8 @@ final class Match {
             id: id,
             game: game,
             variantId: variantId,
+            limit: limit,
+            startingScore: startingScore,
             roundCount: roundCount,
             mode: mode,
             // `entrants` is given in the order Setup wrote the names down and
@@ -145,6 +164,34 @@ final class Match {
             resolved.roundCount = roundCount
         }
         return resolved
+    }
+
+    /// The number this Match is played at — the limit it is played to, the
+    /// score it counts down from, or the count of Rounds it runs for,
+    /// whichever its Variant's Win Condition takes.
+    ///
+    /// The one place that number is resolved. Before this existed, each caller
+    /// resolved it off the Variant and invented its own answer for the case
+    /// where it was missing — an unreachable limit in one place, a limit of
+    /// zero in another — so the same unscoreable Match meant something
+    /// different depending on who asked. Here it means one thing: `nil`.
+    ///
+    /// Not yet every caller: `EliminationEngine` and `FixedRoundsEngine` still
+    /// read their number off the Variant with fallbacks of their own, and come
+    /// through here when their Variants gain a chosen number of their own.
+    ///
+    /// The stored value wins, and the Variant's constant stands in while both
+    /// exist. That fallback is temporary: once every Match records its own
+    /// number the constants go, and a Match that resolves `nil` is skipped at
+    /// the `scorable` gate exactly as a Match naming an unknown Variant id is —
+    /// never scored against a substitute, and never deleted (`docs/adr/0007`).
+    var variantNumber: Int? {
+        guard let variant else { return nil }
+        switch variant.winCondition {
+        case .survival: return limit ?? variant.limit
+        case .elimination: return startingScore ?? variant.startingScore
+        case .fixedRounds: return roundCount ?? variant.roundCount
+        }
     }
 
     /// Detaches the most recently added Round, including any Rejoin attached to
@@ -255,9 +302,14 @@ extension Sequence<Match> {
 }
 
 extension Match {
-    /// Starts a Match under `variant`, recording its id and the Round count it
-    /// carries. The Variant itself is not stored — `variant` resolves it afresh
-    /// on every read — so this is a starting point rather than a copy.
+    /// Starts a Match under `variant`, recording its id and the number its Win
+    /// Condition is played at. The Variant itself is not stored — `variant`
+    /// resolves it afresh on every read — so this is a starting point rather
+    /// than a copy.
+    ///
+    /// The number is recorded even where it came straight off the Variant, so
+    /// that every Match says what it was played at rather than leaving some to
+    /// be read off a constant that a later release could move underneath them.
     convenience init(
         id: UUID = UUID(),
         game: Game,
@@ -272,7 +324,9 @@ extension Match {
             id: id,
             game: game,
             variantId: variant.id,
-            roundCount: variant.roundCount,
+            limit: variant.winCondition == .survival ? variant.limit : nil,
+            startingScore: variant.winCondition == .elimination ? variant.startingScore : nil,
+            roundCount: variant.winCondition == .fixedRounds ? variant.roundCount : nil,
             mode: mode,
             entrants: entrants,
             rounds: rounds,

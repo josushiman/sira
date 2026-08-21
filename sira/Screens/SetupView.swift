@@ -28,6 +28,16 @@ struct SetupView: View {
     private var entrantCountOptions: [Int] { Array(2...variant.maxEntrants) }
     private var offersRoundCountChoice: Bool { variant.winCondition == .fixedRounds }
 
+    /// The Variant as this screen has it set up: the shipped rules, with the
+    /// Round count the player picked where the Variant offers that choice.
+    /// What the Match records its number from.
+    private var chosenVariant: Variant {
+        guard offersRoundCountChoice else { return variant }
+        var chosen = variant
+        chosen.roundCount = roundCount
+        return chosen
+    }
+
     private var entrantCount: Binding<Int> {
         Binding(
             get: { entrantNames.count },
@@ -133,13 +143,12 @@ struct SetupView: View {
             return Entrant(name: trimmed.isEmpty ? "\(entrantLabel) \(index + 1)" : trimmed)
         }
         // The Match names its Variant rather than copying it, so all Setup
-        // records is the id plus the Round count where the Variant takes one.
-        // Only Fixed Rounds Variants offer that choice, so every other Variant
-        // records nothing and resolves its Round count from the constant.
+        // records is the id plus the one number the Variant's Win Condition is
+        // played at — including where that number came straight off the
+        // Variant, so that every Match says what it was played at.
         let match = Match(
             game: variant.game,
-            variantId: variant.id,
-            roundCount: offersRoundCountChoice ? roundCount : nil,
+            variant: chosenVariant,
             mode: mode,
             entrants: entrants
         )

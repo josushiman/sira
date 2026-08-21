@@ -27,21 +27,28 @@ struct PlayStats {
             // The Entrant with the least Room left is the one the Match is
             // about to lose — more telling than the leader's own headroom,
             // which the rows now spell out for every Entrant anyway.
-            let limit = variant.limit ?? 0
             let atRisk = standings.ranked.filter { !$0.isOut }.max { $0.total < $1.total }
+            // Room left is measured against the Match's limit, so a Match with
+            // no limit has none to report — the same em dash as a Match with
+            // nobody left to report it for. Resolving the limit as zero used
+            // to say instead that everyone had run out of room.
+            let roomLeft = match.variantNumber.flatMap { limit in
+                atRisk.map { max(0, limit - $0.total) }
+            }
             if standings.isOver {
                 // Over means one Entrant is left in, so nobody is close to
                 // anything — report the survivor's headroom instead.
                 secondaryLabel = "Room left"
-                secondaryValue = atRisk.map { "\(max(0, limit - $0.total))" } ?? "—"
+                secondaryValue = roomLeft.map { "\($0)" } ?? "—"
             } else {
                 secondaryLabel = "Closest to out"
-                secondaryValue = atRisk.map { "\($0.name) · \(max(0, limit - $0.total)) left" } ?? "—"
+                secondaryValue = atRisk.flatMap { standing in
+                    roomLeft.map { "\(standing.name) · \($0) left" }
+                } ?? "—"
             }
         case .fixedRounds:
             secondaryLabel = "Rounds left"
-            let roundCount = variant.roundCount ?? 0
-            secondaryValue = "\(max(0, roundCount - match.rounds.count))"
+            secondaryValue = match.variantNumber.map { "\(max(0, $0 - match.rounds.count))" } ?? "—"
         case .elimination:
             secondaryLabel = "Gap"
             let best = standings.ranked.first?.total ?? 0

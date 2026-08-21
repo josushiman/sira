@@ -91,11 +91,11 @@ struct PlayView: View {
             okey21RoundEntry
         }
         .sheet(item: rejoinBinding) { entrant in
-            if let survivalEngine = engine as? SurvivalEngine {
+            if let survivalEngine = engine as? SurvivalEngine, let limit = match.variantNumber {
                 RejoinSheet(
                     entrant: entrant,
                     score: standings.ranked.first { $0.entrantID == entrant.id }?.total ?? 0,
-                    limit: variant.limit ?? 0,
+                    limit: limit,
                     target: survivalEngine.rejoinTarget(for: match),
                     onAccept: { acceptRejoin(variant, for: entrant) }
                 )
@@ -137,20 +137,27 @@ struct PlayView: View {
         match.entrants.firstIndex { $0.id == entrantID } ?? 0
     }
 
-    /// How much an Entrant can still take before passing the Variant's limit.
-    /// Only Survival Variants have a limit to run out of, and an Entrant
-    /// already Out has none left to report — both read as `nil`.
+    /// How much an Entrant can still take before passing the Match's limit.
+    /// Only a Survival Match is played to a limit to run out of, and an
+    /// Entrant already Out has none left to report — both read as `nil`.
     private func roomLeft(_ variant: Variant, for standing: EntrantStanding) -> Int? {
-        guard let limit = variant.limit, !standing.isOut else { return nil }
+        guard variant.winCondition == .survival,
+              let limit = match.variantNumber,
+              !standing.isOut
+        else { return nil }
         return max(0, limit - standing.total)
     }
 
     /// The largest total magnitude among all Standings, used to normalize
     /// each Standing's progress-bar width — matches the prototype's `maxAbs`.
+    ///
+    /// A limit and a starting score are both scores, so a bar can be drawn
+    /// against either. A Round count is not, so Fixed Rounds scales against
+    /// the Entrants' own totals instead.
     private func maxAbsTotal(_ variant: Variant, _ standings: Standings) -> Int {
         let entrantMax = standings.ranked.map { abs($0.total) }.max() ?? 0
-        let variantScale = variant.limit ?? variant.startingScore ?? entrantMax
-        return max(1, variantScale)
+        let scale = variant.winCondition == .fixedRounds ? nil : match.variantNumber
+        return max(1, scale ?? entrantMax)
     }
 
     private func keypadRoundEntry(_ variant: Variant, _ standings: Standings) -> some View {

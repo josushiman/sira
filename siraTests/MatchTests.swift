@@ -4,10 +4,18 @@ import XCTest
 final class MatchTests: XCTestCase {
     // MARK: - Variant resolution
 
-    private func match(game: Game, variantId: String, roundCount: Int? = nil) -> Match {
+    private func match(
+        game: Game,
+        variantId: String,
+        limit: Int? = nil,
+        startingScore: Int? = nil,
+        roundCount: Int? = nil
+    ) -> Match {
         Match(
             game: game,
             variantId: variantId,
+            limit: limit,
+            startingScore: startingScore,
             roundCount: roundCount,
             mode: .players,
             entrants: [Entrant(name: "Alice")]
@@ -51,6 +59,73 @@ final class MatchTests: XCTestCase {
     /// belonging to the other Game is as unresolvable as a made-up one.
     func test_aVariantIdFromAnotherGameDoesNotResolve() {
         XCTAssertNil(match(game: .gonga, variantId: "okey-21").variant)
+    }
+
+    // MARK: - The number the Match is played at
+
+    // Every read of a Match's number goes through one accessor, so that the
+    // four places which used to invent a fallback each — an unreachable limit
+    // here, a zero one there — cannot disagree about what a Match with no
+    // number means.
+
+    func test_aStoredLimitIsTheNumberASurvivalMatchIsPlayedAt() {
+        XCTAssertEqual(match(game: .gonga, variantId: "gonga-101", limit: 201).variantNumber, 201)
+    }
+
+    func test_aStoredStartingScoreIsTheNumberAnEliminationMatchIsPlayedAt() {
+        XCTAssertEqual(match(game: .okey, variantId: "okey-21", startingScore: 31).variantNumber, 31)
+    }
+
+    func test_aStoredRoundCountIsTheNumberAFixedRoundsMatchIsPlayedAt() {
+        XCTAssertEqual(match(game: .okey, variantId: "okey-101", roundCount: 12).variantNumber, 12)
+    }
+
+    /// While the Variant constants still carry a number, a Match that stored
+    /// none resolves theirs — the expand half of expand–contract, which is
+    /// what keeps this change invisible until the number becomes a choice.
+    func test_withoutAStoredNumberTheVariantsOwnValueStands() {
+        XCTAssertEqual(match(game: .gonga, variantId: "gonga-151").variantNumber, 151)
+        XCTAssertEqual(match(game: .okey, variantId: "okey-21").variantNumber, 21)
+        XCTAssertEqual(match(game: .okey, variantId: "okey-101").variantNumber, 8)
+    }
+
+    /// A Survival Match is played at a limit whatever else happens to be
+    /// stored beside it: the Win Condition says which of the three is the
+    /// number, so a stray value cannot become one.
+    func test_onlyTheNumberTheWinConditionTakesIsRead() {
+        let confused = match(game: .gonga, variantId: "gonga-101", limit: 201, startingScore: 31, roundCount: 12)
+
+        XCTAssertEqual(confused.variantNumber, 201)
+    }
+
+    /// Neither a stored number nor a Variant to supply one: nothing at all,
+    /// rather than a substitute that would score the Match by a rule nobody
+    /// at the table agreed to.
+    func test_aMatchWithNoStoredNumberAndNoVariantResolvesNothing() {
+        XCTAssertNil(match(game: .gonga, variantId: "gonga-from-a-later-release").variantNumber)
+    }
+
+    /// Setup records the number for every Match it starts, so a Match built
+    /// from a Variant carries it even where the Variant used to be the only
+    /// place it lived.
+    func test_aMatchStartedFromAVariantRecordsThatVariantsNumber() {
+        let gonga = Match(game: .gonga, variant: .gonga101, mode: .players, entrants: [Entrant(name: "Alice")])
+        let okey21 = Match(game: .okey, variant: .okey21, mode: .teams, entrants: [Entrant(name: "Us")])
+        let okey101 = Match(game: .okey, variant: .okey101, mode: .players, entrants: [Entrant(name: "Alice")])
+
+        XCTAssertEqual(gonga.variantNumber, 101)
+        XCTAssertEqual(gonga.limit, 101)
+        XCTAssertEqual(okey21.startingScore, 21)
+        XCTAssertEqual(okey101.roundCount, 8)
+    }
+
+    /// At most one of the three is ever set, so nothing downstream has to ask
+    /// which of two present numbers describes the Match.
+    func test_aMatchRecordsOnlyTheNumberItsWinConditionTakes() {
+        let gonga = Match(game: .gonga, variant: .gonga101, mode: .players, entrants: [Entrant(name: "Alice")])
+
+        XCTAssertNil(gonga.startingScore)
+        XCTAssertNil(gonga.roundCount)
     }
 
     // MARK: - Round sequence
