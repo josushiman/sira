@@ -18,6 +18,8 @@ The first three Matches a player scores are free. After that, a one-off purchase
 
 The limit is drawn around *starting* a Match, never around continuing one. A Match with a Round on it is a Match in progress, and Sıra will keep scoring it forever regardless of what the meter says, whether it was started before or after the limit was reached. Nothing the player has already written down is ever held hostage, hidden, or made unreadable — not by the meter, and not by a purchase that is later refunded.
 
+Making that guarantee absolute takes one change beyond the paywall itself: Home lists only Matches that have actually been scored. A Match set up and abandoned before its first Round never reaches Home and is discarded, so there is no way to stockpile un-scored Matches and no second place the limit has to be enforced. Scoring a Round is never blocked, by anything. The limit is asked about once, at Home, before the player has invested a thing.
+
 The limit is visible before it is reached. Three small dots beside Home's "Your games" heading fill as the free Matches are used, so the wall is something the player watched approaching rather than something that ambushed them. Once the purchase is made the dots disappear entirely, along with every other trace of the paywall: a player who has paid should be unable to tell the app ever had one.
 
 At the wall, tapping Gonga or Okey raises a half-height sheet over a dimmed Home — the app's existing bottom-sheet idiom, the same surface the Rejoin offer and the delete confirmation already use. It states what has happened, what £2.99 buys, and offers three things: buy, restore, and dismiss. Dismissing costs one tap and never leaves Home.
@@ -36,43 +38,47 @@ The purchase is a StoreKit 2 non-consumable with Family Sharing enabled, verifie
 8. As a player, I want the free-Match indicator to be small and quiet, so that the app looks like a score tracker rather than a trial.
 9. As a player, I want a Match to count against my free three only once a Round has been scored on it, so that a mis-tap at Setup costs me nothing.
 10. As a player, I want to abandon a Match I set up by mistake without it costing me anything, so that exploring Setup is free.
-11. As a player, I want a Match I have started scoring to stay scorable forever, so that reaching the limit can never strand a game in progress.
-12. As a player, I want to keep adding Rounds to an in-progress Match after my free three are used up, so that the evening finishes.
-13. As a player, I want Undo to keep working on an in-progress Match after the limit is reached, so that a mistake is still correctable.
-14. As a player, I want to accept or decline a Rejoin on an in-progress Match after the limit is reached, so that Survival Matches resolve properly.
-15. As a player, I want to read the Scoresheet and Standings of every Match I have ever scored, whether or not I have paid, so that my history is mine.
-16. As a player, I want to archive and delete Matches whether or not I have paid, so that tidying my history is not a paid feature.
-17. As a player, I want deleting a Match not to give me a free Match back, so that the app is not asking me to destroy my own history to save money.
-18. As a player, I want undoing a Round not to give me a free Match back, so that Undo stays a scoring tool rather than a way to game the meter.
-19. As a player, I want to be offered the purchase at the moment I try to start a fourth Match, so that the ask arrives when it is relevant.
-20. As a player, I want the offer to appear over Home rather than replacing it, so that I can see where I am and what I was doing.
-21. As a player, I want to dismiss the offer in one tap and stay exactly where I was, so that declining is cheap.
-22. As a player, I want to be able to raise the offer again after dismissing it, so that changing my mind is easy.
-23. As a player, I want the offer to tell me plainly that it is one payment and not a subscription, so that I know what I am agreeing to.
-24. As a player, I want the offer to make no claims about features it does not actually unlock, so that I am not misled into buying.
-25. As a player, I want to see the price in my own currency, so that the number means something to me.
-26. As a player outside the UK, I want the layout to hold when my currency's price string is longer, so that the button is not broken for me.
-27. As a player, I want the purchase to go through Apple's own payment sheet, so that Sıra never sees my card details.
-28. As a player, I want the app to tell me clearly if a purchase did not complete, so that I am not left wondering whether I was charged.
-29. As a player, I want to know that a failed purchase took no money, so that I can retry without worrying.
-30. As a player, I want to be able to cancel the payment sheet and land back where I was, so that backing out is safe.
-31. As a player, I want the app to stay usable while a purchase is in flight, so that a slow network does not feel like a crash.
-32. As a player, I want the limit to lift the instant the purchase completes, so that I can start the Match I was trying to start.
-33. As a paying player, I want every sign of the paywall to disappear after I buy, so that the app stops selling to me.
-34. As a paying player, I want the app to keep working with no network at all, so that a table in a basement or on a plane is still scored.
-35. As a paying player, I want the app never to re-lock because it could not reach Apple, so that a bad connection cannot cost me the app I paid for.
-36. As a paying player, I want my purchase to work on my other iPhone and iPad, so that one payment covers me.
-37. As a player in a Family Sharing group, I want a family member's purchase to unlock the app for me, so that a household pays once.
-38. As a player, I want a Restore option on the offer sheet, so that I can recover a purchase made on another device.
-39. As a player, I want Restore to tell me plainly when there is no purchase to find, so that I am not left staring at a screen that did nothing.
-40. As a player, I want Restore to be a control I can actually see and hit, so that recovering my purchase is not a hunt.
-41. As a player who reinstalls the app, I want my purchase to come back without my having to do anything, so that reinstalling is not a punishment.
-42. As a player whose purchase is refunded, I want to keep every Match I have already scored, so that a refund costs me the limit and not my history.
-43. As a player removed from a Family Sharing group, I want the app to return to the free tier without losing any of my data, so that losing access is not losing records.
-44. As a player, I want the App Store listing to state the three-free-Matches limit before I download, so that "free" is not a surprise.
-45. As a player using the app in light mode, I want the offer sheet and the indicator to be as legible as they are in dark mode, so that my system setting does not degrade the app.
-46. As a player using large text, I want the offer sheet to remain readable and operable, so that the purchase is not gated on my eyesight.
-47. As a player, I want a save failure while my free-Match count changes to be surfaced the way every other save failure is, so that the app never quietly disagrees with itself about what I have used.
+11. As a player, I want Home to list only games I have actually scored, so that my history is a record of games rather than of intentions.
+12. As a player, I want a Match I set up and abandoned before scoring it to disappear on its own, so that I never have to tidy up after a mis-tap.
+13. As a player, I want scoring a Round never to be refused for any reason, so that the app is unconditionally reliable once a game is under way.
+14. As a player, I want a Match to stay on Home after I undo its only Round, so that correcting a mistake does not make the game vanish.
+15. As a player, I want a Match I have started scoring to stay scorable forever, so that reaching the limit can never strand a game in progress.
+16. As a player, I want to keep adding Rounds to an in-progress Match after my free three are used up, so that the evening finishes.
+17. As a player, I want Undo to keep working on an in-progress Match after the limit is reached, so that a mistake is still correctable.
+18. As a player, I want to accept or decline a Rejoin on an in-progress Match after the limit is reached, so that Survival Matches resolve properly.
+19. As a player, I want to read the Scoresheet and Standings of every Match I have ever scored, whether or not I have paid, so that my history is mine.
+20. As a player, I want to archive and delete Matches whether or not I have paid, so that tidying my history is not a paid feature.
+21. As a player, I want deleting a Match not to give me a free Match back, so that the app is not asking me to destroy my own history to save money.
+22. As a player, I want undoing a Round not to give me a free Match back, so that Undo stays a scoring tool rather than a way to game the meter.
+23. As a player, I want to be offered the purchase at the moment I try to start a fourth Match, so that the ask arrives when it is relevant.
+24. As a player, I want the offer to appear over Home rather than replacing it, so that I can see where I am and what I was doing.
+25. As a player, I want to dismiss the offer in one tap and stay exactly where I was, so that declining is cheap.
+26. As a player, I want to be able to raise the offer again after dismissing it, so that changing my mind is easy.
+27. As a player, I want the offer to tell me plainly that it is one payment and not a subscription, so that I know what I am agreeing to.
+28. As a player, I want the offer to make no claims about features it does not actually unlock, so that I am not misled into buying.
+29. As a player, I want to see the price in my own currency, so that the number means something to me.
+30. As a player outside the UK, I want the layout to hold when my currency's price string is longer, so that the button is not broken for me.
+31. As a player, I want the purchase to go through Apple's own payment sheet, so that Sıra never sees my card details.
+32. As a player, I want the app to tell me clearly if a purchase did not complete, so that I am not left wondering whether I was charged.
+33. As a player, I want to know that a failed purchase took no money, so that I can retry without worrying.
+34. As a player, I want to be able to cancel the payment sheet and land back where I was, so that backing out is safe.
+35. As a player, I want the app to stay usable while a purchase is in flight, so that a slow network does not feel like a crash.
+36. As a player, I want the limit to lift the instant the purchase completes, so that I can start the Match I was trying to start.
+37. As a paying player, I want every sign of the paywall to disappear after I buy, so that the app stops selling to me.
+38. As a paying player, I want the app to keep working with no network at all, so that a table in a basement or on a plane is still scored.
+39. As a paying player, I want the app never to re-lock because it could not reach Apple, so that a bad connection cannot cost me the app I paid for.
+40. As a paying player, I want my purchase to work on my other iPhone and iPad, so that one payment covers me.
+41. As a player in a Family Sharing group, I want a family member's purchase to unlock the app for me, so that a household pays once.
+42. As a player, I want a Restore option on the offer sheet, so that I can recover a purchase made on another device.
+43. As a player, I want Restore to tell me plainly when there is no purchase to find, so that I am not left staring at a screen that did nothing.
+44. As a player, I want Restore to be a control I can actually see and hit, so that recovering my purchase is not a hunt.
+45. As a player who reinstalls the app, I want my purchase to come back without my having to do anything, so that reinstalling is not a punishment.
+46. As a player whose purchase is refunded, I want to keep every Match I have already scored, so that a refund costs me the limit and not my history.
+47. As a player removed from a Family Sharing group, I want the app to return to the free tier without losing any of my data, so that losing access is not losing records.
+48. As a player, I want the App Store listing to state the three-free-Matches limit before I download, so that "free" is not a surprise.
+49. As a player using the app in light mode, I want the offer sheet and the indicator to be as legible as they are in dark mode, so that my system setting does not degrade the app.
+50. As a player using large text, I want the offer sheet to remain readable and operable, so that the purchase is not gated on my eyesight.
+51. As a player, I want a save failure while my free-Match count changes to be surfaced the way every other save failure is, so that the app never quietly disagrees with itself about what I have used.
 
 ## Implementation Decisions
 
@@ -88,20 +94,32 @@ Three seams, one of them new.
 
 Above these, the UI asks exactly one question and gets one of three answers — unlocked, free with some number remaining, or locked. `HomeView` and the offer sheet read only that. Neither touches StoreKit, and neither counts Matches.
 
-### What consumes a free Match, and when
+### Started, and what it decides
 
-A Match consumes one of the three the first time a Round is scored on it, and never again. This is carried by a flag on the Match itself rather than inferred from its Round count, which makes it idempotent: undoing the only Round and scoring another does not consume a second, because the Match is already marked.
+A Match becomes **Started** the first time a Round is scored on it. Started is permanent: undoing that Round does not un-Start it, and nothing else reverses it. It is a flag on the Match rather than something inferred from the Round count, which is what makes it idempotent — undoing the only Round and scoring another does not Start the Match a second time.
 
-The global count is a separate monotonic integer, incremented alongside the flag. It is separate precisely because a Match can be deleted and the count must not go with it — deleting history to earn free Matches is not a bargain the app offers. Nothing anywhere decrements it.
+Started is named for scoring, not for the paywall, and this matters. Two separate things read it, and only one of them is about money:
+
+- **Home lists Started Matches only.** A Match that has never been scored is not a game, it is an intention, and Home has no business listing it as history.
+- **A Match consumes one of the three free Matches when it Starts.** The meter counts Started Matches.
+
+If the flag were named for the meter, changing or removing the paywall later would drag Home's list along with it. The paywall *uses* Started; it does not define it.
+
+The global count is a separate monotonic integer, incremented as a Match Starts. It is separate precisely because a Match can be deleted and the count must not go with it — deleting history to earn free Matches is not a bargain the app offers. Nothing anywhere decrements it.
+
+### Home lists Started Matches
+
+Home's card list is filtered to Started Matches. The route into Play is not: it already resolves through the unfiltered query, for the reason `HomeView` already documents — Home's filter is a view of Home's list rather than a statement about what can be scored, which is why archiving the Match being played does not close it. An un-Started Match is the same shape of thing, so Setup can hand Play a Match that Home does not yet list.
+
+Two consequences follow, both of them improvements independent of the paywall. A mis-tapped Setup no longer leaves an empty Match sitting on Home to be deleted by hand — it simply never appears. And Home stops showing rows with no scores on them.
+
+An un-Started Match that is left behind — backed out of, or lost to iOS reclaiming the app — is unreachable, because Home is the only way back to a Match. These are deleted at launch. There is nothing to preserve: a Match with no Rounds has no tally, only a Variant choice and some Entrant names.
 
 ### Where the limit is checked
 
-At exactly the two moments a Match can begin consuming one:
+In one place: **starting a Match from Home.** With no free Matches left and no purchase, tapping Gonga or Okey raises the offer instead of opening the Variant picker.
 
-- **Starting a Match from Home.** With no free Matches left and no purchase, tapping Gonga or Okey raises the offer instead of opening the Variant picker.
-- **Scoring the first Round on a Match that has never been scored.** This closes the hole the first check leaves open: nothing stops a player creating several Matches while they still have Matches left and scoring them afterwards. A Match with no Rounds on it has no tally to lose and is not "in progress" in the sense this app protects.
-
-A Match that already has a Round is never checked again, by either rule. That is the guarantee in the Solution, stated as a mechanism.
+There is no second check, and there does not need to be one. Because Home lists only Started Matches, a player can never accumulate un-Started Matches to score later — there is no way to navigate back to one. The only un-Started Match that can exist is the one being played right now, and reaching it required passing the check at Home. Scoring a Round is therefore never blocked, by anything, ever.
 
 The check does not happen at Setup, and does not happen at Start. Letting a player choose a Variant, name four Entrants and then refusing them is the version of this feature that reads as bait, and it is deliberately not built.
 
@@ -156,8 +174,8 @@ Both, from tokens, never from hex. The trap is specific: `accent` is gold in Fel
 
 `CONTEXT.md` gains four entries, defined against the existing ones:
 
-- **Free Match** — one of the three Matches that can be scored before the Unlock is required. Consumed the first time a Round is scored on a Match; never returned. _Avoid_: "trial", "credit".
-- **Counted** — a Match that has consumed a Free Match. Permanent, and unaffected by Undo or Delete. Defined against **Archived** and **Delete**, neither of which changes it.
+- **Started** — a Match that has had at least one Round scored on it. Permanent: Undo does not reverse it. Home lists Started Matches; an un-Started Match is not history yet, and is discarded rather than kept. Defined against **Archived**, which hides a Started Match, and **Delete**, which removes one. _Avoid_: "created", which no longer distinguishes anything Home acts on; "in progress", which is about whether a Match has finished.
+- **Free Match** — one of the three Matches that can be Started before the Unlock is required. Consumed when a Match Starts; never returned. _Avoid_: "trial", "credit".
 - **Unlock** — the one-off purchase removing the Free Match limit. Tied to an Apple ID, shared through Family Sharing, and permanent unless Apple revokes it.
 - **Locked** — the state in which the Free Matches are used up and no Unlock is held. Blocks *starting* a Match only; every existing Match stays fully scorable and readable. _Avoid_: using "locked" for an Archived Match, or for an Entrant who is Out.
 
@@ -172,7 +190,11 @@ User-facing copy says "games", never "Matches" — the glossary already records 
 
 A good test here asserts what a player would notice: how many Matches they can start, whether the one in front of them still scores, what the sheet says. It does not assert that a particular property was written, or that a method was called. The existing suite is the model — `MatchStorePersistenceTests` proves a Match survives by opening a second store over the same file, not by inspecting a context.
 
-**`MatchStore` — the meter.** The first Round scored on a Match consumes one Free Match; a second Round on the same Match consumes nothing; undoing the only Round and scoring another consumes nothing further; deleting a counted Match leaves the count where it was; archiving changes nothing. The count survives a relaunch, proved the way persistence already proves things — a second store over the same file. A fresh store starts at three, which is the reinstall case. A save that fails while the meter increments surfaces through `SaveFailure` and the change stands in memory, following `test_aDeletionThatCannotBeSavedIsSurfacedAndStillStands`.
+**`MatchStore` — Started and the meter.** The first Round scored on a Match Starts it and consumes one Free Match; a second Round on the same Match consumes nothing; undoing the only Round leaves it Started and consumes nothing further when the next Round is scored; deleting a Started Match leaves the count where it was; archiving changes nothing. The count survives a relaunch, proved the way persistence already proves things — a second store over the same file. A fresh store starts at three, which is the reinstall case. A save that fails while the meter increments surfaces through `SaveFailure` and the change stands in memory, following `test_aDeletionThatCannotBeSavedIsSurfacedAndStillStands`.
+
+**Home's list.** An un-Started Match does not appear on Home; a Started one does; a Started Match whose only Round has been undone stays on Home, which is the case that would break if the filter tested the Round count instead of the flag. Un-Started Matches left in the store are gone after a relaunch. Prior art is `MatchFilterTests`, which already covers Home's list being a view rather than the whole store.
+
+**The route into Play.** Setup can open a Match that Home does not list — the check that proves hiding un-Started Matches did not break the flow the app is actually used through. `NavigatorTests` is the model.
 
 **`UnlockStore` — the purchase.** Driven entirely through injected fakes, since none of it can touch the App Store. A successful purchase unlocks; a cancellation leaves the player exactly as they were; a failure surfaces a message and leaves them locked; an explicitly revoked transaction re-locks; **StoreKit returning nothing leaves a previously-unlocked player unlocked** — the single most important test in the spec, and the one that pins down the fail-open argument; a restore that finds nothing reports that rather than failing silently; a purchase arriving through the updates stream, as a Family Sharing purchase does, unlocks without the player having bought anything in this session.
 
@@ -202,5 +224,13 @@ A good test here asserts what a player would notice: how many Matches they can s
 **Why £2.99 and not £4.99.** Not a cost calculation; cost does not constrain this. At the UK tier and the Small Business Program's 15% rate, £2.99 returns roughly £2.10 after VAT and commission, clearing the $99 a year at around forty buyers, and £4.99 clears it at around twenty-three. Both are achievable. £4.99 is the price of an app with reviews and a reputation, and this one will launch with neither. The price can be raised later once there are ratings; dropping it is the move that annoys the people who already paid.
 
 **A known, accepted rough edge.** A player who has already paid, installing on a new device, is normally unlocked automatically because StoreKit resolves the entitlement for their Apple ID at launch. If that does not happen — a different Apple ID, a sync that has not run — they will not see a Restore control until they have used their three free Matches and reached the sheet. Adding a Settings screen to fix this is not worth a screen holding one item; if a second thing ever needs settling, Restore moves there too.
+
+**What hiding un-Started Matches costs.** Three things, all accepted deliberately.
+
+A Match can no longer be set up in advance and returned to later — back out to Home before scoring the first Round and it is gone. Setup is quick and nothing about the app suggests preparing a table ahead of time, but it is a behaviour a player could notice.
+
+An un-Started Match lost to iOS reclaiming the app takes its Entrant names with it. No tally is at risk, because none exists yet, so this does not weaken the promise the persistence spec makes — that promise is about Rounds.
+
+And the persistence spec's user story 8, *"I want the Home list to show exactly the Matches I created"*, is no longer true as written; "created" now means Started. That spec is shipped and its story list is a record of what was built, so it is not rewritten — this spec supersedes it on that one point, and the glossary's new **Started** entry is where the distinction is recorded for good.
 
 **Two things to check on a device, not in the simulator.** Whether a purchase started from a sheet presented over Home survives the payment sheet's presentation, and whether a Family Sharing purchase arriving through the updates stream lifts the limit while Home is on screen. Both are presentation-timing questions of the kind that has already bitten this project once, when a sheet raised from a context menu turned out to need a real device to trust.
