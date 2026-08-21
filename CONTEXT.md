@@ -29,6 +29,10 @@ An Entrant that has passed a Variant's score limit. Permanent for the rest of th
 **Rejoin**:
 The one-time offer made to an Entrant the moment they go Out: re-enter the Match at the highest score currently held by any Entrant still in. Declined via "They're out."
 
+**Room left**:
+How much an Entrant can still take before passing a Survival Variant's limit and going Out — the limit minus their total. Only Survival Variants have one; an Entrant already Out has none. Standings shows it per Entrant beside their bar, and the Entrant with the least of it is the Match's **Closest to out**.
+_Avoid_: "headroom," "remaining," using it for Okey 21's countdown (that total *is* the distance to 0).
+
 **Archived**:
 A Match hidden from the default "Active" view. Purely a visibility flag — an Archived Match is not locked, and Rounds can still be added to it.
 _Avoid_: using "Archived" and "Deleted" for each other. Archiving hides a Match and is reversible; deleting destroys it and is not.
