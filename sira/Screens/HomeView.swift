@@ -58,7 +58,11 @@ struct HomeView: View {
         filter
             .apply(to: matches.filter { !$0.isGone })
             .scorable
-            .map(HomeCard.init)
+            // A closure rather than `.map(HomeCard.init)`: the unapplied
+            // initializer is a function value that carries none of the main
+            // actor this view runs on, which the compiler warns about today
+            // and rejects outright under the Swift 6 language mode.
+            .map { HomeCard(match: $0.match, variant: $0.variant) }
     }
 
     /// `.swipeActions` only has an effect on rows inside a `List` — a plain
@@ -68,13 +72,18 @@ struct HomeView: View {
     /// prototype's plain, ungrouped layout.
     var body: some View {
         @Bindable var navigator = navigator
+        // Read once per pass, not once per mention. Building the cards scores
+        // every Match it lists, and `filteredMatches` is asked for twice in
+        // the body below — once to decide whether the list is empty and once
+        // to fill it.
+        let cards = filteredMatches
         return List {
             plainRow(topPadding: 10, bottomPadding: 0) { header }
             plainRow(topPadding: 12, bottomPadding: 20) { heroSection }
             plainRow(topPadding: 0, bottomPadding: 28) { gameCardsRow }
             plainRow(topPadding: 0, bottomPadding: 12) { sectionHeader }
 
-            if filteredMatches.isEmpty {
+            if cards.isEmpty {
                 plainRow(topPadding: 0, bottomPadding: 0) {
                     Text(emptyStateTitle)
                         .siraStyle(.body)
@@ -83,7 +92,7 @@ struct HomeView: View {
                         .padding(.vertical, 26)
                 }
             } else {
-                ForEach(filteredMatches) { card in
+                ForEach(cards) { card in
                     Button {
                         navigator.openMatchID = card.id
                     } label: {
@@ -235,7 +244,7 @@ struct HomeView: View {
     /// confirmation acts on is looked up when the player acts, not held from
     /// when the row was drawn.
     private func match(_ id: Match.ID) -> Match? {
-        matches.first { $0.id == id && !$0.isGone }
+        matches.first { !$0.isGone && $0.id == id }
     }
 
     @ViewBuilder

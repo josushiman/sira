@@ -306,4 +306,14 @@ extension MatchTests {
         XCTAssertFalse(match.isDeleted)
         XCTAssertTrue(match.isGone)
     }
+
+    /// A Match that was built but never added to a store is not gone — it has
+    /// no context, like a deleted one, but it never belonged to a store and
+    /// every property on it reads fine. Fixtures and a Setup screen's Match
+    /// before it is added are both this.
+    func test_aMatchThatWasNeverStoredIsNotGone() {
+        let match = Match(game: .gonga, variant: .gonga101, mode: .players, entrants: [Entrant(name: "Alice")])
+
+        XCTAssertFalse(match.isGone)
+    }
 }

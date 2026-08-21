@@ -181,24 +181,29 @@ extension Match {
     /// written out, or written out and gone.
     ///
     /// Two checks, because SwiftData answers the question differently on
-    /// either side of the save: `isDeleted` is true from the moment the Match
-    /// is deleted until the context is saved, and false afterwards, when what
-    /// marks the Match instead is that it no longer belongs to a context. A
-    /// deletion here is saved the moment it is made, so the second half is the
-    /// one that nearly always answers.
+    /// either side of the save. `isDeleted` is true from the moment the Match
+    /// is deleted until the context is saved, and false afterwards; what marks
+    /// it from then on is that it belonged to a store and no longer belongs to
+    /// a context. A deletion here is saved the moment it is made, so the
+    /// second half is the one that nearly always answers.
     ///
-    /// Worth checking before reading anything else off a Match that a screen
-    /// has been holding: a deleted Match has no backing data left, and every
-    /// stored property traps rather than answering. It is not, on its own, the
-    /// defence — a screen that reads its Matches once and holds values needs
-    /// no such check (`HomeCard`) — but Home's list is handed Matches by
-    /// `@Query`, which can still name one for the redraw that follows the
-    /// deletion.
+    /// Both halves of that second check are needed. A Match built and never
+    /// inserted — a fixture, a Setup screen's Match before it is added — has
+    /// no context either, and is perfectly readable; what it does not have is
+    /// a store to have been removed from, which is what `storeIdentifier`
+    /// says.
     ///
-    /// A Match that was never inserted also has no context, and is reported
-    /// gone. Nothing asks: this is for Matches read out of a store.
+    /// Worth asking before reading anything else off a Match that was handed
+    /// over rather than just built: a deleted Match has no backing data left,
+    /// and every stored property traps rather than answering — `id` as much as
+    /// any other, so this goes first in a predicate, not second. It is not, on
+    /// its own, the defence — a screen that reads its Matches once and holds
+    /// values needs no such check (`HomeCard`) — but Home's list is handed
+    /// Matches by `@Query`, which can still name one for the redraw that
+    /// follows the deletion.
     var isGone: Bool {
-        isDeleted || modelContext == nil
+        if isDeleted { return true }
+        return persistentModelID.storeIdentifier != nil && modelContext == nil
     }
 }
 
@@ -233,8 +238,16 @@ extension Sequence<Match> {
     ///
     /// One id, so one Variant resolved: `scorable` would resolve every Match's
     /// Variant to build a list this throws away.
+    /// `isGone` is asked first, before the id it is guarding: reading `id`
+    /// off a Match that has been deleted is itself a read of a stored
+    /// property, and a deleted Match answers those by trapping. This walks
+    /// whatever `@Query` last handed over, which can still name a Match that
+    /// has gone.
     func scorableMatch(_ id: Match.ID?) -> Match? {
-        guard let id, let match = first(where: { $0.id == id }), match.variant != nil else {
+        guard let id,
+              let match = first(where: { !$0.isGone && $0.id == id }),
+              match.variant != nil
+        else {
             return nil
         }
         return match
