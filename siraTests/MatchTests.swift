@@ -268,3 +268,42 @@ final class MatchTests: XCTestCase {
         XCTAssertNil(matches.scorableMatch(nil))
     }
 }
+
+
+/// `isGone` — the question "is this Match still there to read?", which
+/// SwiftData answers differently on either side of the save.
+extension MatchTests {
+    func test_aStoredMatchIsNotGone() {
+        let store = MatchStore()
+        let match = Match(game: .gonga, variant: .gonga101, mode: .players, entrants: [Entrant(name: "Alice")])
+        store.add(match)
+
+        XCTAssertFalse(match.isGone)
+    }
+
+    /// Deleted but not yet written out: this is the window `isDeleted` covers,
+    /// and the Match still belongs to its context.
+    func test_aMatchDeletedButNotYetSavedIsGone() {
+        let store = MatchStore()
+        let match = Match(game: .gonga, variant: .gonga101, mode: .players, entrants: [Entrant(name: "Alice")])
+        store.add(match)
+
+        store.context.delete(match)
+
+        XCTAssertTrue(match.isGone)
+    }
+
+    /// Written out, which is what `MatchStore.delete(_:)` does in one step. The
+    /// Match is no longer deleted as far as `isDeleted` is concerned — it is
+    /// no longer anything, which is what having no context says.
+    func test_aDeletedAndSavedMatchIsGone() {
+        let store = MatchStore()
+        let match = Match(game: .gonga, variant: .gonga101, mode: .players, entrants: [Entrant(name: "Alice")])
+        store.add(match)
+
+        store.delete(match)
+
+        XCTAssertFalse(match.isDeleted)
+        XCTAssertTrue(match.isGone)
+    }
+}

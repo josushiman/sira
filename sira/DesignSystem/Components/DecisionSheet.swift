@@ -17,15 +17,48 @@ struct DecisionSheet<Actions: View>: View {
     @ViewBuilder var actions: Actions
 
     @Environment(\.theme) private var theme
+    /// How tall the sheet's own surface turned out to be, once its wording has
+    /// been laid out — see `detents`.
+    @State private var surfaceHeight: CGFloat?
 
     var body: some View {
-        VStack(spacing: 0) {
-            Spacer(minLength: 0)
-            bottomSheet
-        }
-        .presentationDetents([.medium])
-        .presentationDragIndicator(.hidden)
-        .presentationBackground(.clear)
+        bottomSheet
+            .onGeometryChange(for: CGFloat.self) { proxy in
+                proxy.size.height
+            } action: { height in
+                surfaceHeight = height
+            }
+            .frame(maxHeight: .infinity, alignment: .bottom)
+            .presentationDetents(detents)
+            .presentationDragIndicator(.hidden)
+            // The app's own surface rather than a clear background. What sits
+            // under a sheet's clear background is the system's translucency —
+            // a blurred, frozen copy of the screen behind — and any part of
+            // the sheet the surface does not cover shows it: the strip below
+            // the buttons that the home indicator's safe area keeps the
+            // surface out of. In the shell's own colour that strip is the
+            // surface, and the sheet reads as one card.
+            .presentationBackground(theme.background)
+    }
+
+    /// The sheet is exactly as tall as the surface it draws, rather than a
+    /// fixed fraction of the screen.
+    ///
+    /// A `.medium` sheet is half the screen whatever it holds, and the surface
+    /// is only the bottom of that. The rest is the presentation itself, which
+    /// on a clear background is the system's own translucency: half a screen
+    /// of blurred, frozen Home sitting above the question, which is what made
+    /// deleting a Match look broken. Sized to its surface, there is no such
+    /// gap to show anything through.
+    ///
+    /// Measured rather than declared, because the wording is what decides it:
+    /// the delete confirmation runs to three lines for a Match with Rounds and
+    /// two without, and a height written down here would be wrong for one of
+    /// them. `.medium` stands in for the frame or two before the first
+    /// measurement arrives.
+    private var detents: Set<PresentationDetent> {
+        guard let surfaceHeight, surfaceHeight > 0 else { return [.medium] }
+        return [.height(surfaceHeight)]
     }
 
     private var bottomSheet: some View {

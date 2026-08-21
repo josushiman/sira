@@ -17,6 +17,15 @@ struct PendingDeletion: Identifiable {
         title = MatchDateTitle.text(for: match.createdAt)
         roundCount = match.rounds.count
     }
+
+    /// The same three values, taken from the card the player pressed rather
+    /// than from the Match again: Home draws its list from `HomeCard`s and
+    /// holds no Match to re-read by the time the menu item is chosen.
+    init(card: HomeCard) {
+        id = card.id
+        title = card.title
+        roundCount = card.roundCount
+    }
 }
 
 /// What a press-and-hold on a Match card offers. Deletion only: Archive and

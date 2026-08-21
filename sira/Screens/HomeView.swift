@@ -43,13 +43,22 @@ struct HomeView: View {
         )
     }
 
-    /// The Matches this filter shows, each with its Variant already resolved.
-    /// A Match naming a Variant this build doesn't know has no rules to score
-    /// or label it by, so `scorable` skips it — and it is skipped here rather
-    /// than inside the list, so that a filter holding nothing else still reads
-    /// as empty instead of showing nothing at all.
-    private var filteredMatches: [(match: Match, variant: Variant)] {
-        filter.apply(to: matches).scorable
+    /// The cards this filter shows, each drawn from a Match whose Variant is
+    /// already resolved. A Match naming a Variant this build doesn't know has
+    /// no rules to score or label it by, so `scorable` skips it — and it is
+    /// skipped here rather than inside the list, so that a filter holding
+    /// nothing else still reads as empty instead of showing nothing at all.
+    ///
+    /// Cards rather than Matches, so that nothing below this line holds a
+    /// model that can be deleted out from under it — see `HomeCard`. A Match
+    /// already deleted is dropped before anything reads it: `@Query`'s array
+    /// can still name one for the redraw that follows the deletion, and every
+    /// property of a deleted Match traps rather than answering.
+    private var filteredMatches: [HomeCard] {
+        filter
+            .apply(to: matches.filter { !$0.isGone })
+            .scorable
+            .map(HomeCard.init)
     }
 
     /// `.swipeActions` only has an effect on rows inside a `List` — a plain
@@ -74,18 +83,18 @@ struct HomeView: View {
                         .padding(.vertical, 26)
                 }
             } else {
-                ForEach(filteredMatches, id: \.match.id) { match, variant in
+                ForEach(filteredMatches) { card in
                     Button {
-                        navigator.openMatchID = match.id
+                        navigator.openMatchID = card.id
                     } label: {
-                        MatchCard(match: match, variant: variant)
+                        MatchCard(card: card)
                     }
                     .buttonStyle(.plain)
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
                     .listRowInsets(EdgeInsets(top: 0, leading: 22, bottom: 10, trailing: 22))
                     .swipeActions {
-                        archiveButton(for: match)
+                        archiveButton(for: card)
                     }
                     // Deliberately a context menu and not a swipe action.
                     // Archive's swipe is safe to brush against; deletion is
@@ -95,7 +104,7 @@ struct HomeView: View {
                     // menu is on the card in Active and in Archived.
                     .contextMenu {
                         MatchCardMenu {
-                            pendingDeletion = PendingDeletion(match: match)
+                            pendingDeletion = PendingDeletion(card: card)
                         }
                     }
                 }
@@ -216,17 +225,31 @@ struct HomeView: View {
     /// is gone.
     private func delete(_ deletion: PendingDeletion) {
         pendingDeletion = nil
-        guard let match = matches.first(where: { $0.id == deletion.id }) else { return }
+        guard let match = match(deletion.id) else { return }
         navigator.closeDeletedMatch(match.id)
         store.delete(match)
     }
 
+    /// The Match a card stands for, or nothing if it is already gone. Cards
+    /// hold values rather than models (`HomeCard`), so the Match a swipe or a
+    /// confirmation acts on is looked up when the player acts, not held from
+    /// when the row was drawn.
+    private func match(_ id: Match.ID) -> Match? {
+        matches.first { $0.id == id && !$0.isGone }
+    }
+
     @ViewBuilder
-    private func archiveButton(for match: Match) -> some View {
-        if match.archived {
-            Button("Restore") { store.restore(match) }.tint(.blue)
+    private func archiveButton(for card: HomeCard) -> some View {
+        if card.archived {
+            Button("Restore") {
+                if let match = match(card.id) { store.restore(match) }
+            }
+            .tint(.blue)
         } else {
-            Button("Archive") { store.archive(match) }.tint(.gray)
+            Button("Archive") {
+                if let match = match(card.id) { store.archive(match) }
+            }
+            .tint(.gray)
         }
     }
 }
@@ -328,42 +351,11 @@ private struct GameGlyphCard: View {
 /// the Match was started, a row of meta pills (round, table size, Variant), a
 /// dashed divider, then the leader/result line.
 private struct MatchCard: View {
-    let match: Match
-    /// Resolved by Home before the card is built — a Match whose Variant id
-    /// resolves to nothing never gets a card at all.
-    let variant: Variant
+    /// Everything the card draws, read off the Match by Home rather than by
+    /// this view — see `HomeCard` for why the card holds no Match of its own.
+    let card: HomeCard
 
     @Environment(\.theme) private var theme
-
-    private var standings: Standings {
-        variant.winCondition.engine.standings(for: match)
-    }
-
-    private var summary: MatchSummary {
-        MatchSummary(match: match, engine: variant.winCondition.engine)
-    }
-
-    private var title: String { MatchDateTitle.text(for: match.createdAt) }
-
-    private var statusText: String {
-        if standings.isOver { return "Finished" }
-        if match.archived { return "Archived" }
-        return "Round \(match.rounds.count + 1)"
-    }
-
-    /// Archived-but-unfinished is the one status that reads muted rather than
-    /// as the accent-coloured "where the Match is up to" pill.
-    private var statusIsMuted: Bool {
-        match.archived && !standings.isOver
-    }
-
-    private var entrantsText: String {
-        let count = match.entrants.count
-        switch match.mode {
-        case .players: return "\(count) \(count == 1 ? "player" : "players")"
-        case .teams: return "\(count) \(count == 1 ? "team" : "teams")"
-        }
-    }
 
     var body: some View {
         CardSurface {
@@ -378,18 +370,18 @@ private struct MatchCard: View {
 
                 DashedDivider()
 
-                Text(summary.text)
+                Text(card.summaryText)
                     .siraStyle(.monoLabel)
                     .foregroundStyle(theme.ink.opacity(0.5))
             }
         }
-        .opacity(match.archived ? 0.62 : 1)
+        .opacity(card.archived ? 0.62 : 1)
     }
 
     /// Kept to one line — a long month plus minutes ("14th September 2026 ·
     /// 10:15pm") shrinks slightly rather than wrapping the date in two.
     private var titleText: some View {
-        Text(title)
+        Text(card.title)
             .siraStyle(.headline)
             .lineLimit(1)
             .minimumScaleFactor(0.75)
@@ -398,12 +390,12 @@ private struct MatchCard: View {
     private var pills: some View {
         HStack(spacing: 5) {
             StatusPill(
-                text: statusText,
-                foreground: statusIsMuted ? theme.ink.opacity(0.6) : theme.onAccent,
-                background: statusIsMuted ? theme.track : theme.accent
+                text: card.statusText,
+                foreground: card.statusIsMuted ? theme.ink.opacity(0.6) : theme.onAccent,
+                background: card.statusIsMuted ? theme.track : theme.accent
             )
-            metaPill(entrantsText)
-            metaPill(variant.label)
+            metaPill(card.entrantsText)
+            metaPill(card.variantLabel)
         }
         .fixedSize(horizontal: true, vertical: false)
     }
@@ -414,7 +406,7 @@ private struct MatchCard: View {
 
     @ViewBuilder
     private var gameBadge: some View {
-        switch match.game {
+        switch card.game {
         case .gonga:
             Text("♦")
                 .siraStyle(.headline)
