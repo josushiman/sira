@@ -176,6 +176,32 @@ final class Match {
     }
 }
 
+extension Match {
+    /// Whether this Match has been deleted — either deleted and not yet
+    /// written out, or written out and gone.
+    ///
+    /// Two checks, because SwiftData answers the question differently on
+    /// either side of the save: `isDeleted` is true from the moment the Match
+    /// is deleted until the context is saved, and false afterwards, when what
+    /// marks the Match instead is that it no longer belongs to a context. A
+    /// deletion here is saved the moment it is made, so the second half is the
+    /// one that nearly always answers.
+    ///
+    /// Worth checking before reading anything else off a Match that a screen
+    /// has been holding: a deleted Match has no backing data left, and every
+    /// stored property traps rather than answering. It is not, on its own, the
+    /// defence — a screen that reads its Matches once and holds values needs
+    /// no such check (`HomeCard`) — but Home's list is handed Matches by
+    /// `@Query`, which can still name one for the redraw that follows the
+    /// deletion.
+    ///
+    /// A Match that was never inserted also has no context, and is reported
+    /// gone. Nothing asks: this is for Matches read out of a store.
+    var isGone: Bool {
+        isDeleted || modelContext == nil
+    }
+}
+
 extension Sequence<Match> {
     /// The Matches this build can score, each with its Variant already
     /// resolved.
