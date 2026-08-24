@@ -8,13 +8,16 @@ final class VariantParameterTests: XCTestCase {
 
     // MARK: - What each Variant offers
 
-    func test_okey101OffersEightAndTwelveWithTwelvePreselected() {
+    /// 8 is what Okey 101 ran at before the Round count was asked for, and
+    /// stays what it opens on: 12 is a tap away for a table that wants a long
+    /// game, and nobody gets one they didn't ask for.
+    func test_okey101OffersEightAndTwelveWithEightPreselected() {
         let parameter = VariantParameter(for: .okey101)
 
         XCTAssertEqual(parameter.kind, .roundCount)
         XCTAssertEqual(parameter.presets, [8, 12])
-        XCTAssertEqual(parameter.selection, .preset(12))
-        XCTAssertEqual(parameter.value, 12)
+        XCTAssertEqual(parameter.selection, .preset(8))
+        XCTAssertEqual(parameter.value, 8)
         XCTAssertFalse(parameter.isCustom)
     }
 

@@ -164,6 +164,11 @@ extension VariantParameter {
     /// the standard game is something the player chooses rather than a default
     /// they failed to change.
     ///
+    /// Okey 101 opens on 8, which is what it was played at before the Round
+    /// count became a choice — moving the default would quietly lengthen every
+    /// Match started without touching the chips, and the point of asking is to
+    /// let a table say 12, not to decide for them that they meant it.
+    ///
     /// The presets are stated here and nowhere else: a Variant carries no
     /// numbers at all, so there is no constant for these to agree or disagree
     /// with. What Setup opens on is a question about what tables usually play,
@@ -171,7 +176,7 @@ extension VariantParameter {
     init(for variant: Variant) {
         switch variant.winCondition {
         case .fixedRounds:
-            self.init(kind: .roundCount, presets: [8, 12], preselected: 12)
+            self.init(kind: .roundCount, presets: [8, 12], preselected: 8)
         case .survival:
             self.init(kind: .limit, presets: [101, 151], preselected: 101)
         case .elimination:
