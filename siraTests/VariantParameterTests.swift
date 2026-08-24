@@ -33,7 +33,7 @@ final class VariantParameterTests: XCTestCase {
     }
 
     func test_anEliminationVariantOffersTheStartingScoreItShipsWith() {
-        let parameter = VariantParameter(for: .okey21)
+        let parameter = VariantParameter(for: .okeyStandard)
 
         XCTAssertEqual(parameter.kind, .startingScore)
         XCTAssertEqual(parameter.presets, [21])
@@ -84,13 +84,13 @@ final class VariantParameterTests: XCTestCase {
     func test_bothEndsOfEachRangeStartAMatch() {
         assertStartable(.okey101, [1, 50])
         assertStartable(.gongaStandard, [11, 999])
-        assertStartable(.okey21, [2, 99])
+        assertStartable(.okeyStandard, [2, 99])
     }
 
     func test_theValuesJustOutsideEachRangeDoNot() {
         assertNotStartable(.okey101, [0, 51])
         assertNotStartable(.gongaStandard, [10, 1000])
-        assertNotStartable(.okey21, [1, 100])
+        assertNotStartable(.okeyStandard, [1, 100])
     }
 
     /// The number the player typed is the number they see. Clamping 500 to 50
@@ -124,7 +124,7 @@ final class VariantParameterTests: XCTestCase {
         gonga.enterCustom("5")
         XCTAssertEqual(gonga.unstartableReason, "Limit must be between 11 and 999")
 
-        var okey = VariantParameter(for: .okey21)
+        var okey = VariantParameter(for: .okeyStandard)
         okey.enterCustom("100")
         XCTAssertEqual(okey.unstartableReason, "Starting score must be between 2 and 99")
     }

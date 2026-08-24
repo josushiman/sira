@@ -3,7 +3,7 @@ import SwiftUI
 import SnapshotTesting
 @testable import sira
 
-final class Okey21RoundEntryViewSnapshotTests: XCTestCase {
+final class OkeyStandardRoundEntryViewSnapshotTests: XCTestCase {
     private let teamA = Entrant(name: "Ekrem & Su")
     private let teamB = Entrant(name: "Ada & Barış")
 
@@ -17,7 +17,7 @@ final class Okey21RoundEntryViewSnapshotTests: XCTestCase {
         theme: Theme,
         testName: String = #function
     ) {
-        let view = Okey21RoundEntryView(
+        let view = OkeyStandardRoundEntryView(
             entrants: entrants,
             roundNumber: 3,
             losingEntrantID: losingEntrantID,
@@ -47,35 +47,35 @@ final class Okey21RoundEntryViewSnapshotTests: XCTestCase {
         assertEntry(losingEntrantID: teamB.id, gostergeFinderID: teamA.id, theme: .felt)
     }
 
-    func test_okey21CifteOn_paper() {
+    func test_okeyStandardCifteOn_paper() {
         assertEntry(losingEntrantID: teamB.id, cifteCallers: [teamA.id], theme: .paper)
     }
 
-    func test_okey21CifteOn_felt() {
+    func test_okeyStandardCifteOn_felt() {
         assertEntry(losingEntrantID: teamB.id, cifteCallers: [teamA.id], theme: .felt)
     }
 
-    func test_okey21CifteCalledByBothTeams_paper() {
+    func test_okeyStandardCifteCalledByBothTeams_paper() {
         assertEntry(losingEntrantID: teamB.id, cifteCallers: [teamA.id, teamB.id], theme: .paper)
     }
 
-    func test_okey21CifteCalledByBothTeams_felt() {
+    func test_okeyStandardCifteCalledByBothTeams_felt() {
         assertEntry(losingEntrantID: teamB.id, cifteCallers: [teamA.id, teamB.id], theme: .felt)
     }
 
-    func test_okey21OkeyAttiOn_paper() {
+    func test_okeyStandardOkeyAttiOn_paper() {
         assertEntry(losingEntrantID: teamB.id, okeyAttiOn: true, theme: .paper)
     }
 
-    func test_okey21OkeyAttiOn_felt() {
+    func test_okeyStandardOkeyAttiOn_felt() {
         assertEntry(losingEntrantID: teamB.id, okeyAttiOn: true, theme: .felt)
     }
 
-    func test_okey21BothModifiersOn_paper() {
+    func test_okeyStandardBothModifiersOn_paper() {
         assertEntry(losingEntrantID: teamB.id, cifteCallers: [teamA.id], okeyAttiOn: true, theme: .paper)
     }
 
-    func test_okey21BothModifiersOn_felt() {
+    func test_okeyStandardBothModifiersOn_felt() {
         assertEntry(losingEntrantID: teamB.id, cifteCallers: [teamA.id], okeyAttiOn: true, theme: .felt)
     }
 }

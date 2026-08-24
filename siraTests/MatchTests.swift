@@ -33,7 +33,7 @@ final class MatchTests: XCTestCase {
 
     func test_resolvedVariantCarriesItsOwnScoringRules() {
         XCTAssertEqual(match(game: .gonga, variantId: "gonga-standard").variant?.limit, 101)
-        XCTAssertEqual(match(game: .okey, variantId: "okey-21").variant?.startingScore, 21)
+        XCTAssertEqual(match(game: .okey, variantId: "okey-standard").variant?.startingScore, 21)
         XCTAssertEqual(match(game: .okey, variantId: "okey-101").variant?.winCondition, .fixedRounds)
     }
 
@@ -57,7 +57,7 @@ final class MatchTests: XCTestCase {
     /// Ids resolve against the Variants of the Match's own Game, so a real id
     /// belonging to the other Game is as unresolvable as a made-up one.
     func test_aVariantIdFromAnotherGameDoesNotResolve() {
-        XCTAssertNil(match(game: .gonga, variantId: "okey-21").variant)
+        XCTAssertNil(match(game: .gonga, variantId: "okey-standard").variant)
     }
 
     // MARK: - The number the Match is played at
@@ -72,7 +72,7 @@ final class MatchTests: XCTestCase {
     }
 
     func test_aStoredStartingScoreIsTheNumberAnEliminationMatchIsPlayedAt() {
-        XCTAssertEqual(match(game: .okey, variantId: "okey-21", startingScore: 31).variantNumber, 31)
+        XCTAssertEqual(match(game: .okey, variantId: "okey-standard", startingScore: 31).variantNumber, 31)
     }
 
     func test_aStoredRoundCountIsTheNumberAFixedRoundsMatchIsPlayedAt() {
@@ -84,7 +84,7 @@ final class MatchTests: XCTestCase {
     /// what keeps this change invisible until the number becomes a choice.
     func test_withoutAStoredNumberTheVariantsOwnValueStands() {
         XCTAssertEqual(match(game: .gonga, variantId: "gonga-standard").variantNumber, 101)
-        XCTAssertEqual(match(game: .okey, variantId: "okey-21").variantNumber, 21)
+        XCTAssertEqual(match(game: .okey, variantId: "okey-standard").variantNumber, 21)
         XCTAssertEqual(match(game: .okey, variantId: "okey-101").variantNumber, 8)
     }
 
@@ -109,12 +109,12 @@ final class MatchTests: XCTestCase {
     /// place it lived.
     func test_aMatchStartedFromAVariantRecordsThatVariantsNumber() {
         let gonga = Match(game: .gonga, variant: .gongaStandard, mode: .players, entrants: [Entrant(name: "Alice")])
-        let okey21 = Match(game: .okey, variant: .okey21, mode: .teams, entrants: [Entrant(name: "Us")])
+        let okeyStandard = Match(game: .okey, variant: .okeyStandard, mode: .teams, entrants: [Entrant(name: "Us")])
         let okey101 = Match(game: .okey, variant: .okey101, mode: .players, entrants: [Entrant(name: "Alice")])
 
         XCTAssertEqual(gonga.variantNumber, 101)
         XCTAssertEqual(gonga.limit, 101)
-        XCTAssertEqual(okey21.startingScore, 21)
+        XCTAssertEqual(okeyStandard.startingScore, 21)
         XCTAssertEqual(okey101.roundCount, 8)
     }
 
@@ -316,7 +316,7 @@ final class MatchTests: XCTestCase {
     /// standing in front of a Match it has no rules for.
     func test_aRouteNamingAScorableMatchResolvesToIt() {
         let playable = match(game: .gonga, variantId: "gonga-standard")
-        let matches = [playable, match(game: .okey, variantId: "okey-21")]
+        let matches = [playable, match(game: .okey, variantId: "okey-standard")]
 
         XCTAssertEqual(matches.scorableMatch(playable.id)?.id, playable.id)
     }
@@ -397,7 +397,7 @@ extension MatchTests {
     /// rather than assembled the same way on two screens.
     func test_aMatchIsNamedByTheNumberItIsPlayedAtInItsOwnKindsPhrase() {
         let survival = match(game: .gonga, variantId: "gonga-standard", limit: 201)
-        let elimination = match(game: .okey, variantId: "okey-21", startingScore: 31)
+        let elimination = match(game: .okey, variantId: "okey-standard", startingScore: 31)
         let fixedRounds = match(game: .okey, variantId: "okey-101", roundCount: 5)
 
         XCTAssertEqual(survival.numberPhrase, "to 201")

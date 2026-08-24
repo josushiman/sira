@@ -145,13 +145,13 @@ final class PlayStatsTests: XCTestCase {
         let b = Entrant(name: "Team B")
         let match = Match(
             game: .okey,
-            variant: .okey21,
+            variant: .okeyStandard,
             mode: .teams,
             entrants: [a, b],
             rounds: [Round(losingEntrantID: b.id)]
         )
 
-        let stats = PlayStats(variant: .okey21, match: match, engine: EliminationEngine())
+        let stats = PlayStats(variant: .okeyStandard, match: match, engine: EliminationEngine())
 
         XCTAssertEqual(stats.secondaryLabel, "Gap")
         XCTAssertEqual(stats.secondaryValue, "2")

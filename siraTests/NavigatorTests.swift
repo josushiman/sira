@@ -90,7 +90,7 @@ final class NavigatorTests: XCTestCase {
         let navigator = Navigator()
         let playable = Match(
             game: .okey,
-            variant: .okey21,
+            variant: .okeyStandard,
             mode: .teams,
             entrants: [Entrant(name: "Kırmızı"), Entrant(name: "Mavi")]
         )

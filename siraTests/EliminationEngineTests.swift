@@ -2,7 +2,7 @@ import XCTest
 @testable import sira
 
 final class EliminationEngineTests: XCTestCase {
-    private let variant = Variant.okey21
+    private let variant = Variant.okeyStandard
 
     private func makeMatch(entrants: [Entrant], rounds: [Round]) -> Match {
         Match(game: .okey, variant: variant, mode: .teams, entrants: entrants, rounds: rounds)

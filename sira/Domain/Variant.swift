@@ -4,8 +4,8 @@ import Foundation
 enum RoundEntryStyle: Hashable {
     /// Per-Entrant numeric keypad (Gonga, Okey 101).
     case keypad
-    /// Pick the losing team plus Gösterge steppers (Okey 21).
-    case okey21
+    /// Pick the losing team plus Gösterge steppers (Okey).
+    case okeyStandard
 }
 
 struct Variant: Identifiable, Hashable {
@@ -28,8 +28,8 @@ struct Variant: Identifiable, Hashable {
     /// chosen at Setup (Okey 101: 8 or 12) on top of it.
     var roundCount: Int?
     /// The single Entrant mode this Variant is played in. Every Variant is
-    /// fixed to one — only Okey 21 is played in Teams of 2; Gonga and Okey
-    /// 101 are individuals only — so Setup records this rather than offering
+    /// fixed to one — only Okey is played in Teams of 2; Gonga and Okey 101
+    /// are individuals only — so Setup records this rather than offering
     /// a Players/Teams choice.
     let entrantMode: EntrantMode
     /// The largest number of Entrants Setup will let you pick. Teams Variants
@@ -84,10 +84,20 @@ extension Variant {
         ruleTextTemplate: "Accumulate points each Round. Go over {n} and you're Out. Last one standing wins."
     )
 
-    static let okey21 = Variant(
-        id: "okey-21",
+    /// Okey as it is played by default, counting down from a starting score.
+    ///
+    /// Labelled "Okey" and not "Okey 21": the starting score becomes a Setup
+    /// choice, and a name quoting a number the Variant no longer guarantees is
+    /// worse than no number at all. The id names the slot rather than the
+    /// number for the same reason.
+    ///
+    /// The Swift member stays qualified — `okeyStandard`, not `okey` — because
+    /// `Game.okey` already exists and two `okey` members one type apart
+    /// misresolve later even though they read fine today.
+    static let okeyStandard = Variant(
+        id: "okey-standard",
         game: .okey,
-        label: "Okey 21",
+        label: "Okey",
         ruleText: "Teams of 2 count down from 21. The losing team takes \u{2212}2 each Round; each Gösterge find deducts 1 from the other team. First team to reach 0 loses.",
         winCondition: .elimination,
         limit: nil,
@@ -96,7 +106,7 @@ extension Variant {
         entrantMode: .teams,
         maxEntrants: 2,
         supportsCifte: true,
-        entryStyle: .okey21
+        entryStyle: .okeyStandard
     )
 
     static let okey101 = Variant(
@@ -120,7 +130,7 @@ extension Variant {
     static func all(for game: Game) -> [Variant] {
         switch game {
         case .gonga: return [.gongaStandard]
-        case .okey: return [.okey21, .okey101]
+        case .okey: return [.okeyStandard, .okey101]
         }
     }
 }

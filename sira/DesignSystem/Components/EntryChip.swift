@@ -3,7 +3,7 @@ import SwiftUI
 /// A Round-entry chip: either a momentary shortcut button (e.g. "Won the
 /// round · 0") or, when `isOn` is driven from state, a toggle (Çifte) —
 /// the prototype's filled/unfilled chip styling. Shared by the keypad and
-/// Okey 21 entry screens (`docs/adr/0003`).
+/// Okey entry screens (`docs/adr/0003`).
 struct EntryChip: View {
     let label: String
     var isOn: Bool = false

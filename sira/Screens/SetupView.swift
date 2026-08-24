@@ -31,7 +31,7 @@ struct SetupView: View {
     private var mode: EntrantMode { variant.entrantMode }
     private var entrantLabel: String { mode == .teams ? "Team" : "Player" }
     /// Only worth showing when the Variant actually allows more than the
-    /// minimum — Okey 21 is always exactly two teams.
+    /// minimum — Okey is always exactly two teams.
     private var showsCountSelector: Bool { variant.maxEntrants > 2 }
     private var entrantCountOptions: [Int] { Array(2...variant.maxEntrants) }
     /// Whether the number is put to the player at all — asked of the
@@ -276,9 +276,9 @@ private struct NameRow: View {
     .themed()
 }
 
-#Preview("Okey 21") {
+#Preview("Okey") {
     NavigationStack {
-        SetupView(variant: .okey21)
+        SetupView(variant: .okeyStandard)
     }
     .environment(MatchStore())
     .themed()

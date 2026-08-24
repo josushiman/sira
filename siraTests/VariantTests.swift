@@ -11,8 +11,8 @@ final class VariantTests: XCTestCase {
         XCTAssertEqual(Variant.all(for: .gonga).map(\.id), ["gonga-standard"])
     }
 
-    func test_okeyOffers21And101() {
-        XCTAssertEqual(Variant.all(for: .okey).map(\.id), ["okey-21", "okey-101"])
+    func test_okeyOffersOkeyAnd101() {
+        XCTAssertEqual(Variant.all(for: .okey).map(\.id), ["okey-standard", "okey-101"])
     }
 
     /// Variant ids are a persistence contract: a Match stores this string and
@@ -20,16 +20,16 @@ final class VariantTests: XCTestCase {
     /// names it. Asserted explicitly so a rename fails here rather than
     /// silently orphaning data.
     ///
-    /// `gonga-101` and `gonga-151` were retired for `gonga-standard` while
-    /// this assertion said they were frozen, which is a thing to do exactly
-    /// once and only on the evidence that made it free: no release tags,
-    /// `SiraSchemaV1` still at 1.0.0 with an empty `SiraMigrationPlan`, and no
-    /// Match stored on any device — the same ground `docs/adr/0007` records
-    /// the previous id rename standing on. Changing an id after that is a
-    /// migration, not an edit to this test.
+    /// `gonga-101` and `gonga-151` were retired for `gonga-standard`, and
+    /// `okey-21` for `okey-standard`, while this assertion said they were
+    /// frozen — a thing to do only on the evidence that made it free: no
+    /// release tags, `SiraSchemaV1` still at 1.0.0 with an empty
+    /// `SiraMigrationPlan`, and no Match stored on any device — the same
+    /// ground `docs/adr/0007` records the previous id rename standing on.
+    /// Changing an id after that is a migration, not an edit to this test.
     func test_everyVariantIdIsFrozen() {
         XCTAssertEqual(Variant.gongaStandard.id, "gonga-standard")
-        XCTAssertEqual(Variant.okey21.id, "okey-21")
+        XCTAssertEqual(Variant.okeyStandard.id, "okey-standard")
         XCTAssertEqual(Variant.okey101.id, "okey-101")
     }
 
@@ -43,8 +43,8 @@ final class VariantTests: XCTestCase {
 
     // MARK: - Entrant mode
 
-    func test_onlyOkey21IsPlayedInTeams() {
-        XCTAssertEqual(Variant.okey21.entrantMode, .teams)
+    func test_onlyOkeyIsPlayedInTeams() {
+        XCTAssertEqual(Variant.okeyStandard.entrantMode, .teams)
         XCTAssertEqual(Variant.gongaStandard.entrantMode, .players)
         XCTAssertEqual(Variant.okey101.entrantMode, .players)
     }
@@ -54,9 +54,9 @@ final class VariantTests: XCTestCase {
         XCTAssertEqual(Variant.gongaStandard.maxEntrants, 8)
     }
 
-    func test_okey101SeatsUpToFourPlayersAndOkey21ExactlyTwoTeams() {
+    func test_okey101SeatsUpToFourPlayersAndOkeyExactlyTwoTeams() {
         XCTAssertEqual(Variant.okey101.maxEntrants, 4)
-        XCTAssertEqual(Variant.okey21.maxEntrants, 2)
+        XCTAssertEqual(Variant.okeyStandard.maxEntrants, 2)
     }
 
     // MARK: - Çifte
@@ -66,7 +66,7 @@ final class VariantTests: XCTestCase {
     }
 
     func test_bothOkeyVariantsSupportCifte() {
-        XCTAssertTrue(Variant.okey21.supportsCifte)
+        XCTAssertTrue(Variant.okeyStandard.supportsCifte)
         XCTAssertTrue(Variant.okey101.supportsCifte)
     }
 
@@ -79,12 +79,12 @@ final class VariantTests: XCTestCase {
         XCTAssertEqual(Variant.gongaStandard.limit, 101)
     }
 
-    func test_okey21CountsDownFromTwentyOne() {
-        XCTAssertEqual(Variant.okey21.startingScore, 21)
+    func test_okeyStandardCountsDownFromTwentyOne() {
+        XCTAssertEqual(Variant.okeyStandard.startingScore, 21)
     }
 
-    func test_okey21IsLabelledOkey21() {
-        XCTAssertEqual(Variant.okey21.label, "Okey 21")
+    func test_okeyStandardIsLabelledOkey() {
+        XCTAssertEqual(Variant.okeyStandard.label, "Okey")
     }
 
     // MARK: - The rules read back at a chosen number
@@ -113,7 +113,7 @@ final class VariantTests: XCTestCase {
 
     /// Okey gains its own along with its chips.
     func test_onlyTheVariantThatAsksForANumberReadsItsRulesBack() {
-        XCTAssertNil(Variant.okey21.ruleText(at: 21))
+        XCTAssertNil(Variant.okeyStandard.ruleText(at: 21))
     }
 
     /// The Picker never shows Gonga now, but its card copy is what Setup's
