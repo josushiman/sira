@@ -158,15 +158,18 @@ extension VariantParameter {
     /// The number a Variant is played at, as it ships: the chips Setup opens
     /// with and which of them is already chosen.
     ///
-    /// Okey is the one Variant still played at the single score it ships with,
-    /// so it offers that one — the same question, with one answer on it — and
-    /// gains its chips when its starting score becomes a Setup choice.
+    /// Okey offers the one preset it has always been played at and nothing
+    /// else, because there is no second starting score tables commonly agree
+    /// on — 21 stays a chip rather than becoming a bare prefilled field, so
+    /// the standard game is something the player chooses rather than a default
+    /// they failed to change.
     ///
     /// The presets are stated here rather than read off the Variant, because
-    /// `Variant.limit` and `Variant.roundCount` are what a Match carrying no
-    /// number of its own falls back to, not what the chips open on. The two
-    /// are allowed to differ, and do — Okey 101 preselects 12 Rounds against a
-    /// constant of 8 — see `Match.init(game:variant:number:…)`.
+    /// `Variant.limit`, `Variant.startingScore` and `Variant.roundCount` are
+    /// what a Match carrying no number of its own falls back to, not what the
+    /// chips open on. The two are allowed to differ, and do — Okey 101
+    /// preselects 12 Rounds against a constant of 8 — see
+    /// `Match.init(game:variant:number:…)`.
     init(for variant: Variant) {
         switch variant.winCondition {
         case .fixedRounds:
@@ -174,11 +177,7 @@ extension VariantParameter {
         case .survival:
             self.init(kind: .limit, presets: [101, 151], preselected: 101)
         case .elimination:
-            self.init(
-                kind: .startingScore,
-                presets: [variant.startingScore].compactMap { $0 },
-                preselected: variant.startingScore
-            )
+            self.init(kind: .startingScore, presets: [21], preselected: 21)
         }
     }
 }

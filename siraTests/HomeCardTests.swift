@@ -138,6 +138,30 @@ final class HomeCardTests: XCTestCase {
         XCTAssertEqual(HomeCard(match: toOneOhOne, variant: .gongaStandard).entrantsText, "4 players · to 101")
     }
 
+    /// An Okey Match reads back the score it counts down from, and reads it as
+    /// a starting score rather than a limit — the phrase is the only thing
+    /// that says which of the three numbers it is.
+    func test_anOkeyCardCarriesTheStartingScoreThisMatchWasPlayedFrom() {
+        let fromThirtyOne = Match(
+            game: .okey,
+            variant: .okeyStandard,
+            number: 31,
+            mode: .teams,
+            entrants: [Entrant(name: "Us"), Entrant(name: "Them")]
+        )
+        let fromTwentyOne = Match(
+            game: .okey,
+            variant: .okeyStandard,
+            number: 21,
+            mode: .teams,
+            entrants: [Entrant(name: "Us"), Entrant(name: "Them")]
+        )
+
+        XCTAssertEqual(HomeCard(match: fromThirtyOne, variant: .okeyStandard).entrantsText, "2 teams · from 31")
+        XCTAssertEqual(HomeCard(match: fromTwentyOne, variant: .okeyStandard).entrantsText, "2 teams · from 21")
+        XCTAssertEqual(HomeCard(match: fromThirtyOne, variant: .okeyStandard).variantLabel, "Okey")
+    }
+
     /// Gonga's label is "Gonga" at every limit: the number it is played to
     /// rides beside the name and is never fused into it.
     func test_gongasLabelIsNeverFusedWithItsLimit() {

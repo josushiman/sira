@@ -43,9 +43,9 @@ struct Variant: Identifiable, Hashable {
     /// the Variant Picker shows before anything has been chosen and so cannot
     /// quote a number at all.
     ///
-    /// `nil` on the Variants whose number is not yet a Setup choice: Gonga and
-    /// Okey gain theirs along with their chips.
-    var ruleTextTemplate: String? = nil
+    /// Every Variant has one: all three take a number at Setup, so all three
+    /// have rules to read back at whatever was chosen.
+    let ruleTextTemplate: String
     var entryStyle: RoundEntryStyle = .keypad
     /// Keypad entry's "never laid down" quick-entry shortcut value (Okey 101: 101).
     /// `nil` for Variants that don't offer this shortcut.
@@ -53,9 +53,9 @@ struct Variant: Identifiable, Hashable {
 
     /// The rules restated with `number` in them — what Setup shows under the
     /// control, so choosing 5 immediately reads back the game that choice
-    /// makes. `nil` where this Variant has no number to restate them with yet.
-    func ruleText(at number: Int) -> String? {
-        ruleTextTemplate?.replacingOccurrences(of: "{n}", with: "\(number)")
+    /// makes.
+    func ruleText(at number: Int) -> String {
+        ruleTextTemplate.replacingOccurrences(of: "{n}", with: "\(number)")
     }
 }
 
@@ -98,7 +98,7 @@ extension Variant {
         id: "okey-standard",
         game: .okey,
         label: "Okey",
-        ruleText: "Teams of 2 count down from 21. The losing team takes \u{2212}2 each Round; each Gösterge find deducts 1 from the other team. First team to reach 0 loses.",
+        ruleText: "Teams of 2 count down from a starting score, chosen at Setup. The losing team takes \u{2212}2 each Round; each Gösterge find deducts 1 from the other team. First team to reach 0 loses.",
         winCondition: .elimination,
         limit: nil,
         startingScore: 21,
@@ -106,6 +106,7 @@ extension Variant {
         entrantMode: .teams,
         maxEntrants: 2,
         supportsCifte: true,
+        ruleTextTemplate: "Teams of 2 count down from {n}. The losing team takes \u{2212}2 each Round; each Gösterge find deducts 1 from the other team. First team to reach 0 loses.",
         entryStyle: .okeyStandard
     )
 

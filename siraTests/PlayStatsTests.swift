@@ -156,4 +156,26 @@ final class PlayStatsTests: XCTestCase {
         XCTAssertEqual(stats.secondaryLabel, "Gap")
         XCTAssertEqual(stats.secondaryValue, "2")
     }
+
+    /// The Gap is the distance between the two teams, not the distance either
+    /// has left to fall — so the score they started from does not enter into
+    /// it. One Round of −2 leaves a gap of 2 from 21 and from 31 alike.
+    func test_elimination_gapIsUnaffectedByTheStartingScore() {
+        let a = Entrant(name: "Team A")
+        let b = Entrant(name: "Team B")
+        let match = Match(
+            game: .okey,
+            variant: .okeyStandard,
+            number: 31,
+            mode: .teams,
+            entrants: [a, b],
+            rounds: [Round(losingEntrantID: b.id)]
+        )
+
+        let stats = PlayStats(variant: .okeyStandard, match: match, engine: EliminationEngine())
+
+        XCTAssertEqual(stats.leadValue, "Team A · 31")
+        XCTAssertEqual(stats.secondaryLabel, "Gap")
+        XCTAssertEqual(stats.secondaryValue, "2")
+    }
 }

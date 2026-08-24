@@ -32,12 +32,27 @@ final class VariantParameterTests: XCTestCase {
         XCTAssertFalse(parameter.isCustom)
     }
 
-    func test_anEliminationVariantOffersTheStartingScoreItShipsWith() {
+    /// Okey has one preset and a Custom chip beside it. 21 stays a chip rather
+    /// than becoming a bare prefilled field, so the standard game is something
+    /// the player chooses rather than a default they failed to change.
+    func test_okeyOffers21Preselected() {
         let parameter = VariantParameter(for: .okeyStandard)
 
         XCTAssertEqual(parameter.kind, .startingScore)
         XCTAssertEqual(parameter.presets, [21])
         XCTAssertEqual(parameter.selection, .preset(21))
+        XCTAssertEqual(parameter.value, 21)
+        XCTAssertFalse(parameter.isCustom)
+    }
+
+    func test_okeyTakesACustomStartingScore() {
+        var parameter = VariantParameter(for: .okeyStandard)
+
+        parameter.enterCustom("31")
+
+        XCTAssertTrue(parameter.isCustom)
+        XCTAssertEqual(parameter.value, 31)
+        XCTAssertTrue(parameter.isStartable)
     }
 
     // MARK: - Choosing a number

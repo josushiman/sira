@@ -34,15 +34,6 @@ struct SetupView: View {
     /// minimum — Okey is always exactly two teams.
     private var showsCountSelector: Bool { variant.maxEntrants > 2 }
     private var entrantCountOptions: [Int] { Array(2...variant.maxEntrants) }
-    /// Whether the number is put to the player at all — asked of the
-    /// parameter, which is where the presets live, rather than of the Win
-    /// Condition, which does not know how many there are.
-    ///
-    /// More than one preset is what makes it a question worth asking. Okey is
-    /// still played at the one score it ships with, and a lone chip beside a
-    /// Custom one would be offering a choice nothing has decided to offer yet;
-    /// it gains the control along with its second preset.
-    private var offersNumberChoice: Bool { parameter.presets.count > 1 }
 
     private var selection: Binding<VariantParameter.Selection> {
         Binding(
@@ -85,10 +76,8 @@ struct SetupView: View {
                     }
                 }
 
-                if offersNumberChoice {
-                    labeledSection(parameter.kind.noun) {
-                        numberControl
-                    }
+                labeledSection(parameter.kind.noun) {
+                    numberControl
                 }
             }
             .padding(22)
@@ -136,8 +125,8 @@ struct SetupView: View {
             // Read back from the number rather than from whether it is legal:
             // a refused 500 still describes the game 500 would make, and the
             // reason it is refused is said by the Start button, once.
-            if let value = parameter.value, let ruleText = variant.ruleText(at: value) {
-                Text(ruleText)
+            if let value = parameter.value {
+                Text(variant.ruleText(at: value))
                     .siraStyle(.body)
                     .foregroundStyle(theme.ink.opacity(0.6))
             }

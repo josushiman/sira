@@ -4,8 +4,8 @@ import XCTest
 final class EliminationEngineTests: XCTestCase {
     private let variant = Variant.okeyStandard
 
-    private func makeMatch(entrants: [Entrant], rounds: [Round]) -> Match {
-        Match(game: .okey, variant: variant, mode: .teams, entrants: entrants, rounds: rounds)
+    private func makeMatch(entrants: [Entrant], number: Int? = nil, rounds: [Round]) -> Match {
+        Match(game: .okey, variant: variant, number: number, mode: .teams, entrants: entrants, rounds: rounds)
     }
 
     func test_startsAtTheVariantsStartingScore() {
@@ -210,6 +210,99 @@ final class EliminationEngineTests: XCTestCase {
         XCTAssertTrue(teamA.isOut)
         XCTAssertTrue(standings.isOver)
         XCTAssertEqual(standings.result, "Team B wins!")
+    }
+
+    // MARK: - A chosen starting score
+
+    /// The countdown starts wherever the table said it did, not at the score
+    /// the Variant ships with.
+    func test_teamsBeginAtTheStartingScoreThisMatchChose() {
+        let a = Entrant(name: "Team A")
+        let b = Entrant(name: "Team B")
+        let match = makeMatch(entrants: [a, b], number: 31, rounds: [])
+
+        let standings = EliminationEngine().standings(for: match)
+
+        XCTAssertEqual(standings.ranked.first { $0.entrantID == a.id }!.total, 31)
+        XCTAssertEqual(standings.ranked.first { $0.entrantID == b.id }!.total, 31)
+    }
+
+    /// Changing the length has not changed the game: the losing team still
+    /// takes −2 and each Gösterge find still deducts 1, neither scaled by a
+    /// starting score of 31 rather than 21.
+    func test_thePenaltyAndTheGostergeDoNotScaleWithTheStartingScore() {
+        let a = Entrant(name: "Team A")
+        let b = Entrant(name: "Team B")
+        let match = makeMatch(
+            entrants: [a, b],
+            number: 31,
+            rounds: [Round(losingEntrantID: a.id, gostergeFinderID: b.id)]
+        )
+
+        let standings = EliminationEngine().standings(for: match)
+
+        // Team A: −2 penalty, −1 from Team B's find = 28.
+        XCTAssertEqual(standings.ranked.first { $0.entrantID == a.id }!.total, 28)
+        XCTAssertEqual(standings.ranked.first { $0.entrantID == b.id }!.total, 31)
+    }
+
+    /// 0 is still the finish line at any starting score. Seven −2 Rounds end a
+    /// Match started at 14 and leave one started at 21 with a Round still to
+    /// play, so this fails against a Match scored by the Variant's constant.
+    func test_theMatchEndsAtZeroFromWhateverScoreItStartedAt() {
+        let a = Entrant(name: "Team A")
+        let b = Entrant(name: "Team B")
+        let rounds = (0..<7).map { _ in Round(losingEntrantID: a.id) }
+        let match = makeMatch(entrants: [a, b], number: 14, rounds: rounds)
+
+        let standings = EliminationEngine().standings(for: match)
+
+        let teamA = standings.ranked.first { $0.entrantID == a.id }!
+        XCTAssertEqual(teamA.total, 0)
+        XCTAssertTrue(teamA.isOut)
+        XCTAssertTrue(standings.isOver)
+        XCTAssertEqual(standings.result, "Team B wins!")
+    }
+
+    /// Çifte and Okey atmak stack to ×4 on the penalty at a custom starting
+    /// score exactly as they do at 21, and the Gösterge find is still not
+    /// scaled by either.
+    func test_theModifiersStackTheSameWayAtACustomStartingScore() {
+        let a = Entrant(name: "Team A")
+        let b = Entrant(name: "Team B")
+        let match = makeMatch(
+            entrants: [a, b],
+            number: 31,
+            rounds: [Round(cifteCallers: [b.id], okeyAtanID: b.id, losingEntrantID: a.id, gostergeFinderID: b.id)]
+        )
+
+        let standings = EliminationEngine().standings(for: match)
+
+        // Team A: −8 (both modifiers) − 1 (Gösterge, still never scaled) = 22.
+        XCTAssertEqual(standings.ranked.first { $0.entrantID == a.id }!.total, 22)
+        XCTAssertEqual(standings.ranked.first { $0.entrantID == b.id }!.total, 31)
+    }
+
+    /// A Match whose starting score cannot be resolved is not one starting at
+    /// zero, with both teams already lost. It has nothing to be scored by, and
+    /// `scorable` keeps it away from here — but the Engine says nothing about
+    /// it either way rather than inventing a score.
+    func test_aMatchWithNoResolvableStartingScoreScoresNothing() {
+        let a = Entrant(name: "Team A")
+        let b = Entrant(name: "Team B")
+        let match = Match(
+            game: .okey,
+            variantId: "okey-nonesuch",
+            mode: .teams,
+            entrants: [a, b],
+            rounds: [Round(losingEntrantID: a.id)]
+        )
+
+        let standings = EliminationEngine().standings(for: match)
+
+        XCTAssertTrue(standings.ranked.isEmpty)
+        XCTAssertFalse(standings.isOver)
+        XCTAssertNil(standings.result)
     }
 
     // MARK: - Undo

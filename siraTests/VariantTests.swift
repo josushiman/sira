@@ -111,9 +111,17 @@ final class VariantTests: XCTestCase {
         )
     }
 
-    /// Okey gains its own along with its chips.
-    func test_onlyTheVariantThatAsksForANumberReadsItsRulesBack() {
-        XCTAssertNil(Variant.okeyStandard.ruleText(at: 21))
+    func test_okeyReadsItsRulesBackAtWhateverStartingScoreIsChosen() {
+        XCTAssertEqual(
+            Variant.okeyStandard.ruleText(at: 31),
+            "Teams of 2 count down from 31. The losing team takes \u{2212}2 each Round; each Gösterge find deducts 1 from the other team. First team to reach 0 loses."
+        )
+    }
+
+    /// The Picker card runs before Setup has asked for the starting score, so
+    /// it may not quote the one it used to be named after.
+    func test_okeysPickerRuleTextQuotesNoNumber() {
+        XCTAssertFalse(Variant.okeyStandard.ruleText.contains("21"))
     }
 
     /// The Picker never shows Gonga now, but its card copy is what Setup's

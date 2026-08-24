@@ -63,12 +63,46 @@ final class SetupViewSnapshotTests: XCTestCase {
         assertSetup(.gongaStandard, parameter: refusedLimit, theme: .felt)
     }
 
+    /// Two teams and no player-count selector, with the starting score chips
+    /// `21 · Custom` opening on 21 and the rules read back at it.
     func test_okeyStandard_teamsOnlyVariant_paper() {
         assertSetup(.okeyStandard, theme: .paper)
     }
 
     func test_okeyStandard_teamsOnlyVariant_felt() {
         assertSetup(.okeyStandard, theme: .felt)
+    }
+
+    /// Custom tapped and 31 typed into the revealed field, with the rules
+    /// counting down from it.
+    private var customStartingScore: VariantParameter {
+        var parameter = VariantParameter(for: .okeyStandard)
+        parameter.enterCustom("31")
+        return parameter
+    }
+
+    func test_okeyStandard_customStartingScoreRevealsTheField_paper() {
+        assertSetup(.okeyStandard, parameter: customStartingScore, theme: .paper)
+    }
+
+    func test_okeyStandard_customStartingScoreRevealsTheField_felt() {
+        assertSetup(.okeyStandard, parameter: customStartingScore, theme: .felt)
+    }
+
+    /// Out of range: 100 is still in the field, Start is dimmed, and the reason
+    /// sits above the button that will not work.
+    private var refusedStartingScore: VariantParameter {
+        var parameter = VariantParameter(for: .okeyStandard)
+        parameter.enterCustom("100")
+        return parameter
+    }
+
+    func test_okeyStandard_anOutOfRangeStartingScoreCannotStart_paper() {
+        assertSetup(.okeyStandard, parameter: refusedStartingScore, theme: .paper)
+    }
+
+    func test_okeyStandard_anOutOfRangeStartingScoreCannotStart_felt() {
+        assertSetup(.okeyStandard, parameter: refusedStartingScore, theme: .felt)
     }
 
     /// The preselected state the screen opens on: 12 of `8 · 12 · Custom`,

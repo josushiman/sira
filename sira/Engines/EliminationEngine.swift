@@ -1,10 +1,12 @@
 import Foundation
 
 /// Win Condition for Okey: two Entrants (Teams of 2) count down from
-/// the Variant's starting score. Each Round the losing team takes a −2
-/// penalty, scaled by that Round's modifiers, and the Gösterge find — one per
-/// Round at most — deducts 1 from the *other* team, never scaled. The Match
-/// ends the moment any Entrant's total reaches 0 or below.
+/// the starting score the Match was set up at. Each Round the losing team
+/// takes a −2 penalty, scaled by that Round's modifiers, and the Gösterge find
+/// — one per Round at most — deducts 1 from the *other* team, never scaled.
+/// Neither scales with the starting score: a longer countdown is a longer
+/// Match, not a differently-shaped one. The Match ends the moment any
+/// Entrant's total reaches 0 or below.
 ///
 /// With a single loser, Çifte's two branches land on the same team — "everyone
 /// else doubles" and "the caller doubles themselves" both reach the loser — so
@@ -13,7 +15,14 @@ import Foundation
 /// called.
 struct EliminationEngine: MatchEngine {
     func standings(for match: Match, rounds: [Round]) -> Standings {
-        let startingScore = match.variant?.startingScore ?? 0
+        // A Match with no starting score is not a Match starting at zero,
+        // which is what resolving it that way used to make it: both teams
+        // begin already lost. There is nothing to score it by, so there is
+        // nothing to say about it — and such a Match does not reach here,
+        // because `scorable` gates it out before Play can open it.
+        guard let startingScore = match.variantNumber else {
+            return Standings(ranked: [], isOver: false, result: nil)
+        }
 
         var totals: [Entrant.ID: Int] = [:]
         for entrant in match.entrants {
