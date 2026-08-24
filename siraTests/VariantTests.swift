@@ -19,6 +19,14 @@ final class VariantTests: XCTestCase {
     /// resolves its rules from it, so renaming one orphans every Match that
     /// names it. Asserted explicitly so a rename fails here rather than
     /// silently orphaning data.
+    ///
+    /// `gonga-101` and `gonga-151` were retired for `gonga-standard` while
+    /// this assertion said they were frozen, which is a thing to do exactly
+    /// once and only on the evidence that made it free: no release tags,
+    /// `SiraSchemaV1` still at 1.0.0 with an empty `SiraMigrationPlan`, and no
+    /// Match stored on any device — the same ground `docs/adr/0007` records
+    /// the previous id rename standing on. Changing an id after that is a
+    /// migration, not an edit to this test.
     func test_everyVariantIdIsFrozen() {
         XCTAssertEqual(Variant.gongaStandard.id, "gonga-standard")
         XCTAssertEqual(Variant.okey21.id, "okey-21")

@@ -32,6 +32,11 @@ final class HomeViewSnapshotTests: XCTestCase {
     /// Two Gonga Matches, one to 101 and one to 201. They carry the same
     /// label, so the metadata line is the only thing telling them apart — the
     /// job the two old Gonga Variants used to do with their names.
+    ///
+    /// The second seats eight, which is also the widest that line gets:
+    /// `8 players · to 201` beside a Round pill and the Variant label, in a
+    /// row that neither wraps nor truncates. A custom limit is what made it
+    /// long enough to be worth pinning.
     private func storeWithTwoLimits() -> MatchStore {
         let store = MatchStore()
 
@@ -47,15 +52,15 @@ final class HomeViewSnapshotTests: XCTestCase {
             createdAt: .fixture(year: 2026, month: 3, day: 14, hour: 21)
         ))
 
-        let carol = Entrant(name: "Carol")
-        let dede = Entrant(name: "Dede")
+        let eight = ["Carol", "Dede", "Emre", "Fatma", "Gizem", "Hakan", "Işıl", "Kerem"]
+            .map { Entrant(name: $0) }
         store.add(Match(
             game: .gonga,
             variant: .gongaStandard,
             number: 201,
             mode: .players,
-            entrants: [carol, dede],
-            rounds: [Round(deltas: [carol.id: 120, dede.id: 60])],
+            entrants: eight,
+            rounds: [Round(deltas: Dictionary(uniqueKeysWithValues: eight.enumerated().map { ($0.element.id, $0.offset * 20) }))],
             createdAt: .fixture(year: 2026, month: 3, day: 12, hour: 20)
         ))
 
