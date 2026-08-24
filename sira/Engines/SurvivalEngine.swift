@@ -1,10 +1,17 @@
 import Foundation
 
-/// Win Condition for Gonga 101/151: Entrants accumulate score; passing the
+/// Win Condition for Gonga: Entrants accumulate score; passing the
 /// Variant's limit sends them Out; the last Entrant not Out wins.
 struct SurvivalEngine: MatchEngine {
     func standings(for match: Match, rounds: [Round]) -> Standings {
-        let limit = match.variant?.limit ?? .max
+        // A Survival Match with no limit is not a Match with a lenient limit,
+        // which is what resolving it as `.max` used to make it: nobody could
+        // ever go Out and the Match could never end. There is nothing to score
+        // it by, so there is nothing to say about it. Such a Match does not
+        // reach here — `scorable` gates it out before Play can open it.
+        guard let limit = match.variantNumber else {
+            return Standings(ranked: [], isOver: false, result: nil)
+        }
 
         var totals: [Entrant.ID: Int] = [:]
         var isOut: [Entrant.ID: Bool] = [:]
@@ -68,13 +75,15 @@ struct SurvivalEngine: MatchEngine {
     /// The total a rejoining Entrant should be set to: the highest total currently
     /// held by any Entrant still in. If everyone busted in the same Round (nobody
     /// is still in), falls back to the highest total among all Entrants, capped at
-    /// the Variant's limit so a Rejoin can never resume an Entrant already Out by
+    /// the Match's limit so a Rejoin can never resume an Entrant already Out by
     /// the game's own rule.
     func rejoinTarget(for match: Match) -> Int {
-        let limit = match.variant?.limit ?? .max
         let ranked = standings(for: match).ranked
         let stillIn = ranked.filter { !$0.isOut }.map(\.total).max()
         let target = stillIn ?? ranked.map(\.total).max() ?? 0
+        // No limit means no Standings either, so there is no target to cap and
+        // nothing here to cap it against.
+        guard let limit = match.variantNumber else { return target }
         return min(target, limit)
     }
 

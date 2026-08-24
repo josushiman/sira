@@ -123,7 +123,7 @@ extension Round {
         let entrantIDs = match.entrants.map(\.id)
         switch winCondition {
         case .elimination:
-            // Okey 21 records the team that lost; the other one won.
+            // Okey records the team that lost; the other one won.
             return multipliers(for: entrantIDs) { $0 != losingEntrantID }
         case .survival, .fixedRounds:
             return keypadMultipliers(for: entrantIDs)
@@ -152,7 +152,7 @@ extension Round {
 
     /// - Parameter wonRound: Whether an Entrant won this Round, which only the
     ///   Win Condition can answer — it's read from an entered 0 in the keypad
-    ///   Variants and from the recorded loser in Okey 21.
+    ///   Variants and from the recorded loser in Okey.
     private func multipliers(
         for entrantIDs: [Entrant.ID],
         wonRound: (Entrant.ID) -> Bool

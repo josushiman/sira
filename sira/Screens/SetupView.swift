@@ -7,15 +7,23 @@ struct SetupView: View {
     @Environment(\.theme) private var theme
     @Environment(\.dismiss) private var dismiss
     @State private var entrantNames: [String]
-    @State private var roundCount: Int
+    /// The number this Match will be played at, and the rules governing what
+    /// the player is allowed to choose. Setup holds it and taps at it; every
+    /// judgement about it — startable, why not, how it reads — belongs to the
+    /// parameter rather than to this screen.
+    @State private var parameter: VariantParameter
     /// The Match this screen started, held directly rather than by id: it is a
     /// model class, so there is nothing to look it back up from.
     @State private var startedMatch: Match?
 
-    init(variant: Variant) {
+    /// `initialParameter` seeds the control mid-choice, so a snapshot can be
+    /// taken of a revealed Custom field or a refused value without a test
+    /// having to tap its way there — the same seam `RoundEntryView` opens for
+    /// the same reason.
+    init(variant: Variant, initialParameter: VariantParameter? = nil) {
         self.variant = variant
         _entrantNames = State(initialValue: Array(repeating: "", count: 2))
-        _roundCount = State(initialValue: variant.roundCount ?? 8)
+        _parameter = State(initialValue: initialParameter ?? VariantParameter(for: variant))
     }
 
     /// Every Variant is fixed to one Entrant mode, so Setup records the
@@ -23,10 +31,23 @@ struct SetupView: View {
     private var mode: EntrantMode { variant.entrantMode }
     private var entrantLabel: String { mode == .teams ? "Team" : "Player" }
     /// Only worth showing when the Variant actually allows more than the
-    /// minimum — Okey 21 is always exactly two teams.
+    /// minimum — Okey is always exactly two teams.
     private var showsCountSelector: Bool { variant.maxEntrants > 2 }
     private var entrantCountOptions: [Int] { Array(2...variant.maxEntrants) }
-    private var offersRoundCountChoice: Bool { variant.winCondition == .fixedRounds }
+
+    private var selection: Binding<VariantParameter.Selection> {
+        Binding(
+            get: { parameter.selection },
+            set: { parameter.choose($0) }
+        )
+    }
+
+    private var customText: Binding<String> {
+        Binding(
+            get: { parameter.customText },
+            set: { parameter.enterCustom($0) }
+        )
+    }
 
     private var entrantCount: Binding<Int> {
         Binding(
@@ -55,10 +76,8 @@ struct SetupView: View {
                     }
                 }
 
-                if offersRoundCountChoice {
-                    labeledSection("Rounds") {
-                        ChipSelector(options: [8, 12], label: { "\($0)" }, selection: $roundCount)
-                    }
+                labeledSection(parameter.kind.noun) {
+                    numberControl
                 }
             }
             .padding(22)
@@ -81,6 +100,49 @@ struct SetupView: View {
         .navigationDestination(item: $startedMatch) { match in
             PlayView(match: match)
         }
+    }
+
+    /// The chips, the field they reveal, and the rules read back with whatever
+    /// is currently chosen in them.
+    @ViewBuilder
+    private var numberControl: some View {
+        VStack(alignment: .leading, spacing: 11) {
+            ChipSelector(
+                options: parameter.presets.map { VariantParameter.Selection.preset($0) } + [.custom],
+                label: chipLabel,
+                selection: selection
+            )
+
+            if parameter.isCustom {
+                CardSurface(cornerRadius: 16, padding: 12) {
+                    TextField(customPlaceholder, text: customText)
+                        .font(.sira(.monoValue))
+                        .keyboardType(.numberPad)
+                        .textFieldStyle(.plain)
+                }
+            }
+
+            // Read back from the number rather than from whether it is legal:
+            // a refused 500 still describes the game 500 would make, and the
+            // reason it is refused is said by the Start button, once.
+            if let value = parameter.value {
+                Text(variant.ruleText(at: value))
+                    .siraStyle(.body)
+                    .foregroundStyle(theme.ink.opacity(0.6))
+            }
+        }
+    }
+
+    private func chipLabel(_ selection: VariantParameter.Selection) -> String {
+        switch selection {
+        case .preset(let preset): return "\(preset)"
+        case .custom: return "Custom"
+        }
+    }
+
+    private var customPlaceholder: String {
+        let range = parameter.kind.range
+        return "\(range.lowerBound)–\(range.upperBound)"
     }
 
     private func setEntrantCount(_ newValue: Int) {
@@ -111,35 +173,56 @@ struct SetupView: View {
         }
     }
 
+    /// The button, and — above it, where the tap that is about to fail is
+    /// aimed — the reason it will not start. Said once: the field itself does
+    /// not turn red, because the number in it is not wrong, it is just not one
+    /// this game can be played at.
     private var startButton: some View {
-        Button {
-            startMatch()
-        } label: {
-            Text("Start Match")
-                .siraStyle(.subheadline)
-                .fontWeight(.semibold)
-                .frame(maxWidth: .infinity)
-                .frame(height: 54)
-                .contentShape(Rectangle())
+        VStack(alignment: .leading, spacing: 8) {
+            if let reason = parameter.unstartableReason {
+                Text(reason)
+                    .siraStyle(.caption)
+                    .foregroundStyle(theme.ink.opacity(0.6))
+            }
+
+            Button {
+                startMatch()
+            } label: {
+                Text("Start Match")
+                    .siraStyle(.subheadline)
+                    .fontWeight(.semibold)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 54)
+                    .contentShape(Rectangle())
+            }
+            .foregroundStyle(theme.background)
+            .background(
+                theme.ink.opacity(parameter.isStartable ? 1 : 0.3),
+                in: RoundedRectangle(cornerRadius: 18, style: .continuous)
+            )
+            .buttonStyle(.plain)
+            .disabled(!parameter.isStartable)
         }
-        .foregroundStyle(theme.background)
-        .background(theme.ink, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .buttonStyle(.plain)
     }
 
     private func startMatch() {
+        // The button is disabled without a startable number, so this is the
+        // second lock rather than the first — but a Match started at a number
+        // nobody agreed to is not something to leave a view layout in charge of.
+        guard parameter.isStartable, let number = parameter.value else { return }
+
         let entrants = entrantNames.enumerated().map { index, name -> Entrant in
             let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
             return Entrant(name: trimmed.isEmpty ? "\(entrantLabel) \(index + 1)" : trimmed)
         }
         // The Match names its Variant rather than copying it, so all Setup
-        // records is the id plus the Round count where the Variant takes one.
-        // Only Fixed Rounds Variants offer that choice, so every other Variant
-        // records nothing and resolves its Round count from the constant.
+        // records is the id plus the one number the Variant's Win Condition is
+        // played at — including where that number came straight off the chips
+        // untouched, so that every Match says what it was played at.
         let match = Match(
             game: variant.game,
-            variantId: variant.id,
-            roundCount: offersRoundCountChoice ? roundCount : nil,
+            variant: variant,
+            number: number,
             mode: mode,
             entrants: entrants
         )
@@ -176,15 +259,15 @@ private struct NameRow: View {
 
 #Preview {
     NavigationStack {
-        SetupView(variant: .gonga101)
+        SetupView(variant: .gongaStandard)
     }
     .environment(MatchStore())
     .themed()
 }
 
-#Preview("Okey 21") {
+#Preview("Okey") {
     NavigationStack {
-        SetupView(variant: .okey21)
+        SetupView(variant: .okeyStandard)
     }
     .environment(MatchStore())
     .themed()

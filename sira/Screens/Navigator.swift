@@ -1,7 +1,8 @@
 import SwiftUI
 
 /// What Home has pushed. Every screen in the app sits under Home, reached
-/// through one of these two: a Game (→ Variant picker → Setup → Play) or a
+/// through one of these two: a Game (→ Variant picker → Setup → Play, or
+/// straight to Setup where the Game has a single Variant, as Gonga does) or a
 /// Match (→ Play). Holding both here rather than in `HomeView`'s own `@State`
 /// is what makes returning to Home possible from anywhere below it — clearing
 /// them pops the stack however deep it got, which `dismiss()` can't do, since

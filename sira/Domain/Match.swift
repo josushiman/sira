@@ -19,9 +19,20 @@ final class Match {
     /// `Variant.id` for the frozen-id contract this creates, and
     /// `docs/adr/0007` for why it is stored this way.
     var variantId: String
-    /// The Round count chosen at Setup, for the Variants that take one
-    /// (Okey 101's 8 or 12). `nil` where the Round count isn't a Setup choice,
-    /// in which case the Variant's own value stands.
+    // The number this Match is played at, in the three shapes the Win
+    // Conditions take it in. At most one is non-`nil` for any given Match —
+    // the one its Variant's Win Condition calls for — because a number that
+    // does not describe a Match is worse than an absent one. Read through
+    // `variantNumber`, never directly: that accessor is the only place that
+    // knows which of the three this Match's Win Condition means.
+    /// The score limit this Match is played to, for a Survival Match. `nil`
+    /// on any other Win Condition, which is not played to a limit at all.
+    var limit: Int?
+    /// The score this Match's Entrants count down from, for an Elimination
+    /// Match. `nil` on any other Win Condition.
+    var startingScore: Int?
+    /// The number of Rounds this Match runs for, for a Fixed Rounds Match.
+    /// `nil` on any other Win Condition.
     var roundCount: Int?
     var mode: EntrantMode
     /// The Entrants as held, owned by this Match and deleted with it, and not
@@ -47,6 +58,8 @@ final class Match {
         id: UUID = UUID(),
         game: Game,
         variantId: String,
+        limit: Int? = nil,
+        startingScore: Int? = nil,
         roundCount: Int? = nil,
         mode: EntrantMode,
         storedEntrants: [Entrant],
@@ -57,6 +70,8 @@ final class Match {
         self.id = id
         self.game = game
         self.variantId = variantId
+        self.limit = limit
+        self.startingScore = startingScore
         self.roundCount = roundCount
         self.mode = mode
         self.storedEntrants = storedEntrants
@@ -69,6 +84,8 @@ final class Match {
         id: UUID = UUID(),
         game: Game,
         variantId: String,
+        limit: Int? = nil,
+        startingScore: Int? = nil,
         roundCount: Int? = nil,
         mode: EntrantMode,
         entrants: [Entrant],
@@ -80,6 +97,8 @@ final class Match {
             id: id,
             game: game,
             variantId: variantId,
+            limit: limit,
+            startingScore: startingScore,
             roundCount: roundCount,
             mode: mode,
             // `entrants` is given in the order Setup wrote the names down and
@@ -131,20 +150,57 @@ final class Match {
     }
 
     /// The Variant this Match is played under, resolved from `variantId`
-    /// against the Variants shipped for its Game, with the Setup-chosen Round
-    /// count applied on top.
+    /// against the Variants shipped for its Game.
+    ///
+    /// Shape only: how the Match is scored, and nothing about how far it runs.
+    /// The number it is played at is the Match's own, and is read through
+    /// `variantNumber`.
     ///
     /// `nil` when the id resolves to nothing — a Match naming a Variant this
     /// build doesn't know is skipped rather than scored by a substitute, so a
     /// downgrade or a bad write stays recoverable rather than becoming terminal.
     var variant: Variant? {
-        guard var resolved = Variant.all(for: game).first(where: { $0.id == variantId }) else {
-            return nil
+        Variant.all(for: game).first(where: { $0.id == variantId })
+    }
+
+    /// The number this Match is played at — the limit it is played to, the
+    /// score it counts down from, or the count of Rounds it runs for,
+    /// whichever its Variant's Win Condition takes.
+    ///
+    /// The one place that number is resolved. Before this existed, each caller
+    /// resolved it off the Variant and invented its own answer for the case
+    /// where it was missing — an unreachable limit in one place, a limit of
+    /// zero in another — so the same unscoreable Match meant something
+    /// different depending on who asked. Here it means one thing: `nil`.
+    ///
+    /// Resolved from the Match alone. The Variant supplies which of the three
+    /// numbers the Match is played at, never the number itself — a limit is a
+    /// table's decision, not a rule a later release could correct on their
+    /// behalf, so there is nothing in the binary to stand in for it.
+    ///
+    /// A Match that resolves `nil` here is skipped at the `scorable` gate
+    /// exactly as a Match naming an unknown Variant id is — never scored
+    /// against a substitute, and never deleted (`docs/adr/0007`).
+    var variantNumber: Int? {
+        guard let variant else { return nil }
+        switch variant.winCondition {
+        case .survival: return limit
+        case .elimination: return startingScore
+        case .fixedRounds: return roundCount
         }
-        if let roundCount {
-            resolved.roundCount = roundCount
-        }
-        return resolved
+    }
+
+    /// The number this Match is played at, as it reads beside the Variant's
+    /// label — `to 101`, `from 21`, `12 rounds`. `nil` when there is no number
+    /// to name it by.
+    ///
+    /// Here rather than on each screen because Home and Play name the same
+    /// Match and must name it identically, and because the phrasing depends on
+    /// the Win Condition, which is the Match's business to know and not a
+    /// card's.
+    var numberPhrase: String? {
+        guard let variant, let number = variantNumber else { return nil }
+        return VariantParameter.Kind(variant.winCondition).phrase(for: number)
     }
 
     /// Detaches the most recently added Round, including any Rejoin attached to
@@ -211,20 +267,24 @@ extension Sequence<Match> {
     /// The Matches this build can score, each with its Variant already
     /// resolved.
     ///
-    /// A Match naming a Variant id that resolves to nothing is skipped rather
-    /// than shown, and never deleted: its data stays exactly where it is, so a
-    /// downgrade or a bad write is recoverable by the build that knows the id
-    /// rather than terminal (`docs/adr/0007`).
+    /// Two ways a Match can fail to be scorable, and the same answer to both:
+    /// it names a Variant id that resolves to nothing, or it carries no number
+    /// to be played at. Either is skipped rather than shown, and never
+    /// deleted: its data stays exactly where it is, so a downgrade or a bad
+    /// write is recoverable by the build that knows the id rather than
+    /// terminal (`docs/adr/0007`).
     ///
-    /// Skipping is a gate, not a guarantee the domain enforces. The Engines
-    /// will still score a Match whose Variant is `nil` — against a substitute
-    /// limit, because there is nothing else for them to read — so what keeps
-    /// that from happening is that such a Match is filtered out here, before
-    /// any screen can open it. The route into Play does not come through here:
-    /// it names one Match by id, and gates on `scorableMatch` instead.
+    /// Skipping is a gate, not a guarantee the domain enforces. An Engine
+    /// handed a Match with no number has nothing to score it by and says
+    /// nothing at all about it — an empty Standings, not a wrong one — so what
+    /// keeps a player from meeting that blank screen is that such a Match is
+    /// filtered out here, before any screen can open it. The route into Play
+    /// does not come through here: it names one Match by id, and gates on
+    /// `scorableMatch` instead.
     var scorable: [(match: Match, variant: Variant)] {
         compactMap { match in
-            match.variant.map { (match: match, variant: $0) }
+            guard let variant = match.variant, match.variantNumber != nil else { return nil }
+            return (match: match, variant: variant)
         }
     }
 
@@ -232,12 +292,14 @@ extension Sequence<Match> {
     ///
     /// Home's list is not the only way into Play: a route names a Match by id,
     /// and that id is resolved here rather than against every stored Match, so
-    /// the two ways it can stop being scorable — the Match was deleted, or its
-    /// Variant id resolves to nothing — both come back as `nil` rather than as
-    /// a Match with no rules to score it by.
+    /// the ways it can stop being scorable — the Match was deleted, its
+    /// Variant id resolves to nothing, or it carries no number to be played at
+    /// — all come back as `nil` rather than as a Match with no rules to score
+    /// it by.
     ///
     /// One id, so one Variant resolved: `scorable` would resolve every Match's
     /// Variant to build a list this throws away.
+    ///
     /// `isGone` is asked first, before the id it is guarding: reading `id`
     /// off a Match that has been deleted is itself a read of a stored
     /// property, and a deleted Match answers those by trapping. This walks
@@ -246,7 +308,9 @@ extension Sequence<Match> {
     func scorableMatch(_ id: Match.ID?) -> Match? {
         guard let id,
               let match = first(where: { !$0.isGone && $0.id == id }),
-              match.variant != nil
+              // One question covers both: a number resolves only through a
+              // Variant, so an unknown id is already `nil` here.
+              match.variantNumber != nil
         else {
             return nil
         }
@@ -255,24 +319,54 @@ extension Sequence<Match> {
 }
 
 extension Match {
-    /// Starts a Match under `variant`, recording its id and the Round count it
-    /// carries. The Variant itself is not stored — `variant` resolves it afresh
-    /// on every read — so this is a starting point rather than a copy.
+    /// Starts a Match under `variant`, recording its id and the number its Win
+    /// Condition is played at. The Variant itself is not stored — `variant`
+    /// resolves it afresh on every read — so this is a starting point rather
+    /// than a copy.
+    ///
+    /// The number is recorded even when it is the value Setup preselected, so
+    /// that every Match says what it was played at, and nothing downstream has
+    /// to tell "the table chose this" from "nobody was asked".
+    ///
+    /// `number` is the number chosen for this Match at Setup, in whichever
+    /// shape the Variant's Win Condition takes it, and is required: there is
+    /// nothing left to fall back to. The Variants carry no numbers, and a
+    /// Match without one is skipped at the `scorable` gate rather than scored.
+    /// A caller nobody was asked for — a fixture, a test — states the number
+    /// it means, rather than inheriting a constant a later release could move
+    /// underneath it (`docs/adr/0007`).
     convenience init(
         id: UUID = UUID(),
         game: Game,
         variant: Variant,
+        number: Int,
         mode: EntrantMode,
         entrants: [Entrant],
         rounds: [Round] = [],
         archived: Bool = false,
         createdAt: Date = Date()
     ) {
+        // Matched rather than compared: this initializer is nonisolated, and
+        // `WinCondition`'s synthesized `==` is not.
+        let limit: Int?
+        let startingScore: Int?
+        let roundCount: Int?
+        switch variant.winCondition {
+        case .survival:
+            (limit, startingScore, roundCount) = (number, nil, nil)
+        case .elimination:
+            (limit, startingScore, roundCount) = (nil, number, nil)
+        case .fixedRounds:
+            (limit, startingScore, roundCount) = (nil, nil, number)
+        }
+
         self.init(
             id: id,
             game: game,
             variantId: variant.id,
-            roundCount: variant.roundCount,
+            limit: limit,
+            startingScore: startingScore,
+            roundCount: roundCount,
             mode: mode,
             entrants: entrants,
             rounds: rounds,

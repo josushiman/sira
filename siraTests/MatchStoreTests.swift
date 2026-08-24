@@ -4,7 +4,7 @@ import SwiftData
 
 final class MatchStoreTests: XCTestCase {
     private func gongaMatch(entrants: [Entrant] = [Entrant(name: "Alice")]) -> Match {
-        Match(game: .gonga, variant: .gonga101, mode: .players, entrants: entrants)
+        Match(game: .gonga, variant: .gongaStandard, number: 101, mode: .players, entrants: entrants)
     }
 
     /// Reading is `@Query`'s job in the app, so the store's own tests read the
@@ -30,7 +30,7 @@ final class MatchStoreTests: XCTestCase {
         store.add(gongaMatch(entrants: [alice, bob]))
 
         let stored = try XCTUnwrap(try storedMatches(in: store).first)
-        XCTAssertEqual(stored.variant, .gonga101)
+        XCTAssertEqual(stored.variant, .gongaStandard)
         XCTAssertEqual(stored.entrants.map(\.name).sorted(), ["Alice", "Bob"])
     }
 

@@ -2,12 +2,19 @@ import Foundation
 
 /// Win Condition for Okey 101: Entrants accumulate deltas each Round, scaled
 /// by that Round's modifiers, with no elimination. The Match ends once the
-/// Variant's configured Round count is reached; the lowest total wins. This is
+/// Round count chosen at Setup is reached; the lowest total wins. This is
 /// the only Win Condition where Çifte's asymmetry is observable, having more
 /// than one loser for a winning caller to double.
 struct FixedRoundsEngine: MatchEngine {
     func standings(for match: Match, rounds: [Round]) -> Standings {
-        let roundCount = match.variant?.roundCount ?? .max
+        // A Match with no Round count is not a Match that runs forever, which
+        // is what resolving it as `.max` used to make it: it could never end
+        // and so could never be won. There is nothing to score it by, so there
+        // is nothing to say about it. Such a Match does not reach here —
+        // `scorable` gates it out before Play can open it.
+        guard let roundCount = match.variantNumber else {
+            return Standings(ranked: [], isOver: false, result: nil)
+        }
 
         var totals: [Entrant.ID: Int] = [:]
         for entrant in match.entrants {

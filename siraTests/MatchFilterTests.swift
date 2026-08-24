@@ -3,7 +3,7 @@ import XCTest
 
 final class MatchFilterTests: XCTestCase {
     private func makeMatch(archived: Bool) -> Match {
-        Match(game: .gonga, variant: .gonga101, mode: .players, entrants: [Entrant(name: "Alice")], archived: archived)
+        Match(game: .gonga, variant: .gongaStandard, number: 101, mode: .players, entrants: [Entrant(name: "Alice")], archived: archived)
     }
 
     func test_activeIncludesOnlyNonArchivedMatches() {
@@ -24,7 +24,8 @@ final class MatchFilterTests: XCTestCase {
     private func makeMatch(createdAt: Date, archived: Bool = false) -> Match {
         Match(
             game: .gonga,
-            variant: .gonga101,
+            variant: .gongaStandard,
+            number: 101,
             mode: .players,
             entrants: [Entrant(name: "Alice")],
             archived: archived,

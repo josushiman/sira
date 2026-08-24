@@ -14,13 +14,9 @@ final class VariantPickerViewSnapshotTests: XCTestCase {
         assertSnapshot(of: view, as: .image(layout: .fixed(width: 402, height: 874)), testName: testName)
     }
 
-    func test_gonga_bothVariants_paper() {
-        assertVariantPicker(.gonga, theme: .paper)
-    }
-
-    func test_gonga_bothVariants_felt() {
-        assertVariantPicker(.gonga, theme: .felt)
-    }
+    // Gonga has no cases here any more. It resolves to one Variant, so Home
+    // opens Setup for it and the Picker is never on screen — a snapshot of it
+    // would be a recording of a screen the app cannot reach.
 
     func test_okey_bothVariants_paper() {
         assertVariantPicker(.okey, theme: .paper)

@@ -14,7 +14,7 @@ struct PlayView: View {
     /// visible there without anything being written back (`docs/adr/0006`).
     let match: Match
     @State private var showingKeypadEntry = false
-    @State private var showingOkey21Entry = false
+    @State private var showingOkeyStandardEntry = false
     @State private var rejoinQueue: [Entrant.ID] = []
     @State private var selectedTab: PlayTab
 
@@ -36,14 +36,19 @@ struct PlayView: View {
 
     @ViewBuilder
     var body: some View {
-        // A Match naming a Variant this build doesn't know has no rules to
-        // score it by, so it is skipped rather than played under a substitute.
+        // A Match naming a Variant this build doesn't know, or carrying no
+        // number to be played at, has no rules to score it by — so it is
+        // skipped rather than played under a substitute. Both are asked here,
+        // because an Engine handed either says nothing about the Match while
+        // Play would go on offering to add Rounds to it.
+        //
         // In practice this always resolves: Home names a Match by id and
         // resolves it through `scorableMatch` first, and Setup only ever hands
-        // over a Match it just built from the Variant it is holding. So this
-        // stays as the last word on a Match Play cannot score, rather than as
-        // the thing keeping the player off a blank screen.
-        if let variant = match.variant {
+        // over a Match it just built from the Variant it is holding, at the
+        // number it was asked for. So this stays as the last word on a Match
+        // Play cannot score, rather than as the thing keeping the player off a
+        // blank screen.
+        if let variant = match.variant, match.variantNumber != nil {
             play(variant)
         }
     }
@@ -87,15 +92,15 @@ struct PlayView: View {
         .navigationDestination(isPresented: $showingKeypadEntry) {
             keypadRoundEntry(variant, standings)
         }
-        .navigationDestination(isPresented: $showingOkey21Entry) {
-            okey21RoundEntry
+        .navigationDestination(isPresented: $showingOkeyStandardEntry) {
+            okeyStandardRoundEntry
         }
         .sheet(item: rejoinBinding) { entrant in
-            if let survivalEngine = engine as? SurvivalEngine {
+            if let survivalEngine = engine as? SurvivalEngine, let limit = match.variantNumber {
                 RejoinSheet(
                     entrant: entrant,
                     score: standings.ranked.first { $0.entrantID == entrant.id }?.total ?? 0,
-                    limit: variant.limit ?? 0,
+                    limit: limit,
                     target: survivalEngine.rejoinTarget(for: match),
                     onAccept: { acceptRejoin(variant, for: entrant) }
                 )
@@ -137,20 +142,27 @@ struct PlayView: View {
         match.entrants.firstIndex { $0.id == entrantID } ?? 0
     }
 
-    /// How much an Entrant can still take before passing the Variant's limit.
-    /// Only Survival Variants have a limit to run out of, and an Entrant
-    /// already Out has none left to report — both read as `nil`.
+    /// How much an Entrant can still take before passing the Match's limit.
+    /// Only a Survival Match is played to a limit to run out of, and an
+    /// Entrant already Out has none left to report — both read as `nil`.
     private func roomLeft(_ variant: Variant, for standing: EntrantStanding) -> Int? {
-        guard let limit = variant.limit, !standing.isOut else { return nil }
+        guard variant.winCondition == .survival,
+              let limit = match.variantNumber,
+              !standing.isOut
+        else { return nil }
         return max(0, limit - standing.total)
     }
 
     /// The largest total magnitude among all Standings, used to normalize
     /// each Standing's progress-bar width — matches the prototype's `maxAbs`.
+    ///
+    /// A limit and a starting score are both scores, so a bar can be drawn
+    /// against either. A Round count is not, so Fixed Rounds scales against
+    /// the Entrants' own totals instead.
     private func maxAbsTotal(_ variant: Variant, _ standings: Standings) -> Int {
         let entrantMax = standings.ranked.map { abs($0.total) }.max() ?? 0
-        let variantScale = variant.limit ?? variant.startingScore ?? entrantMax
-        return max(1, variantScale)
+        let scale = variant.winCondition == .fixedRounds ? nil : match.variantNumber
+        return max(1, scale ?? entrantMax)
     }
 
     private func keypadRoundEntry(_ variant: Variant, _ standings: Standings) -> some View {
@@ -189,9 +201,9 @@ struct PlayView: View {
         }
     }
 
-    private var okey21RoundEntry: some View {
-        Okey21RoundEntryView(entrants: match.entrants, roundNumber: match.rounds.count + 1) { losingEntrantID, gostergeFinderID, cifteCallers, okeyAtti in
-            showingOkey21Entry = false
+    private var okeyStandardRoundEntry: some View {
+        OkeyStandardRoundEntryView(entrants: match.entrants, roundNumber: match.rounds.count + 1) { losingEntrantID, gostergeFinderID, cifteCallers, okeyAtti in
+            showingOkeyStandardEntry = false
             DispatchQueue.main.async {
                 // Okey atmak is winning the Round, so the atan is the other team.
                 let winnerID = match.entrants.first { $0.id != losingEntrantID }?.id
@@ -263,10 +275,13 @@ struct PlayView: View {
         }
     }
 
+    /// Who is playing and what they are playing to — the same phrase Home's
+    /// card carries, off the same accessor, so a Match reads the same wherever
+    /// it is named.
     private var playSubtitle: String {
         let count = match.entrants.count
         let noun = match.mode == .teams ? (count == 1 ? "team" : "teams") : (count == 1 ? "player" : "players")
-        return "\(count) \(noun)"
+        return ["\(count) \(noun)", match.numberPhrase].compactMap { $0 }.joined(separator: " · ")
     }
 
     private var archiveButton: some View {
@@ -315,7 +330,7 @@ struct PlayView: View {
         Button {
             switch variant.entryStyle {
             case .keypad: showingKeypadEntry = true
-            case .okey21: showingOkey21Entry = true
+            case .okeyStandard: showingOkeyStandardEntry = true
             }
         } label: {
             Text(isOver ? "Match finished" : "Add round \(match.rounds.count + 1) scores")
@@ -513,16 +528,18 @@ struct MatchOverBanner: View {
 #Preview {
     PlayPreview(
         game: .gonga,
-        variant: .gonga101,
+        variant: .gongaStandard,
+        number: 101,
         mode: .players,
         names: ["Alice", "Bob"]
     )
 }
 
-#Preview("Okey 21") {
+#Preview("Okey") {
     PlayPreview(
         game: .okey,
-        variant: .okey21,
+        variant: .okeyStandard,
+        number: 21,
         mode: .teams,
         names: ["Team A", "Team B"]
     )
@@ -532,6 +549,7 @@ struct MatchOverBanner: View {
     PlayPreview(
         game: .okey,
         variant: .okey101,
+        number: 12,
         mode: .players,
         names: ["Alice", "Bob"]
     )
@@ -544,11 +562,12 @@ private struct PlayPreview: View {
     @State private var store: MatchStore
     private let match: Match
 
-    init(game: Game, variant: Variant, mode: EntrantMode, names: [String]) {
+    init(game: Game, variant: Variant, number: Int, mode: EntrantMode, names: [String]) {
         let store = MatchStore()
         let match = Match(
             game: game,
             variant: variant,
+            number: number,
             mode: mode,
             entrants: names.map { Entrant(name: $0) }
         )

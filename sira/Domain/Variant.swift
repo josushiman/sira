@@ -2,12 +2,21 @@ import Foundation
 
 /// Which Round Entry form a Variant uses.
 enum RoundEntryStyle: Hashable {
-    /// Per-Entrant numeric keypad (Gonga 101/151, Okey 101).
+    /// Per-Entrant numeric keypad (Gonga, Okey 101).
     case keypad
-    /// Pick the losing team plus Gösterge steppers (Okey 21).
-    case okey21
+    /// Pick the losing team plus Gösterge steppers (Okey).
+    case okeyStandard
 }
 
+/// The shape a Match is scored in, and nothing about how far it runs.
+///
+/// A Variant says which Win Condition applies, who may sit down, and how a
+/// Round is entered. The number it is played at — a limit, a starting score or
+/// a Round count, whichever its Win Condition takes — is the table's choice:
+/// made at Setup, stored on the Match, and read back through
+/// `Match.variantNumber`. There is deliberately no `limit`, `startingScore` or
+/// `roundCount` here to reach for instead, so a caller after the number gets a
+/// compile error pointing at the Match rather than a plausible `nil`.
 struct Variant: Identifiable, Hashable {
     /// Stable identity for this Variant, and a persistence contract once the
     /// app ships: a Match stores this string and resolves its rules from it,
@@ -19,18 +28,10 @@ struct Variant: Identifiable, Hashable {
     let label: String
     let ruleText: String
     let winCondition: WinCondition
-    /// Survival: the score an Entrant must stay at or under before going Out.
-    let limit: Int?
-    /// Elimination: the score Entrants count down from.
-    let startingScore: Int?
-    /// Fixed Rounds: the number of Rounds the Match runs for. Var rather than
-    /// let because a Match resolving this Variant applies the Round count
-    /// chosen at Setup (Okey 101: 8 or 12) on top of it.
-    var roundCount: Int?
     /// The single Entrant mode this Variant is played in. Every Variant is
-    /// fixed to one — only Okey 21 is played in Teams of 2; Gonga 101/151
-    /// and Okey 101 are individuals only — so Setup records this rather than
-    /// offering a Players/Teams choice.
+    /// fixed to one — only Okey is played in Teams of 2; Gonga and Okey 101
+    /// are individuals only — so Setup records this rather than offering
+    /// a Players/Teams choice.
     let entrantMode: EntrantMode
     /// The largest number of Entrants Setup will let you pick. Teams Variants
     /// are always exactly 2; Gonga seats up to 8 players, Okey 101 up to 4.
@@ -38,68 +39,86 @@ struct Variant: Identifiable, Hashable {
     /// Whether Round entry offers the Çifte doubling toggle. Okey only —
     /// Gonga has no Çifte concept.
     let supportsCifte: Bool
+    /// The rules as Setup reads them back once a number has been chosen, with
+    /// `{n}` standing where that number goes and `{s}` for the plural ending
+    /// that number governs — `1` is a legal Round count, so "over {n} Round{s}"
+    /// has to read "over 1 Round". Separate from `ruleText`, which the Variant
+    /// Picker shows before anything has been chosen and so cannot quote a
+    /// number at all.
+    ///
+    /// Every Variant has one: all three take a number at Setup, so all three
+    /// have rules to read back at whatever was chosen.
+    let ruleTextTemplate: String
     var entryStyle: RoundEntryStyle = .keypad
     /// Keypad entry's "never laid down" quick-entry shortcut value (Okey 101: 101).
     /// `nil` for Variants that don't offer this shortcut.
     var neverLaidDownValue: Int? = nil
+
+    /// The rules restated with `number` in them — what Setup shows under the
+    /// control, so choosing 5 immediately reads back the game that choice
+    /// makes.
+    func ruleText(at number: Int) -> String {
+        ruleTextTemplate
+            .replacingOccurrences(of: "{n}", with: "\(number)")
+            .replacingOccurrences(of: "{s}", with: number == 1 ? "" : "s")
+    }
 }
 
 extension Variant {
-    static let gonga101 = Variant(
-        id: "gonga-101",
+    /// Gonga, played to whatever limit the table agreed on at Setup.
+    ///
+    /// One Variant rather than the two it replaces: Gonga 101 and Gonga 151
+    /// were identical in Win Condition, Entrant mode, eight-player maximum,
+    /// absence of Çifte and keypad entry, and differed by a single integer —
+    /// which is a number to be asked for, not a ruleset to be chosen between.
+    ///
+    /// The id names the slot and not the number, so a genuinely different
+    /// Gonga ruleset can be added later without this one's id having to lie.
+    static let gongaStandard = Variant(
+        id: "gonga-standard",
         game: .gonga,
-        label: "Gonga 101",
-        ruleText: "Accumulate points each Round. Go over 101 and you're Out. Last one standing wins.",
+        label: "Gonga",
+        ruleText: "Accumulate points each Round. Go over the limit and you're Out. Last one standing wins.",
         winCondition: .survival,
-        limit: 101,
-        startingScore: nil,
-        roundCount: nil,
         entrantMode: .players,
         maxEntrants: 8,
-        supportsCifte: false
+        supportsCifte: false,
+        ruleTextTemplate: "Accumulate points each Round. Go over {n} and you're Out. Last one standing wins."
     )
 
-    static let gonga151 = Variant(
-        id: "gonga-151",
-        game: .gonga,
-        label: "Gonga 151",
-        ruleText: "The longer game. Accumulate points each Round, go over 151 and you're Out. Last one standing wins.",
-        winCondition: .survival,
-        limit: 151,
-        startingScore: nil,
-        roundCount: nil,
-        entrantMode: .players,
-        maxEntrants: 8,
-        supportsCifte: false
-    )
-
-    static let okey21 = Variant(
-        id: "okey-21",
+    /// Okey as it is played by default, counting down from a starting score.
+    ///
+    /// Labelled "Okey" and not "Okey 21": the starting score becomes a Setup
+    /// choice, and a name quoting a number the Variant no longer guarantees is
+    /// worse than no number at all. The id names the slot rather than the
+    /// number for the same reason.
+    ///
+    /// The Swift member stays qualified — `okeyStandard`, not `okey` — because
+    /// `Game.okey` already exists and two `okey` members one type apart
+    /// misresolve later even though they read fine today.
+    static let okeyStandard = Variant(
+        id: "okey-standard",
         game: .okey,
-        label: "Okey 21",
-        ruleText: "Teams of 2 count down from 21. The losing team takes \u{2212}2 each Round; each Gösterge find deducts 1 from the other team. First team to reach 0 loses.",
+        label: "Okey",
+        ruleText: "Teams of 2 count down from a starting score, chosen at Setup. The losing team takes \u{2212}2 each Round; each Gösterge find deducts 1 from the other team. First team to reach 0 loses.",
         winCondition: .elimination,
-        limit: nil,
-        startingScore: 21,
-        roundCount: nil,
         entrantMode: .teams,
         maxEntrants: 2,
         supportsCifte: true,
-        entryStyle: .okey21
+        ruleTextTemplate: "Teams of 2 count down from {n}. The losing team takes \u{2212}2 each Round; each Gösterge find deducts 1 from the other team. First team to reach 0 loses.",
+        entryStyle: .okeyStandard
     )
 
     static let okey101 = Variant(
         id: "okey-101",
         game: .okey,
         label: "Okey 101",
-        ruleText: "Individuals only. Accumulate points each Round over a fixed number of Rounds (8 or 12, chosen at Setup). Lowest total when the Rounds run out wins.",
+        ruleText: "Individuals only. Accumulate points each Round over a fixed number of Rounds, chosen at Setup. Lowest total when the Rounds run out wins.",
         winCondition: .fixedRounds,
-        limit: nil,
-        startingScore: nil,
-        roundCount: 8,
         entrantMode: .players,
         maxEntrants: 4,
         supportsCifte: true,
+        ruleTextTemplate: "Individuals only. Accumulate points each Round over {n} Round{s}. Lowest total when the Rounds run out wins.",
         entryStyle: .keypad,
         neverLaidDownValue: 101
     )
@@ -107,8 +126,8 @@ extension Variant {
     /// The Variants available for a Game, in the order the Variant Picker shows them.
     static func all(for game: Game) -> [Variant] {
         switch game {
-        case .gonga: return [.gonga101, .gonga151]
-        case .okey: return [.okey21, .okey101]
+        case .gonga: return [.gongaStandard]
+        case .okey: return [.okeyStandard, .okey101]
         }
     }
 }

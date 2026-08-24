@@ -137,7 +137,8 @@ final class MatchStoreRecoveryTests: XCTestCase {
         let matchID = try launch { store -> Match.ID in
             let match = Match(
                 game: .gonga,
-                variant: .gonga101,
+                variant: .gongaStandard,
+                number: 101,
                 mode: .players,
                 entrants: [Entrant(name: "Alice"), Entrant(name: "Bob")]
             )
@@ -157,7 +158,8 @@ final class MatchStoreRecoveryTests: XCTestCase {
         let matchID = try launch { store -> Match.ID in
             let match = Match(
                 game: .gonga,
-                variant: .gonga151,
+                variant: .gongaStandard,
+                number: 101,
                 mode: .players,
                 entrants: [Entrant(name: "Alice"), Entrant(name: "Bob")]
             )
@@ -212,7 +214,8 @@ final class MatchStoreRecoveryTests: XCTestCase {
             let bob = Entrant(name: "Bob")
             let playable = Match(
                 game: .gonga,
-                variant: .gonga101,
+                variant: .gongaStandard,
+                number: 101,
                 mode: .players,
                 entrants: [alice, bob]
             )
@@ -236,7 +239,7 @@ final class MatchStoreRecoveryTests: XCTestCase {
 
             XCTAssertEqual(scorable.map(\.match.id), [playableID])
             let (match, variant) = try XCTUnwrap(scorable.first)
-            XCTAssertEqual(variant.id, Variant.gonga101.id)
+            XCTAssertEqual(variant.id, Variant.gongaStandard.id)
             XCTAssertEqual(variant.winCondition.engine.standings(for: match), before)
         }
     }

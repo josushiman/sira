@@ -128,10 +128,30 @@ struct HomeView: View {
             DeleteMatchSheet(deletion: deletion) { delete(deletion) }
         }
         .navigationDestination(item: $navigator.pickingVariantsFor) { game in
-            VariantPickerView(game: game)
+            gameDestination(for: game)
         }
         .navigationDestination(item: openMatch) { match in
             PlayView(match: match)
+        }
+    }
+
+    /// Where tapping a Game card lands.
+    ///
+    /// A Game with one Variant has nothing to pick, so the Picker is skipped
+    /// and Setup is what the tap opens — a list of one card is a question with
+    /// a single answer, and asking it is a tap the player pays for nothing.
+    /// Gonga is that Game; Okey has two genuinely different Variants and keeps
+    /// its Picker.
+    ///
+    /// Decided here rather than by hard-coding which Game skips the Picker, so
+    /// that a second Gonga ruleset would restore its Picker by existing.
+    @ViewBuilder
+    private func gameDestination(for game: Game) -> some View {
+        let variants = Variant.all(for: game)
+        if variants.count == 1, let only = variants.first {
+            SetupView(variant: only)
+        } else {
+            VariantPickerView(game: game)
         }
     }
 
@@ -170,7 +190,7 @@ struct HomeView: View {
         VStack(alignment: .leading, spacing: 4) {
             Text("Keep the\nscore honest.")
                 .siraStyle(.displayHero)
-            Text("Two games, four variants, one running tally that nobody can argue with.")
+            Text(HomeCopy.heroLine)
                 .siraStyle(.body)
                 .foregroundStyle(theme.ink.opacity(0.55))
         }
@@ -264,7 +284,9 @@ struct HomeView: View {
 }
 
 /// The inline Game card at the top of Home — replaces the old `GamePickerView`
-/// screen. Tapping it navigates directly to that Game's Variant picker.
+/// screen. Tapping it opens that Game's Variants: the Picker where there is
+/// more than one to choose between, Setup directly where there is not — see
+/// `HomeView.gameDestination(for:)`.
 private struct GameGlyphCard: View {
     let game: Game
 
@@ -348,12 +370,7 @@ private struct GameGlyphCard: View {
         }
     }
 
-    private var subtitle: String {
-        switch game {
-        case .gonga: return "101 / 151"
-        case .okey: return "21 / 101"
-        }
-    }
+    private var subtitle: String { HomeCopy.gameSubtitle(for: game) }
 }
 
 /// A Match row on Home, styled as the prototype's card: game badge, the date

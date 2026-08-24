@@ -19,6 +19,11 @@ extension Match {
             id: id,
             game: game,
             variantId: variantId,
+            // All three, not just the one this Match happens to use: the copy
+            // is meant to differ from the original in storage order and in
+            // nothing else, and a dropped number would leave it unscorable.
+            limit: limit,
+            startingScore: startingScore,
             roundCount: roundCount,
             mode: mode,
             storedEntrants: entrants.reversed().map { entrant in
