@@ -523,7 +523,7 @@ struct MatchOverBanner: View {
 #Preview {
     PlayPreview(
         game: .gonga,
-        variant: .gonga101,
+        variant: .gongaStandard,
         mode: .players,
         names: ["Alice", "Bob"]
     )

@@ -29,7 +29,7 @@ extension MatchStore {
 
         store.add(Match(
             game: .gonga,
-            variant: .gonga101,
+            variant: .gongaStandard,
             mode: .players,
             entrants: [alice, bob],
             rounds: [Round(deltas: [alice.id: 20, bob.id: 15])],
@@ -41,7 +41,7 @@ extension MatchStore {
 
         store.add(Match(
             game: .gonga,
-            variant: .gonga101,
+            variant: .gongaStandard,
             mode: .players,
             entrants: [aliceAgain, carol],
             rounds: [Round(deltas: [aliceAgain.id: 110, carol.id: 40])],

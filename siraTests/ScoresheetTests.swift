@@ -2,7 +2,7 @@ import XCTest
 @testable import sira
 
 final class ScoresheetTests: XCTestCase {
-    private let variant = Variant.gonga101
+    private let variant = Variant.gongaStandard
     private let engine = SurvivalEngine()
 
     private func makeMatch(entrants: [Entrant], rounds: [Round]) -> Match {

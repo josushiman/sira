@@ -18,15 +18,18 @@ final class VariantParameterTests: XCTestCase {
         XCTAssertFalse(parameter.isCustom)
     }
 
-    /// Gonga's chips become `101 · 151` once its two Variants merge into one.
-    /// Until then each Gonga offers the one limit it ships with, so Setup asks
-    /// the same question of it that it asks of Okey 101.
-    func test_aSurvivalVariantOffersTheLimitItShipsWith() {
-        let parameter = VariantParameter(for: .gonga151)
+    /// The two Gongas are one Variant with two chips: 101 is the game most
+    /// tables play and opens preselected, and 151 — the second-most-common,
+    /// and a whole Variant until now — is a single tap rather than a typing
+    /// exercise.
+    func test_gongaOffers101And151With101Preselected() {
+        let parameter = VariantParameter(for: .gongaStandard)
 
         XCTAssertEqual(parameter.kind, .limit)
-        XCTAssertEqual(parameter.presets, [151])
-        XCTAssertEqual(parameter.selection, .preset(151))
+        XCTAssertEqual(parameter.presets, [101, 151])
+        XCTAssertEqual(parameter.selection, .preset(101))
+        XCTAssertEqual(parameter.value, 101)
+        XCTAssertFalse(parameter.isCustom)
     }
 
     func test_anEliminationVariantOffersTheStartingScoreItShipsWith() {
@@ -80,13 +83,13 @@ final class VariantParameterTests: XCTestCase {
 
     func test_bothEndsOfEachRangeStartAMatch() {
         assertStartable(.okey101, [1, 50])
-        assertStartable(.gonga101, [11, 999])
+        assertStartable(.gongaStandard, [11, 999])
         assertStartable(.okey21, [2, 99])
     }
 
     func test_theValuesJustOutsideEachRangeDoNot() {
         assertNotStartable(.okey101, [0, 51])
-        assertNotStartable(.gonga101, [10, 1000])
+        assertNotStartable(.gongaStandard, [10, 1000])
         assertNotStartable(.okey21, [1, 100])
     }
 
@@ -117,7 +120,7 @@ final class VariantParameterTests: XCTestCase {
         parameter.enterCustom("51")
         XCTAssertEqual(parameter.unstartableReason, "Rounds must be between 1 and 50")
 
-        var gonga = VariantParameter(for: .gonga101)
+        var gonga = VariantParameter(for: .gongaStandard)
         gonga.enterCustom("5")
         XCTAssertEqual(gonga.unstartableReason, "Limit must be between 11 and 999")
 

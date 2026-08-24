@@ -62,7 +62,7 @@ struct StatusPill: View {
                 CardSurface {
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
-                            Text("Gonga 151")
+                            Text("Gonga")
                             StatusPill(text: "Round 3", foreground: theme.onAccent, background: theme.accent)
                         }
                         DashedDivider()

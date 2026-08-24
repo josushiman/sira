@@ -2,7 +2,7 @@ import Foundation
 
 /// Which Round Entry form a Variant uses.
 enum RoundEntryStyle: Hashable {
-    /// Per-Entrant numeric keypad (Gonga 101/151, Okey 101).
+    /// Per-Entrant numeric keypad (Gonga, Okey 101).
     case keypad
     /// Pick the losing team plus Gösterge steppers (Okey 21).
     case okey21
@@ -28,9 +28,9 @@ struct Variant: Identifiable, Hashable {
     /// chosen at Setup (Okey 101: 8 or 12) on top of it.
     var roundCount: Int?
     /// The single Entrant mode this Variant is played in. Every Variant is
-    /// fixed to one — only Okey 21 is played in Teams of 2; Gonga 101/151
-    /// and Okey 101 are individuals only — so Setup records this rather than
-    /// offering a Players/Teams choice.
+    /// fixed to one — only Okey 21 is played in Teams of 2; Gonga and Okey
+    /// 101 are individuals only — so Setup records this rather than offering
+    /// a Players/Teams choice.
     let entrantMode: EntrantMode
     /// The largest number of Entrants Setup will let you pick. Teams Variants
     /// are always exactly 2; Gonga seats up to 8 players, Okey 101 up to 4.
@@ -60,32 +60,28 @@ struct Variant: Identifiable, Hashable {
 }
 
 extension Variant {
-    static let gonga101 = Variant(
-        id: "gonga-101",
+    /// Gonga, played to whatever limit the table agreed on at Setup.
+    ///
+    /// One Variant rather than the two it replaces: Gonga 101 and Gonga 151
+    /// were identical in Win Condition, Entrant mode, eight-player maximum,
+    /// absence of Çifte and keypad entry, and differed by a single integer —
+    /// which is a number to be asked for, not a ruleset to be chosen between.
+    ///
+    /// The id names the slot and not the number, so a genuinely different
+    /// Gonga ruleset can be added later without this one's id having to lie.
+    static let gongaStandard = Variant(
+        id: "gonga-standard",
         game: .gonga,
-        label: "Gonga 101",
-        ruleText: "Accumulate points each Round. Go over 101 and you're Out. Last one standing wins.",
+        label: "Gonga",
+        ruleText: "Accumulate points each Round. Go over the limit and you're Out. Last one standing wins.",
         winCondition: .survival,
         limit: 101,
         startingScore: nil,
         roundCount: nil,
         entrantMode: .players,
         maxEntrants: 8,
-        supportsCifte: false
-    )
-
-    static let gonga151 = Variant(
-        id: "gonga-151",
-        game: .gonga,
-        label: "Gonga 151",
-        ruleText: "The longer game. Accumulate points each Round, go over 151 and you're Out. Last one standing wins.",
-        winCondition: .survival,
-        limit: 151,
-        startingScore: nil,
-        roundCount: nil,
-        entrantMode: .players,
-        maxEntrants: 8,
-        supportsCifte: false
+        supportsCifte: false,
+        ruleTextTemplate: "Accumulate points each Round. Go over {n} and you're Out. Last one standing wins."
     )
 
     static let okey21 = Variant(
@@ -123,7 +119,7 @@ extension Variant {
     /// The Variants available for a Game, in the order the Variant Picker shows them.
     static func all(for game: Game) -> [Variant] {
         switch game {
-        case .gonga: return [.gonga101, .gonga151]
+        case .gonga: return [.gongaStandard]
         case .okey: return [.okey21, .okey101]
         }
     }

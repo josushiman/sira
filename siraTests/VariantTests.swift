@@ -4,8 +4,11 @@ import XCTest
 final class VariantTests: XCTestCase {
     // MARK: - Catalogue
 
-    func test_gongaOffersBoth101And151() {
-        XCTAssertEqual(Variant.all(for: .gonga).map(\.id), ["gonga-101", "gonga-151"])
+    /// One Gonga, not two. The limit that used to be the difference between
+    /// them is a number Setup asks for, so there is nothing left to pick
+    /// between — which is why Home lands on Setup rather than the Picker.
+    func test_gongaOffersOneVariant() {
+        XCTAssertEqual(Variant.all(for: .gonga).map(\.id), ["gonga-standard"])
     }
 
     func test_okeyOffers21And101() {
@@ -17,8 +20,7 @@ final class VariantTests: XCTestCase {
     /// names it. Asserted explicitly so a rename fails here rather than
     /// silently orphaning data.
     func test_everyVariantIdIsFrozen() {
-        XCTAssertEqual(Variant.gonga101.id, "gonga-101")
-        XCTAssertEqual(Variant.gonga151.id, "gonga-151")
+        XCTAssertEqual(Variant.gongaStandard.id, "gonga-standard")
         XCTAssertEqual(Variant.okey21.id, "okey-21")
         XCTAssertEqual(Variant.okey101.id, "okey-101")
     }
@@ -35,14 +37,13 @@ final class VariantTests: XCTestCase {
 
     func test_onlyOkey21IsPlayedInTeams() {
         XCTAssertEqual(Variant.okey21.entrantMode, .teams)
-        XCTAssertEqual(Variant.gonga101.entrantMode, .players)
-        XCTAssertEqual(Variant.gonga151.entrantMode, .players)
+        XCTAssertEqual(Variant.gongaStandard.entrantMode, .players)
         XCTAssertEqual(Variant.okey101.entrantMode, .players)
     }
 
+    /// Merging the two Gongas has not quietly shrunk the table.
     func test_gongaSeatsUpToEightPlayers() {
-        XCTAssertEqual(Variant.gonga101.maxEntrants, 8)
-        XCTAssertEqual(Variant.gonga151.maxEntrants, 8)
+        XCTAssertEqual(Variant.gongaStandard.maxEntrants, 8)
     }
 
     func test_okey101SeatsUpToFourPlayersAndOkey21ExactlyTwoTeams() {
@@ -53,8 +54,7 @@ final class VariantTests: XCTestCase {
     // MARK: - Çifte
 
     func test_gongaHasNoCifteConcept() {
-        XCTAssertFalse(Variant.gonga101.supportsCifte)
-        XCTAssertFalse(Variant.gonga151.supportsCifte)
+        XCTAssertFalse(Variant.gongaStandard.supportsCifte)
     }
 
     func test_bothOkeyVariantsSupportCifte() {
@@ -64,9 +64,11 @@ final class VariantTests: XCTestCase {
 
     // MARK: - Scoring parameters
 
+    /// The constant a Gonga Match carrying no limit of its own is scored by,
+    /// which is every Match started before Setup asked for one. It goes with
+    /// the rest of the Variant values once nothing falls back to it.
     func test_survivalVariantsCarryTheirOwnLimit() {
-        XCTAssertEqual(Variant.gonga101.limit, 101)
-        XCTAssertEqual(Variant.gonga151.limit, 151)
+        XCTAssertEqual(Variant.gongaStandard.limit, 101)
     }
 
     func test_okey21CountsDownFromTwentyOne() {
@@ -94,9 +96,27 @@ final class VariantTests: XCTestCase {
         XCTAssertFalse(Variant.okey101.ruleText.contains("12"))
     }
 
-    /// Gonga and Okey gain theirs along with their chips.
+    func test_gongaReadsItsRulesBackAtWhateverLimitIsChosen() {
+        XCTAssertEqual(
+            Variant.gongaStandard.ruleText(at: 201),
+            "Accumulate points each Round. Go over 201 and you're Out. Last one standing wins."
+        )
+    }
+
+    /// Okey gains its own along with its chips.
     func test_onlyTheVariantThatAsksForANumberReadsItsRulesBack() {
-        XCTAssertNil(Variant.gonga101.ruleText(at: 101))
         XCTAssertNil(Variant.okey21.ruleText(at: 21))
+    }
+
+    /// The Picker never shows Gonga now, but its card copy is what Setup's
+    /// header and any future second Gonga would read, and it may not quote a
+    /// limit the player has not been asked for yet.
+    func test_gongasPickerRuleTextQuotesNoNumber() {
+        XCTAssertFalse(Variant.gongaStandard.ruleText.contains("101"))
+        XCTAssertFalse(Variant.gongaStandard.ruleText.contains("151"))
+    }
+
+    func test_gongaIsLabelledGonga() {
+        XCTAssertEqual(Variant.gongaStandard.label, "Gonga")
     }
 }

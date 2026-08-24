@@ -128,10 +128,30 @@ struct HomeView: View {
             DeleteMatchSheet(deletion: deletion) { delete(deletion) }
         }
         .navigationDestination(item: $navigator.pickingVariantsFor) { game in
-            VariantPickerView(game: game)
+            gameDestination(for: game)
         }
         .navigationDestination(item: openMatch) { match in
             PlayView(match: match)
+        }
+    }
+
+    /// Where tapping a Game card lands.
+    ///
+    /// A Game with one Variant has nothing to pick, so the Picker is skipped
+    /// and Setup is what the tap opens — a list of one card is a question with
+    /// a single answer, and asking it is a tap the player pays for nothing.
+    /// Gonga is that Game; Okey has two genuinely different Variants and keeps
+    /// its Picker.
+    ///
+    /// Decided here rather than by hard-coding which Game skips the Picker, so
+    /// that a second Gonga ruleset would restore its Picker by existing.
+    @ViewBuilder
+    private func gameDestination(for game: Game) -> some View {
+        let variants = Variant.all(for: game)
+        if variants.count == 1, let only = variants.first {
+            SetupView(variant: only)
+        } else {
+            VariantPickerView(game: game)
         }
     }
 
@@ -170,7 +190,7 @@ struct HomeView: View {
         VStack(alignment: .leading, spacing: 4) {
             Text("Keep the\nscore honest.")
                 .siraStyle(.displayHero)
-            Text("Two games, four variants, one running tally that nobody can argue with.")
+            Text("Two games, three variants, one running tally that nobody can argue with.")
                 .siraStyle(.body)
                 .foregroundStyle(theme.ink.opacity(0.55))
         }

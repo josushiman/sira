@@ -1,6 +1,6 @@
 import Foundation
 
-/// Win Condition for Gonga 101/151: Entrants accumulate score; passing the
+/// Win Condition for Gonga: Entrants accumulate score; passing the
 /// Variant's limit sends them Out; the last Entrant not Out wins.
 struct SurvivalEngine: MatchEngine {
     func standings(for match: Match, rounds: [Round]) -> Standings {

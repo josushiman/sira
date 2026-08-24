@@ -34,10 +34,15 @@ struct SetupView: View {
     /// minimum — Okey 21 is always exactly two teams.
     private var showsCountSelector: Bool { variant.maxEntrants > 2 }
     private var entrantCountOptions: [Int] { Array(2...variant.maxEntrants) }
-    /// Only Okey 101 puts its number to the player so far. Gonga and Okey are
-    /// still played at the one number each ships with, and gain this same
-    /// control once they have more than one number to offer.
-    private var offersNumberChoice: Bool { variant.winCondition == .fixedRounds }
+    /// Whether the number is put to the player at all — asked of the
+    /// parameter, which is where the presets live, rather than of the Win
+    /// Condition, which does not know how many there are.
+    ///
+    /// More than one preset is what makes it a question worth asking. Okey is
+    /// still played at the one score it ships with, and a lone chip beside a
+    /// Custom one would be offering a choice nothing has decided to offer yet;
+    /// it gains the control along with its second preset.
+    private var offersNumberChoice: Bool { parameter.presets.count > 1 }
 
     private var selection: Binding<VariantParameter.Selection> {
         Binding(
@@ -265,7 +270,7 @@ private struct NameRow: View {
 
 #Preview {
     NavigationStack {
-        SetupView(variant: .gonga101)
+        SetupView(variant: .gongaStandard)
     }
     .environment(MatchStore())
     .themed()

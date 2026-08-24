@@ -13,7 +13,7 @@ final class HomeCardTests: XCTestCase {
     ) -> Match {
         Match(
             game: .gonga,
-            variant: .gonga101,
+            variant: .gongaStandard,
             mode: mode,
             entrants: entrants,
             rounds: rounds,
@@ -23,7 +23,7 @@ final class HomeCardTests: XCTestCase {
     }
 
     private func card(for match: Match) -> HomeCard {
-        HomeCard(match: match, variant: .gonga101)
+        HomeCard(match: match, variant: .gongaStandard)
     }
 
     /// The crash this type was introduced for: Home used to hand each row the
@@ -46,7 +46,7 @@ final class HomeCardTests: XCTestCase {
         XCTAssertEqual(card.title, "14th March 2026 · 9pm")
         XCTAssertEqual(card.statusText, "Round 2")
         XCTAssertEqual(card.entrantsText, "2 players · to 101")
-        XCTAssertEqual(card.variantLabel, "Gonga 101")
+        XCTAssertEqual(card.variantLabel, "Gonga")
         XCTAssertEqual(card.roundCount, 1)
         XCTAssertFalse(card.archived)
     }
@@ -112,6 +112,47 @@ final class HomeCardTests: XCTestCase {
         )
 
         XCTAssertEqual(HomeCard(match: okey101, variant: .okey101).entrantsText, "2 players · 12 rounds")
+    }
+
+    /// Two Gonga Matches at different limits are one Variant, told apart on
+    /// the list by the number rather than by opening them — which is what the
+    /// old pair of Variants used to do with their labels.
+    func test_aGongaCardCarriesTheLimitThisMatchWasPlayedTo() {
+        let entrants = (1...8).map { Entrant(name: "Player \($0)") }
+        let toTwoHundredAndOne = Match(
+            game: .gonga,
+            variant: .gongaStandard,
+            number: 201,
+            mode: .players,
+            entrants: entrants
+        )
+        let toOneOhOne = Match(
+            game: .gonga,
+            variant: .gongaStandard,
+            number: 101,
+            mode: .players,
+            entrants: entrants.prefix(4).map { Entrant(name: $0.name) }
+        )
+
+        XCTAssertEqual(HomeCard(match: toTwoHundredAndOne, variant: .gongaStandard).entrantsText, "8 players · to 201")
+        XCTAssertEqual(HomeCard(match: toOneOhOne, variant: .gongaStandard).entrantsText, "4 players · to 101")
+    }
+
+    /// Gonga's label is "Gonga" at every limit: the number it is played to
+    /// rides beside the name and is never fused into it.
+    func test_gongasLabelIsNeverFusedWithItsLimit() {
+        let match = Match(
+            game: .gonga,
+            variant: .gongaStandard,
+            number: 201,
+            mode: .players,
+            entrants: [Entrant(name: "Alice")]
+        )
+
+        let card = HomeCard(match: match, variant: .gongaStandard)
+
+        XCTAssertEqual(card.variantLabel, "Gonga")
+        XCTAssertFalse(card.variantLabel.contains("201"))
     }
 
     /// The phrase reads off the Match's own number, not the Variant's, which is

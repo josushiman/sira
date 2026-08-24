@@ -20,12 +20,47 @@ final class SetupViewSnapshotTests: XCTestCase {
         assertSnapshot(of: view, as: .image(layout: .fixed(width: 402, height: 874)), testName: testName)
     }
 
-    func test_gonga101_playerCountUpToEight_paper() {
-        assertSetup(.gonga101, theme: .paper)
+    /// Eight players, and the limit chips the two Gonga Variants collapsed
+    /// into: `101 · 151 · Custom`, opening on 101 with the rules read back at
+    /// it.
+    func test_gonga_playerCountUpToEightAndLimitChips_paper() {
+        assertSetup(.gongaStandard, theme: .paper)
     }
 
-    func test_gonga101_playerCountUpToEight_felt() {
-        assertSetup(.gonga101, theme: .felt)
+    func test_gonga_playerCountUpToEightAndLimitChips_felt() {
+        assertSetup(.gongaStandard, theme: .felt)
+    }
+
+    /// Custom tapped and 201 typed into the revealed field, with the rules
+    /// following it up: "Go over 201 and you're Out."
+    private var customLimit: VariantParameter {
+        var parameter = VariantParameter(for: .gongaStandard)
+        parameter.enterCustom("201")
+        return parameter
+    }
+
+    func test_gonga_customLimitRevealsTheField_paper() {
+        assertSetup(.gongaStandard, parameter: customLimit, theme: .paper)
+    }
+
+    func test_gonga_customLimitRevealsTheField_felt() {
+        assertSetup(.gongaStandard, parameter: customLimit, theme: .felt)
+    }
+
+    /// Out of range: 5 is still in the field, Start is dimmed, and the reason
+    /// sits above the button that will not work.
+    private var refusedLimit: VariantParameter {
+        var parameter = VariantParameter(for: .gongaStandard)
+        parameter.enterCustom("5")
+        return parameter
+    }
+
+    func test_gonga_anOutOfRangeLimitCannotStart_paper() {
+        assertSetup(.gongaStandard, parameter: refusedLimit, theme: .paper)
+    }
+
+    func test_gonga_anOutOfRangeLimitCannotStart_felt() {
+        assertSetup(.gongaStandard, parameter: refusedLimit, theme: .felt)
     }
 
     func test_okey21_teamsOnlyVariant_paper() {

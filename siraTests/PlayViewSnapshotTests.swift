@@ -28,7 +28,7 @@ final class PlayViewSnapshotTests: XCTestCase {
         let c = Entrant(name: "Cem")
         return Match(
             game: .gonga,
-            variant: .gonga101,
+            variant: .gongaStandard,
             mode: .players,
             entrants: [a, b, c],
             rounds: [
@@ -43,7 +43,7 @@ final class PlayViewSnapshotTests: XCTestCase {
         let b = Entrant(name: "Bob")
         return Match(
             game: .gonga,
-            variant: .gonga101,
+            variant: .gongaStandard,
             mode: .players,
             entrants: [a, b],
             rounds: [Round(deltas: [a.id: 20, b.id: 110])]
@@ -74,7 +74,7 @@ final class PlayViewSnapshotTests: XCTestCase {
     private var freshMatch: Match {
         Match(
             game: .gonga,
-            variant: .gonga101,
+            variant: .gongaStandard,
             mode: .players,
             entrants: [Entrant(name: "Alice"), Entrant(name: "Bob")]
         )

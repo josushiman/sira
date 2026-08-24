@@ -189,7 +189,7 @@ struct ScoresheetView: View {
     let b = Entrant(name: "Bob")
     let match = Match(
         game: .gonga,
-        variant: .gonga101,
+        variant: .gongaStandard,
         mode: .players,
         entrants: [a, b],
         rounds: [

@@ -32,8 +32,7 @@ final class MatchTests: XCTestCase {
     }
 
     func test_resolvedVariantCarriesItsOwnScoringRules() {
-        XCTAssertEqual(match(game: .gonga, variantId: "gonga-101").variant?.limit, 101)
-        XCTAssertEqual(match(game: .gonga, variantId: "gonga-151").variant?.limit, 151)
+        XCTAssertEqual(match(game: .gonga, variantId: "gonga-standard").variant?.limit, 101)
         XCTAssertEqual(match(game: .okey, variantId: "okey-21").variant?.startingScore, 21)
         XCTAssertEqual(match(game: .okey, variantId: "okey-101").variant?.winCondition, .fixedRounds)
     }
@@ -69,7 +68,7 @@ final class MatchTests: XCTestCase {
     // number means.
 
     func test_aStoredLimitIsTheNumberASurvivalMatchIsPlayedAt() {
-        XCTAssertEqual(match(game: .gonga, variantId: "gonga-101", limit: 201).variantNumber, 201)
+        XCTAssertEqual(match(game: .gonga, variantId: "gonga-standard", limit: 201).variantNumber, 201)
     }
 
     func test_aStoredStartingScoreIsTheNumberAnEliminationMatchIsPlayedAt() {
@@ -84,7 +83,7 @@ final class MatchTests: XCTestCase {
     /// none resolves theirs — the expand half of expand–contract, which is
     /// what keeps this change invisible until the number becomes a choice.
     func test_withoutAStoredNumberTheVariantsOwnValueStands() {
-        XCTAssertEqual(match(game: .gonga, variantId: "gonga-151").variantNumber, 151)
+        XCTAssertEqual(match(game: .gonga, variantId: "gonga-standard").variantNumber, 101)
         XCTAssertEqual(match(game: .okey, variantId: "okey-21").variantNumber, 21)
         XCTAssertEqual(match(game: .okey, variantId: "okey-101").variantNumber, 8)
     }
@@ -93,7 +92,7 @@ final class MatchTests: XCTestCase {
     /// stored beside it: the Win Condition says which of the three is the
     /// number, so a stray value cannot become one.
     func test_onlyTheNumberTheWinConditionTakesIsRead() {
-        let confused = match(game: .gonga, variantId: "gonga-101", limit: 201, startingScore: 31, roundCount: 12)
+        let confused = match(game: .gonga, variantId: "gonga-standard", limit: 201, startingScore: 31, roundCount: 12)
 
         XCTAssertEqual(confused.variantNumber, 201)
     }
@@ -109,7 +108,7 @@ final class MatchTests: XCTestCase {
     /// from a Variant carries it even where the Variant used to be the only
     /// place it lived.
     func test_aMatchStartedFromAVariantRecordsThatVariantsNumber() {
-        let gonga = Match(game: .gonga, variant: .gonga101, mode: .players, entrants: [Entrant(name: "Alice")])
+        let gonga = Match(game: .gonga, variant: .gongaStandard, mode: .players, entrants: [Entrant(name: "Alice")])
         let okey21 = Match(game: .okey, variant: .okey21, mode: .teams, entrants: [Entrant(name: "Us")])
         let okey101 = Match(game: .okey, variant: .okey101, mode: .players, entrants: [Entrant(name: "Alice")])
 
@@ -122,7 +121,7 @@ final class MatchTests: XCTestCase {
     /// At most one of the three is ever set, so nothing downstream has to ask
     /// which of two present numbers describes the Match.
     func test_aMatchRecordsOnlyTheNumberItsWinConditionTakes() {
-        let gonga = Match(game: .gonga, variant: .gonga101, mode: .players, entrants: [Entrant(name: "Alice")])
+        let gonga = Match(game: .gonga, variant: .gongaStandard, mode: .players, entrants: [Entrant(name: "Alice")])
 
         XCTAssertNil(gonga.startingScore)
         XCTAssertNil(gonga.roundCount)
@@ -133,7 +132,7 @@ final class MatchTests: XCTestCase {
     private func gongaMatch(rounds: [Round] = []) -> Match {
         Match(
             game: .gonga,
-            variant: .gonga101,
+            variant: .gongaStandard,
             mode: .players,
             entrants: [Entrant(name: "Alice")],
             rounds: rounds
@@ -168,7 +167,7 @@ final class MatchTests: XCTestCase {
         let seated = [Entrant(name: "Alice"), Entrant(name: "Bob"), Entrant(name: "Cem")]
         let match = Match(
             game: .gonga,
-            variant: .gonga101,
+            variant: .gongaStandard,
             mode: .players,
             entrants: seated
         ).withEntrantsAndRoundsStoredOutOfOrder()
@@ -212,7 +211,7 @@ final class MatchTests: XCTestCase {
         let a = Entrant(name: "Alice")
         let match = Match(
             game: .gonga,
-            variant: .gonga101,
+            variant: .gongaStandard,
             mode: .players,
             entrants: [a],
             rounds: [Round(), Round()]
@@ -231,7 +230,7 @@ final class MatchTests: XCTestCase {
         let firstRound = Round(deltas: [a.id: 10])
         let match = Match(
             game: .gonga,
-            variant: .gonga101,
+            variant: .gongaStandard,
             mode: .players,
             entrants: [a],
             rounds: [
@@ -249,7 +248,7 @@ final class MatchTests: XCTestCase {
         let a = Entrant(name: "Alice")
         let match = Match(
             game: .gonga,
-            variant: .gonga101,
+            variant: .gongaStandard,
             mode: .players,
             entrants: [a],
             rounds: [
@@ -263,7 +262,7 @@ final class MatchTests: XCTestCase {
     }
 
     func test_undoLastRoundOnMatchWithNoRoundsIsANoOp() {
-        let match = Match(game: .gonga, variant: .gonga101, mode: .players, entrants: [Entrant(name: "Alice")])
+        let match = Match(game: .gonga, variant: .gongaStandard, mode: .players, entrants: [Entrant(name: "Alice")])
 
         _ = match.undoLastRound()
 
@@ -271,7 +270,7 @@ final class MatchTests: XCTestCase {
     }
 
     func test_archiveSetsTheArchivedFlag() {
-        let match = Match(game: .gonga, variant: .gonga101, mode: .players, entrants: [Entrant(name: "Alice")])
+        let match = Match(game: .gonga, variant: .gongaStandard, mode: .players, entrants: [Entrant(name: "Alice")])
 
         match.archive()
 
@@ -281,7 +280,7 @@ final class MatchTests: XCTestCase {
     func test_restoreClearsTheArchivedFlag() {
         let match = Match(
             game: .gonga,
-            variant: .gonga101,
+            variant: .gongaStandard,
             mode: .players,
             entrants: [Entrant(name: "Alice")],
             archived: true
@@ -297,7 +296,7 @@ final class MatchTests: XCTestCase {
         let round = Round(deltas: [a.id: 10])
         let match = Match(
             game: .gonga,
-            variant: .gonga101,
+            variant: .gongaStandard,
             mode: .players,
             entrants: [a],
             rounds: [round]
@@ -316,7 +315,7 @@ final class MatchTests: XCTestCase {
     /// Match this build can score have to resolve to nothing, or Play is left
     /// standing in front of a Match it has no rules for.
     func test_aRouteNamingAScorableMatchResolvesToIt() {
-        let playable = match(game: .gonga, variantId: "gonga-101")
+        let playable = match(game: .gonga, variantId: "gonga-standard")
         let matches = [playable, match(game: .okey, variantId: "okey-21")]
 
         XCTAssertEqual(matches.scorableMatch(playable.id)?.id, playable.id)
@@ -324,7 +323,7 @@ final class MatchTests: XCTestCase {
 
     func test_aRouteNamingAMatchThisBuildCannotScoreResolvesToNothing() {
         let stranger = match(game: .gonga, variantId: "gonga-from-a-later-release")
-        let matches = [match(game: .gonga, variantId: "gonga-101"), stranger]
+        let matches = [match(game: .gonga, variantId: "gonga-standard"), stranger]
 
         XCTAssertNil(matches.scorableMatch(stranger.id))
     }
@@ -332,13 +331,13 @@ final class MatchTests: XCTestCase {
     /// Deletion is the other way a route stops resolving: the id names a Match
     /// that is simply no longer among them.
     func test_aRouteNamingAMatchThatIsNoLongerThereResolvesToNothing() {
-        let matches = [match(game: .gonga, variantId: "gonga-101")]
+        let matches = [match(game: .gonga, variantId: "gonga-standard")]
 
         XCTAssertNil(matches.scorableMatch(UUID()))
     }
 
     func test_aRouteNamingNothingResolvesToNothing() {
-        let matches = [match(game: .gonga, variantId: "gonga-101")]
+        let matches = [match(game: .gonga, variantId: "gonga-standard")]
 
         XCTAssertNil(matches.scorableMatch(nil))
     }
@@ -350,7 +349,7 @@ final class MatchTests: XCTestCase {
 extension MatchTests {
     func test_aStoredMatchIsNotGone() {
         let store = MatchStore()
-        let match = Match(game: .gonga, variant: .gonga101, mode: .players, entrants: [Entrant(name: "Alice")])
+        let match = Match(game: .gonga, variant: .gongaStandard, mode: .players, entrants: [Entrant(name: "Alice")])
         store.add(match)
 
         XCTAssertFalse(match.isGone)
@@ -360,7 +359,7 @@ extension MatchTests {
     /// and the Match still belongs to its context.
     func test_aMatchDeletedButNotYetSavedIsGone() {
         let store = MatchStore()
-        let match = Match(game: .gonga, variant: .gonga101, mode: .players, entrants: [Entrant(name: "Alice")])
+        let match = Match(game: .gonga, variant: .gongaStandard, mode: .players, entrants: [Entrant(name: "Alice")])
         store.add(match)
 
         store.context.delete(match)
@@ -373,7 +372,7 @@ extension MatchTests {
     /// no longer anything, which is what having no context says.
     func test_aDeletedAndSavedMatchIsGone() {
         let store = MatchStore()
-        let match = Match(game: .gonga, variant: .gonga101, mode: .players, entrants: [Entrant(name: "Alice")])
+        let match = Match(game: .gonga, variant: .gongaStandard, mode: .players, entrants: [Entrant(name: "Alice")])
         store.add(match)
 
         store.delete(match)
@@ -387,7 +386,7 @@ extension MatchTests {
     /// every property on it reads fine. Fixtures and a Setup screen's Match
     /// before it is added are both this.
     func test_aMatchThatWasNeverStoredIsNotGone() {
-        let match = Match(game: .gonga, variant: .gonga101, mode: .players, entrants: [Entrant(name: "Alice")])
+        let match = Match(game: .gonga, variant: .gongaStandard, mode: .players, entrants: [Entrant(name: "Alice")])
 
         XCTAssertFalse(match.isGone)
     }
@@ -397,7 +396,7 @@ extension MatchTests {
     /// Home and Play both name a Match by this, so it is phrased once here
     /// rather than assembled the same way on two screens.
     func test_aMatchIsNamedByTheNumberItIsPlayedAtInItsOwnKindsPhrase() {
-        let survival = match(game: .gonga, variantId: "gonga-101", limit: 201)
+        let survival = match(game: .gonga, variantId: "gonga-standard", limit: 201)
         let elimination = match(game: .okey, variantId: "okey-21", startingScore: 31)
         let fixedRounds = match(game: .okey, variantId: "okey-101", roundCount: 5)
 

@@ -29,6 +29,47 @@ final class HomeViewSnapshotTests: XCTestCase {
         assertHome(.seeded(), theme: .felt)
     }
 
+    /// Two Gonga Matches, one to 101 and one to 201. They carry the same
+    /// label, so the metadata line is the only thing telling them apart — the
+    /// job the two old Gonga Variants used to do with their names.
+    private func storeWithTwoLimits() -> MatchStore {
+        let store = MatchStore()
+
+        let alice = Entrant(name: "Alice")
+        let bob = Entrant(name: "Bob")
+        store.add(Match(
+            game: .gonga,
+            variant: .gongaStandard,
+            number: 101,
+            mode: .players,
+            entrants: [alice, bob],
+            rounds: [Round(deltas: [alice.id: 20, bob.id: 15])],
+            createdAt: .fixture(year: 2026, month: 3, day: 14, hour: 21)
+        ))
+
+        let carol = Entrant(name: "Carol")
+        let dede = Entrant(name: "Dede")
+        store.add(Match(
+            game: .gonga,
+            variant: .gongaStandard,
+            number: 201,
+            mode: .players,
+            entrants: [carol, dede],
+            rounds: [Round(deltas: [carol.id: 120, dede.id: 60])],
+            createdAt: .fixture(year: 2026, month: 3, day: 12, hour: 20)
+        ))
+
+        return store
+    }
+
+    func test_twoMatchesOfOneVariantAtDifferentLimits_paper() {
+        assertHome(storeWithTwoLimits(), theme: .paper)
+    }
+
+    func test_twoMatchesOfOneVariantAtDifferentLimits_felt() {
+        assertHome(storeWithTwoLimits(), theme: .felt)
+    }
+
     func test_emptyState_paper() {
         assertHome(MatchStore(), theme: .paper)
     }

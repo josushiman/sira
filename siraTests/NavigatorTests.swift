@@ -75,7 +75,7 @@ final class NavigatorTests: XCTestCase {
         let navigator = Navigator()
         let deleted = Match(
             game: .gonga,
-            variant: .gonga101,
+            variant: .gongaStandard,
             mode: .players,
             entrants: [Entrant(name: "Alice")]
         )

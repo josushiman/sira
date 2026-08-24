@@ -2,7 +2,7 @@ import XCTest
 @testable import sira
 
 final class SurvivalEngineTests: XCTestCase {
-    private let variant = Variant.gonga101
+    private let variant = Variant.gongaStandard
 
     private func makeMatch(entrants: [Entrant], rounds: [Round]) -> Match {
         Match(game: .gonga, variant: variant, mode: .players, entrants: entrants, rounds: rounds)
@@ -28,17 +28,18 @@ final class SurvivalEngineTests: XCTestCase {
         XCTAssertFalse(standings.isOver)
     }
 
-    /// Gonga 151 is the same Survival engine with a higher limit — a total
-    /// that busts under 101 must still be in under 151.
-    func test_gonga151UsesItsOwnHigherLimit() {
+    /// A table playing to 201 is the same Survival engine at a higher limit: a
+    /// total that busts under the shipped 101 must still be in under 201.
+    func test_aCustomLimitIsTheOneAnEntrantHasToStayUnder() {
         let a = Entrant(name: "Alice")
         let b = Entrant(name: "Bob")
         let match = Match(
             game: .gonga,
-            variant: .gonga151,
+            variant: .gongaStandard,
+            number: 201,
             mode: .players,
             entrants: [a, b],
-            rounds: [Round(deltas: [a.id: 120, b.id: 10])]
+            rounds: [Round(deltas: [a.id: 190, b.id: 10])]
         )
 
         let standings = SurvivalEngine().standings(for: match)
@@ -47,21 +48,43 @@ final class SurvivalEngineTests: XCTestCase {
         XCTAssertFalse(standings.isOver)
     }
 
-    func test_gonga151EntrantCrossing151GoesOut() {
+    /// And not one point later: passing the chosen limit is what sends an
+    /// Entrant Out, at 201 exactly as at 101.
+    func test_anEntrantPassingACustomLimitGoesOut() {
         let a = Entrant(name: "Alice")
         let b = Entrant(name: "Bob")
         let match = Match(
             game: .gonga,
-            variant: .gonga151,
+            variant: .gongaStandard,
+            number: 201,
             mode: .players,
             entrants: [a, b],
-            rounds: [Round(deltas: [a.id: 160, b.id: 10])]
+            rounds: [Round(deltas: [a.id: 202, b.id: 10])]
         )
 
         let standings = SurvivalEngine().standings(for: match)
 
         XCTAssertTrue(standings.ranked.first { $0.entrantID == a.id }!.isOut)
         XCTAssertTrue(standings.isOver)
+    }
+
+    /// The boundary itself: 201 on the nose is still in, so the limit is a
+    /// score to stay at or under rather than one to stay short of.
+    func test_anEntrantLandingExactlyOnACustomLimitIsStillIn() {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        let match = Match(
+            game: .gonga,
+            variant: .gongaStandard,
+            number: 201,
+            mode: .players,
+            entrants: [a, b],
+            rounds: [Round(deltas: [a.id: 201, b.id: 10])]
+        )
+
+        let standings = SurvivalEngine().standings(for: match)
+
+        XCTAssertFalse(standings.ranked.first { $0.entrantID == a.id }!.isOut)
     }
 
     func test_entrantCrossingLimitGoesOut() {
@@ -196,6 +219,43 @@ final class SurvivalEngineTests: XCTestCase {
         let target = SurvivalEngine().rejoinTarget(for: match)
 
         XCTAssertEqual(target, variant.limit ?? .max)
+    }
+
+    /// The cap is the limit this Match chose. At 201 a busted-out table
+    /// rejoins at 201 and not at the 101 the Variant ships with, so a custom
+    /// limit changes how far the Match runs and nothing about how Rejoin
+    /// behaves.
+    func test_rejoinTargetIsCappedByTheLimitThisMatchChose() {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        let match = Match(
+            game: .gonga,
+            variant: .gongaStandard,
+            number: 201,
+            mode: .players,
+            entrants: [a, b],
+            rounds: [Round(deltas: [a.id: 210, b.id: 230])]
+        )
+
+        XCTAssertEqual(SurvivalEngine().rejoinTarget(for: match), 201)
+    }
+
+    /// With someone still in, the target is their total whatever the limit —
+    /// the cap only ever applies when there is nobody left to rejoin behind.
+    func test_rejoinTargetAtACustomLimitIsTheHighestTotalStillIn() {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        let c = Entrant(name: "Cara")
+        let match = Match(
+            game: .gonga,
+            variant: .gongaStandard,
+            number: 201,
+            mode: .players,
+            entrants: [a, b, c],
+            rounds: [Round(deltas: [a.id: 210, b.id: 190, c.id: 40])]
+        )
+
+        XCTAssertEqual(SurvivalEngine().rejoinTarget(for: match), 190)
     }
 
     func test_decliningRejoinLeavesEntrantOutForRestOfMatch() {
