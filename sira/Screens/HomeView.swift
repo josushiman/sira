@@ -190,7 +190,7 @@ struct HomeView: View {
         VStack(alignment: .leading, spacing: 4) {
             Text("Keep the\nscore honest.")
                 .siraStyle(.displayHero)
-            Text("Two games, three variants, one running tally that nobody can argue with.")
+            Text(HomeCopy.heroLine)
                 .siraStyle(.body)
                 .foregroundStyle(theme.ink.opacity(0.55))
         }
@@ -284,7 +284,9 @@ struct HomeView: View {
 }
 
 /// The inline Game card at the top of Home — replaces the old `GamePickerView`
-/// screen. Tapping it navigates directly to that Game's Variant picker.
+/// screen. Tapping it opens that Game's Variants: the Picker where there is
+/// more than one to choose between, Setup directly where there is not — see
+/// `HomeView.gameDestination(for:)`.
 private struct GameGlyphCard: View {
     let game: Game
 
@@ -368,12 +370,7 @@ private struct GameGlyphCard: View {
         }
     }
 
-    private var subtitle: String {
-        switch game {
-        case .gonga: return "101 / 151"
-        case .okey: return "21 / 101"
-        }
-    }
+    private var subtitle: String { HomeCopy.gameSubtitle(for: game) }
 }
 
 /// A Match row on Home, styled as the prototype's card: game badge, the date

@@ -130,9 +130,13 @@ final class VariantTests: XCTestCase {
         XCTAssertFalse(Variant.okeyStandard.ruleText.contains("21"))
     }
 
-    /// The Picker never shows Gonga now, but its card copy is what Setup's
-    /// header and any future second Gonga would read, and it may not quote a
-    /// limit the player has not been asked for yet.
+    /// Nothing renders Gonga's `ruleText` today: the Picker is the only screen
+    /// that shows it and Gonga skips the Picker, while Setup shows its header
+    /// off `label` and its blurb off `ruleText(at:)`. It is kept against a
+    /// second Gonga Variant, which would put Gonga back through the Picker and
+    /// this string on a card — and it is asserted now, while it is cheap, so
+    /// that the day it is rendered it is not quoting a limit the player has not
+    /// been asked for yet.
     func test_gongasPickerRuleTextQuotesNoNumber() {
         XCTAssertFalse(Variant.gongaStandard.ruleText.contains("101"))
         XCTAssertFalse(Variant.gongaStandard.ruleText.contains("151"))
