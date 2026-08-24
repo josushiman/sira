@@ -72,22 +72,10 @@ final class VariantTests: XCTestCase {
 
     // MARK: - Shape, never values
 
-    /// A Variant describes how a Match is scored and says nothing about how
-    /// far it runs. The number is the table's: chosen at Setup and stored on
-    /// the Match, so there is no constant here for a later release to move
-    /// underneath a Match already resting on it.
-    ///
-    /// Asserted over every shipped Variant rather than over the three that
-    /// used to carry a number, so a fourth cannot arrive with one.
-    func test_noVariantCarriesANumberToBePlayedAt() {
-        for game in Game.allCases {
-            for variant in Variant.all(for: game) {
-                XCTAssertNil(variant.limit, "\(variant.id) carries a limit")
-                XCTAssertNil(variant.startingScore, "\(variant.id) carries a starting score")
-                XCTAssertNil(variant.roundCount, "\(variant.id) carries a Round count")
-            }
-        }
-    }
+    // "No Variant carries the number it is played at" is enforced by the type
+    // and so has no test here: `Variant` declares no `limit`, `startingScore`
+    // or `roundCount`, leaving nothing for a fourth Variant to arrive with and
+    // nothing for a caller to read instead of `Match.variantNumber`.
 
     func test_okeyStandardIsLabelledOkey() {
         XCTAssertEqual(Variant.okeyStandard.label, "Okey")
@@ -99,6 +87,16 @@ final class VariantTests: XCTestCase {
         XCTAssertEqual(
             Variant.okey101.ruleText(at: 5),
             "Individuals only. Accumulate points each Round over 5 Rounds. Lowest total when the Rounds run out wins."
+        )
+    }
+
+    /// A Round count of 1 is inside `VariantParameter`'s legal range, and the
+    /// readback has to survive it — the same singular `VariantParameter` gets
+    /// right in the Match's number phrase.
+    func test_aSingleRoundReadsBackInTheSingular() {
+        XCTAssertEqual(
+            Variant.okey101.ruleText(at: 1),
+            "Individuals only. Accumulate points each Round over 1 Round. Lowest total when the Rounds run out wins."
         )
     }
 

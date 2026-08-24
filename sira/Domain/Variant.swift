@@ -8,6 +8,15 @@ enum RoundEntryStyle: Hashable {
     case okeyStandard
 }
 
+/// The shape a Match is scored in, and nothing about how far it runs.
+///
+/// A Variant says which Win Condition applies, who may sit down, and how a
+/// Round is entered. The number it is played at — a limit, a starting score or
+/// a Round count, whichever its Win Condition takes — is the table's choice:
+/// made at Setup, stored on the Match, and read back through
+/// `Match.variantNumber`. There is deliberately no `limit`, `startingScore` or
+/// `roundCount` here to reach for instead, so a caller after the number gets a
+/// compile error pointing at the Match rather than a plausible `nil`.
 struct Variant: Identifiable, Hashable {
     /// Stable identity for this Variant, and a persistence contract once the
     /// app ships: a Match stores this string and resolves its rules from it,
@@ -19,22 +28,6 @@ struct Variant: Identifiable, Hashable {
     let label: String
     let ruleText: String
     let winCondition: WinCondition
-    // The three shapes a number is taken in, kept here and left `nil` on every
-    // shipped Variant: a Variant describes shape only, and the number it is
-    // played at is chosen at Setup and stored on the Match (`Match.limit`,
-    // `Match.startingScore`, `Match.roundCount`, read through
-    // `Match.variantNumber`). They stay declared because "no Variant carries a
-    // number" is the contract, and a contract nothing states is one nothing can
-    // assert — see `VariantTests`.
-    /// Survival: the score an Entrant must stay at or under before going Out.
-    /// Always `nil`; the Match carries the limit.
-    let limit: Int? = nil
-    /// Elimination: the score Entrants count down from. Always `nil`; the
-    /// Match carries the starting score.
-    let startingScore: Int? = nil
-    /// Fixed Rounds: the number of Rounds the Match runs for. Always `nil`;
-    /// the Match carries the Round count.
-    let roundCount: Int? = nil
     /// The single Entrant mode this Variant is played in. Every Variant is
     /// fixed to one — only Okey is played in Teams of 2; Gonga and Okey 101
     /// are individuals only — so Setup records this rather than offering
@@ -47,9 +40,11 @@ struct Variant: Identifiable, Hashable {
     /// Gonga has no Çifte concept.
     let supportsCifte: Bool
     /// The rules as Setup reads them back once a number has been chosen, with
-    /// `{n}` standing where that number goes. Separate from `ruleText`, which
-    /// the Variant Picker shows before anything has been chosen and so cannot
-    /// quote a number at all.
+    /// `{n}` standing where that number goes and `{s}` for the plural ending
+    /// that number governs — `1` is a legal Round count, so "over {n} Round{s}"
+    /// has to read "over 1 Round". Separate from `ruleText`, which the Variant
+    /// Picker shows before anything has been chosen and so cannot quote a
+    /// number at all.
     ///
     /// Every Variant has one: all three take a number at Setup, so all three
     /// have rules to read back at whatever was chosen.
@@ -63,7 +58,9 @@ struct Variant: Identifiable, Hashable {
     /// control, so choosing 5 immediately reads back the game that choice
     /// makes.
     func ruleText(at number: Int) -> String {
-        ruleTextTemplate.replacingOccurrences(of: "{n}", with: "\(number)")
+        ruleTextTemplate
+            .replacingOccurrences(of: "{n}", with: "\(number)")
+            .replacingOccurrences(of: "{s}", with: number == 1 ? "" : "s")
     }
 }
 
@@ -121,7 +118,7 @@ extension Variant {
         entrantMode: .players,
         maxEntrants: 4,
         supportsCifte: true,
-        ruleTextTemplate: "Individuals only. Accumulate points each Round over {n} Rounds. Lowest total when the Rounds run out wins.",
+        ruleTextTemplate: "Individuals only. Accumulate points each Round over {n} Round{s}. Lowest total when the Rounds run out wins.",
         entryStyle: .keypad,
         neverLaidDownValue: 101
     )

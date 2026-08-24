@@ -39,14 +39,10 @@ final class MatchTests: XCTestCase {
         XCTAssertEqual(match(game: .okey, variantId: "okey-101").variant?.winCondition, .fixedRounds)
     }
 
-    /// The Round count is the Match's, and resolving the Variant does not
-    /// smuggle it back onto the Variant on the way past.
-    func test_theResolvedVariantCarriesNoNumberOfTheMatchsOwn() {
-        let twelveRounds = match(game: .okey, variantId: "okey-101", roundCount: 12)
-
-        XCTAssertNil(twelveRounds.variant?.roundCount)
-        XCTAssertEqual(twelveRounds.variantNumber, 12)
-    }
+    // Resolving the Variant cannot smuggle the Match's number back onto it:
+    // `Variant` has no `limit`, `startingScore` or `roundCount` to smuggle it
+    // into. The number stays reachable only through `Match.variantNumber`,
+    // asserted below.
 
     /// A Match naming a Variant this build doesn't know is skipped rather than
     /// scored by a substitute, so resolution yields nothing at all.

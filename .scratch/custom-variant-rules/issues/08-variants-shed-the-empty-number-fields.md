@@ -24,11 +24,11 @@ Delete the three properties, delete `test_noVariantCarriesANumberToBePlayedAt`, 
 
 **Blocked by:** 06.
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] Decided: fields deleted, or kept with the reasoning recorded at the declaration — **deleted**, reasoning above
-- [ ] `Variant` declares no `limit`, `startingScore` or `roundCount`, and no caller reads one
-- [ ] `Variant`'s type doc carries the contract the deleted declarations used to state
-- [ ] `VariantTests` no longer asserts a contract the type now enforces
-- [ ] ADR 0008's first bullet describes the properties as gone rather than as empty
-- [ ] Full suite green, with no snapshot re-recorded
+- [x] `Variant` declares no `limit`, `startingScore` or `roundCount`, and no caller reads one
+- [x] `Variant`'s type doc carries the contract the deleted declarations used to state
+- [x] `VariantTests` no longer asserts a contract the type now enforces
+- [x] ADR 0008's first bullet describes the properties as gone rather than as empty
+- [x] Full suite green, with no snapshot re-recorded
