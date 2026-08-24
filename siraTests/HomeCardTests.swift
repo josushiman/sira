@@ -14,6 +14,7 @@ final class HomeCardTests: XCTestCase {
         Match(
             game: .gonga,
             variant: .gongaStandard,
+            number: 101,
             mode: mode,
             entrants: entrants,
             rounds: rounds,

@@ -36,14 +36,19 @@ struct PlayView: View {
 
     @ViewBuilder
     var body: some View {
-        // A Match naming a Variant this build doesn't know has no rules to
-        // score it by, so it is skipped rather than played under a substitute.
+        // A Match naming a Variant this build doesn't know, or carrying no
+        // number to be played at, has no rules to score it by — so it is
+        // skipped rather than played under a substitute. Both are asked here,
+        // because an Engine handed either says nothing about the Match while
+        // Play would go on offering to add Rounds to it.
+        //
         // In practice this always resolves: Home names a Match by id and
         // resolves it through `scorableMatch` first, and Setup only ever hands
-        // over a Match it just built from the Variant it is holding. So this
-        // stays as the last word on a Match Play cannot score, rather than as
-        // the thing keeping the player off a blank screen.
-        if let variant = match.variant {
+        // over a Match it just built from the Variant it is holding, at the
+        // number it was asked for. So this stays as the last word on a Match
+        // Play cannot score, rather than as the thing keeping the player off a
+        // blank screen.
+        if let variant = match.variant, match.variantNumber != nil {
             play(variant)
         }
     }
@@ -524,6 +529,7 @@ struct MatchOverBanner: View {
     PlayPreview(
         game: .gonga,
         variant: .gongaStandard,
+        number: 101,
         mode: .players,
         names: ["Alice", "Bob"]
     )
@@ -533,6 +539,7 @@ struct MatchOverBanner: View {
     PlayPreview(
         game: .okey,
         variant: .okeyStandard,
+        number: 21,
         mode: .teams,
         names: ["Team A", "Team B"]
     )
@@ -542,6 +549,7 @@ struct MatchOverBanner: View {
     PlayPreview(
         game: .okey,
         variant: .okey101,
+        number: 12,
         mode: .players,
         names: ["Alice", "Bob"]
     )
@@ -554,11 +562,12 @@ private struct PlayPreview: View {
     @State private var store: MatchStore
     private let match: Match
 
-    init(game: Game, variant: Variant, mode: EntrantMode, names: [String]) {
+    init(game: Game, variant: Variant, number: Int, mode: EntrantMode, names: [String]) {
         let store = MatchStore()
         let match = Match(
             game: game,
             variant: variant,
+            number: number,
             mode: mode,
             entrants: names.map { Entrant(name: $0) }
         )

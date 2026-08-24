@@ -19,6 +19,7 @@ final class MatchDeletionTests: XCTestCase {
         return Match(
             game: .gonga,
             variant: .gongaStandard,
+            number: 101,
             mode: .players,
             entrants: [alice, Entrant(name: "Bob")],
             rounds: (0..<rounds).map { Round(deltas: [alice.id: 10 + $0]) },

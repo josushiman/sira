@@ -3,9 +3,13 @@ import XCTest
 
 final class FixedRoundsEngineTests: XCTestCase {
     private let variant = Variant.okey101
+    /// The Round count these Matches run for unless a test says otherwise.
+    /// Stated here because the Variant no longer carries one: Okey 101 runs
+    /// for as many Rounds as its table chose.
+    private let roundCount = 8
 
     private func makeMatch(entrants: [Entrant], rounds: [Round]) -> Match {
-        Match(game: .okey, variant: variant, mode: .players, entrants: entrants, rounds: rounds)
+        Match(game: .okey, variant: variant, number: roundCount, mode: .players, entrants: entrants, rounds: rounds)
     }
 
     func test_accumulatesDeltasAcrossRounds() {
@@ -30,8 +34,8 @@ final class FixedRoundsEngineTests: XCTestCase {
 
     // MARK: - The Round count this table chose
 
-    /// A Match set to five Rounds ends on the fifth, not on the eighth the
-    /// Variant ships with.
+    /// A Match set to five Rounds ends on the fifth, whatever another table
+    /// at another number would have done.
     func test_theMatchEndsOnTheChosenRound() {
         let a = Entrant(name: "Alice")
         let b = Entrant(name: "Bob")
@@ -247,9 +251,9 @@ final class FixedRoundsEngineTests: XCTestCase {
         XCTAssertNil(standings.result)
     }
 
-    /// The Match runs for the Round count chosen at Setup, not the Variant's
-    /// default — a 12-Round Okey 101 Match is still going after 8 Rounds.
-    func test_matchRunsForTheSetupChosenRoundCountRatherThanTheVariantsDefault() {
+    /// The Match runs for the Round count stored on it — a 12-Round Okey 101
+    /// Match is still going after 8 Rounds.
+    func test_matchRunsForTheRoundCountItStores() {
         let a = Entrant(name: "Alice")
         let b = Entrant(name: "Bob")
         let rounds = (0..<8).map { _ in Round(deltas: [a.id: 5, b.id: 10]) }

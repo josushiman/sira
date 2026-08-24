@@ -70,17 +70,23 @@ final class VariantTests: XCTestCase {
         XCTAssertTrue(Variant.okey101.supportsCifte)
     }
 
-    // MARK: - Scoring parameters
+    // MARK: - Shape, never values
 
-    /// The constant a Gonga Match carrying no limit of its own is scored by,
-    /// which is every Match started before Setup asked for one. It goes with
-    /// the rest of the Variant values once nothing falls back to it.
-    func test_survivalVariantsCarryTheirOwnLimit() {
-        XCTAssertEqual(Variant.gongaStandard.limit, 101)
-    }
-
-    func test_okeyStandardCountsDownFromTwentyOne() {
-        XCTAssertEqual(Variant.okeyStandard.startingScore, 21)
+    /// A Variant describes how a Match is scored and says nothing about how
+    /// far it runs. The number is the table's: chosen at Setup and stored on
+    /// the Match, so there is no constant here for a later release to move
+    /// underneath a Match already resting on it.
+    ///
+    /// Asserted over every shipped Variant rather than over the three that
+    /// used to carry a number, so a fourth cannot arrive with one.
+    func test_noVariantCarriesANumberToBePlayedAt() {
+        for game in Game.allCases {
+            for variant in Variant.all(for: game) {
+                XCTAssertNil(variant.limit, "\(variant.id) carries a limit")
+                XCTAssertNil(variant.startingScore, "\(variant.id) carries a starting score")
+                XCTAssertNil(variant.roundCount, "\(variant.id) carries a Round count")
+            }
+        }
     }
 
     func test_okeyStandardIsLabelledOkey() {

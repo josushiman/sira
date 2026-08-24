@@ -6,7 +6,7 @@ final class ScoresheetTests: XCTestCase {
     private let engine = SurvivalEngine()
 
     private func makeMatch(entrants: [Entrant], rounds: [Round]) -> Match {
-        Match(game: .gonga, variant: variant, mode: .players, entrants: entrants, rounds: rounds)
+        Match(game: .gonga, variant: variant, number: 101, mode: .players, entrants: entrants, rounds: rounds)
     }
 
     func test_oneRowPerSavedRoundWithEachEntrantsDeltaForThatRound() {

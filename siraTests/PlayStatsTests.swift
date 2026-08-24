@@ -8,6 +8,7 @@ final class PlayStatsTests: XCTestCase {
         let match = Match(
             game: .gonga,
             variant: .gongaStandard,
+            number: 101,
             mode: .players,
             entrants: [a, b],
             rounds: [Round(deltas: [a.id: 20, b.id: 60])]
@@ -89,6 +90,7 @@ final class PlayStatsTests: XCTestCase {
         let match = Match(
             game: .gonga,
             variant: .gongaStandard,
+            number: 101,
             mode: .players,
             entrants: [a, b],
             rounds: [Round(deltas: [a.id: 20, b.id: 110])]
@@ -108,6 +110,7 @@ final class PlayStatsTests: XCTestCase {
         let match = Match(
             game: .okey,
             variant: .okey101,
+            number: 8,
             mode: .players,
             entrants: [a, b],
             rounds: [Round(deltas: [a.id: 10, b.id: 5]), Round(deltas: [a.id: 10, b.id: 5])]
@@ -146,6 +149,7 @@ final class PlayStatsTests: XCTestCase {
         let match = Match(
             game: .okey,
             variant: .okeyStandard,
+            number: 21,
             mode: .teams,
             entrants: [a, b],
             rounds: [Round(losingEntrantID: b.id)]

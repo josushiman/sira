@@ -66,6 +66,7 @@ final class MatchStorePersistenceTests: XCTestCase {
             let match = Match(
                 game: .okey,
                 variant: .okeyStandard,
+                number: 21,
                 mode: .teams,
                 entrants: [Entrant(name: "Kırmızı"), Entrant(name: "Mavi")]
             )
@@ -94,6 +95,7 @@ final class MatchStorePersistenceTests: XCTestCase {
             let match = Match(
                 game: .gonga,
                 variant: .gongaStandard,
+                number: 101,
                 mode: .players,
                 entrants: seated.map { Entrant(name: $0) }
             )
@@ -116,7 +118,7 @@ final class MatchStorePersistenceTests: XCTestCase {
         let entered = [7, 13, 21, 34, 55, 89, 3]
         let matchID = try launch { store -> Match.ID in
             let alice = Entrant(name: "Alice")
-            let match = Match(game: .gonga, variant: .gongaStandard, mode: .players, entrants: [alice])
+            let match = Match(game: .gonga, variant: .gongaStandard, number: 101, mode: .players, entrants: [alice])
             store.add(match)
             for delta in entered {
                 store.addRound(Round(deltas: [alice.id: delta]), to: match)
@@ -138,7 +140,7 @@ final class MatchStorePersistenceTests: XCTestCase {
         let matchID = try launch { store -> Match.ID in
             let alice = Entrant(name: "Alice")
             let bob = Entrant(name: "Bob")
-            let match = Match(game: .okey, variant: .okey101, mode: .players, entrants: [alice, bob])
+            let match = Match(game: .okey, variant: .okey101, number: 8, mode: .players, entrants: [alice, bob])
             store.add(match)
             store.addRound(
                 Round(
@@ -187,6 +189,7 @@ final class MatchStorePersistenceTests: XCTestCase {
             let match = Match(
                 game: .gonga,
                 variant: .gongaStandard,
+                number: 101,
                 mode: .players,
                 entrants: [alice, bob, carol, dave]
             )
@@ -217,7 +220,7 @@ final class MatchStorePersistenceTests: XCTestCase {
         let matchID = try launch { store -> Match.ID in
             let alice = Entrant(name: "Alice")
             let bob = Entrant(name: "Bob")
-            let match = Match(game: .gonga, variant: .gongaStandard, mode: .players, entrants: [alice, bob])
+            let match = Match(game: .gonga, variant: .gongaStandard, number: 101, mode: .players, entrants: [alice, bob])
             store.add(match)
             store.addRound(Round(deltas: [alice.id: 110, bob.id: 40]), to: match)
             // Alice is offered a Rejoin here and declines: nothing is recorded.
@@ -235,7 +238,7 @@ final class MatchStorePersistenceTests: XCTestCase {
         let (matchID, before) = try launch { store -> (Match.ID, Standings) in
             let kirmizi = Entrant(name: "Kırmızı")
             let mavi = Entrant(name: "Mavi")
-            let match = Match(game: .okey, variant: .okeyStandard, mode: .teams, entrants: [kirmizi, mavi])
+            let match = Match(game: .okey, variant: .okeyStandard, number: 21, mode: .teams, entrants: [kirmizi, mavi])
             store.add(match)
             // Ten Rounds at −2 leaves Mavi on 1; the eleventh is doubled by a
             // Çifte call, which takes them past 0 and ends the Match.
@@ -260,7 +263,7 @@ final class MatchStorePersistenceTests: XCTestCase {
             let alice = Entrant(name: "Alice")
             let bob = Entrant(name: "Bob")
             let carol = Entrant(name: "Carol")
-            let match = Match(game: .okey, variant: .okey101, mode: .players, entrants: [alice, bob, carol])
+            let match = Match(game: .okey, variant: .okey101, number: 8, mode: .players, entrants: [alice, bob, carol])
             store.add(match)
             store.addRound(
                 Round(deltas: [alice.id: 30, bob.id: 0, carol.id: 45], cifteCallers: [carol.id]),
@@ -305,7 +308,7 @@ final class MatchStorePersistenceTests: XCTestCase {
         try launch { store in
             let reloaded = try match(matchID, in: store)
 
-            XCTAssertEqual(reloaded.variant?.roundCount, 12)
+            XCTAssertEqual(reloaded.variantNumber, 12)
             XCTAssertFalse(WinCondition.fixedRounds.engine.standings(for: reloaded).isOver)
         }
     }
@@ -315,7 +318,7 @@ final class MatchStorePersistenceTests: XCTestCase {
     func test_undoAfterAReloadRemovesTheLastRoundAndNothingElse() throws {
         let matchID = try launch { store -> Match.ID in
             let alice = Entrant(name: "Alice")
-            let match = Match(game: .gonga, variant: .gongaStandard, mode: .players, entrants: [alice])
+            let match = Match(game: .gonga, variant: .gongaStandard, number: 101, mode: .players, entrants: [alice])
             store.add(match)
             for delta in [10, 20, 30] {
                 store.addRound(Round(deltas: [alice.id: delta]), to: match)
@@ -356,12 +359,13 @@ final class MatchStorePersistenceTests: XCTestCase {
 
         try launch { store in
             store.add(
-                Match(id: deleted, game: .gonga, variant: .gongaStandard, mode: .players, entrants: [Entrant(name: "Bob")])
+                Match(id: deleted, game: .gonga, variant: .gongaStandard, number: 101, mode: .players, entrants: [Entrant(name: "Bob")])
             )
             let keptMatch = Match(
                 id: kept,
                 game: .gonga,
                 variant: .gongaStandard,
+                number: 101,
                 mode: .players,
                 entrants: [Entrant(id: alice, name: "Alice")]
             )
@@ -391,7 +395,7 @@ final class MatchStorePersistenceTests: XCTestCase {
         let alice = Entrant(name: "Alice")
 
         try launch { store in
-            let match = Match(id: id, game: .gonga, variant: .gongaStandard, mode: .players, entrants: [alice])
+            let match = Match(id: id, game: .gonga, variant: .gongaStandard, number: 101, mode: .players, entrants: [alice])
             store.add(match)
             store.addRound(Round(deltas: [alice.id: 10]), to: match)
         }
@@ -416,7 +420,7 @@ final class MatchStorePersistenceTests: XCTestCase {
     func test_aFailedSaveIsSurfacedAndKeepsTheChangeInMemory() throws {
         let store = MatchStore { _ in throw DiskFull() }
         let alice = Entrant(name: "Alice")
-        let match = Match(game: .gonga, variant: .gongaStandard, mode: .players, entrants: [alice])
+        let match = Match(game: .gonga, variant: .gongaStandard, number: 101, mode: .players, entrants: [alice])
         store.add(match)
 
         store.addRound(Round(deltas: [alice.id: 40]), to: match)
@@ -439,7 +443,7 @@ final class MatchStorePersistenceTests: XCTestCase {
             if failing { throw DiskFull() }
             try context.save()
         }
-        let match = Match(game: .gonga, variant: .gongaStandard, mode: .players, entrants: [Entrant(name: "Alice")])
+        let match = Match(game: .gonga, variant: .gongaStandard, number: 101, mode: .players, entrants: [Entrant(name: "Alice")])
         store.add(match)
 
         failing = true
@@ -449,7 +453,7 @@ final class MatchStorePersistenceTests: XCTestCase {
         XCTAssertEqual(try store.context.fetch(FetchDescriptor<Match>()).count, 0)
 
         failing = false
-        store.add(Match(game: .gonga, variant: .gongaStandard, mode: .players, entrants: [Entrant(name: "Bob")]))
+        store.add(Match(game: .gonga, variant: .gongaStandard, number: 101, mode: .players, entrants: [Entrant(name: "Bob")]))
 
         XCTAssertNil(store.saveFailure)
         XCTAssertEqual(try store.context.fetch(FetchDescriptor<Match>()).map(\.entrants.first?.name), ["Bob"])
@@ -462,7 +466,7 @@ final class MatchStorePersistenceTests: XCTestCase {
             try context.save()
         }
         let alice = Entrant(name: "Alice")
-        let match = Match(game: .gonga, variant: .gongaStandard, mode: .players, entrants: [alice])
+        let match = Match(game: .gonga, variant: .gongaStandard, number: 101, mode: .players, entrants: [alice])
         store.add(match)
         XCTAssertNotNil(store.saveFailure)
 
@@ -475,7 +479,7 @@ final class MatchStorePersistenceTests: XCTestCase {
     func test_acknowledgingASaveFailureLeavesTheChangeInPlace() throws {
         let store = MatchStore { _ in throw DiskFull() }
         let alice = Entrant(name: "Alice")
-        let match = Match(game: .gonga, variant: .gongaStandard, mode: .players, entrants: [alice])
+        let match = Match(game: .gonga, variant: .gongaStandard, number: 101, mode: .players, entrants: [alice])
         store.add(match)
 
         store.acknowledgeSaveFailure()

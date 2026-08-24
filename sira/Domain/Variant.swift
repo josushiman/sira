@@ -19,14 +19,22 @@ struct Variant: Identifiable, Hashable {
     let label: String
     let ruleText: String
     let winCondition: WinCondition
+    // The three shapes a number is taken in, kept here and left `nil` on every
+    // shipped Variant: a Variant describes shape only, and the number it is
+    // played at is chosen at Setup and stored on the Match (`Match.limit`,
+    // `Match.startingScore`, `Match.roundCount`, read through
+    // `Match.variantNumber`). They stay declared because "no Variant carries a
+    // number" is the contract, and a contract nothing states is one nothing can
+    // assert — see `VariantTests`.
     /// Survival: the score an Entrant must stay at or under before going Out.
-    let limit: Int?
-    /// Elimination: the score Entrants count down from.
-    let startingScore: Int?
-    /// Fixed Rounds: the number of Rounds the Match runs for. Var rather than
-    /// let because a Match resolving this Variant applies the Round count
-    /// chosen at Setup (Okey 101: 8 or 12) on top of it.
-    var roundCount: Int?
+    /// Always `nil`; the Match carries the limit.
+    let limit: Int? = nil
+    /// Elimination: the score Entrants count down from. Always `nil`; the
+    /// Match carries the starting score.
+    let startingScore: Int? = nil
+    /// Fixed Rounds: the number of Rounds the Match runs for. Always `nil`;
+    /// the Match carries the Round count.
+    let roundCount: Int? = nil
     /// The single Entrant mode this Variant is played in. Every Variant is
     /// fixed to one — only Okey is played in Teams of 2; Gonga and Okey 101
     /// are individuals only — so Setup records this rather than offering
@@ -75,9 +83,6 @@ extension Variant {
         label: "Gonga",
         ruleText: "Accumulate points each Round. Go over the limit and you're Out. Last one standing wins.",
         winCondition: .survival,
-        limit: 101,
-        startingScore: nil,
-        roundCount: nil,
         entrantMode: .players,
         maxEntrants: 8,
         supportsCifte: false,
@@ -100,9 +105,6 @@ extension Variant {
         label: "Okey",
         ruleText: "Teams of 2 count down from a starting score, chosen at Setup. The losing team takes \u{2212}2 each Round; each Gösterge find deducts 1 from the other team. First team to reach 0 loses.",
         winCondition: .elimination,
-        limit: nil,
-        startingScore: 21,
-        roundCount: nil,
         entrantMode: .teams,
         maxEntrants: 2,
         supportsCifte: true,
@@ -116,9 +118,6 @@ extension Variant {
         label: "Okey 101",
         ruleText: "Individuals only. Accumulate points each Round over a fixed number of Rounds, chosen at Setup. Lowest total when the Rounds run out wins.",
         winCondition: .fixedRounds,
-        limit: nil,
-        startingScore: nil,
-        roundCount: 8,
         entrantMode: .players,
         maxEntrants: 4,
         supportsCifte: true,

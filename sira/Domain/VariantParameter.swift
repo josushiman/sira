@@ -164,12 +164,10 @@ extension VariantParameter {
     /// the standard game is something the player chooses rather than a default
     /// they failed to change.
     ///
-    /// The presets are stated here rather than read off the Variant, because
-    /// `Variant.limit`, `Variant.startingScore` and `Variant.roundCount` are
-    /// what a Match carrying no number of its own falls back to, not what the
-    /// chips open on. The two are allowed to differ, and do — Okey 101
-    /// preselects 12 Rounds against a constant of 8 — see
-    /// `Match.init(game:variant:number:…)`.
+    /// The presets are stated here and nowhere else: a Variant carries no
+    /// numbers at all, so there is no constant for these to agree or disagree
+    /// with. What Setup opens on is a question about what tables usually play,
+    /// which is this type's business; how far a Match runs is the Match's.
     init(for variant: Variant) {
         switch variant.winCondition {
         case .fixedRounds:

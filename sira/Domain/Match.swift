@@ -150,20 +150,17 @@ final class Match {
     }
 
     /// The Variant this Match is played under, resolved from `variantId`
-    /// against the Variants shipped for its Game, with the Setup-chosen Round
-    /// count applied on top.
+    /// against the Variants shipped for its Game.
+    ///
+    /// Shape only: how the Match is scored, and nothing about how far it runs.
+    /// The number it is played at is the Match's own, and is read through
+    /// `variantNumber`.
     ///
     /// `nil` when the id resolves to nothing — a Match naming a Variant this
     /// build doesn't know is skipped rather than scored by a substitute, so a
     /// downgrade or a bad write stays recoverable rather than becoming terminal.
     var variant: Variant? {
-        guard var resolved = Variant.all(for: game).first(where: { $0.id == variantId }) else {
-            return nil
-        }
-        if let roundCount {
-            resolved.roundCount = roundCount
-        }
-        return resolved
+        Variant.all(for: game).first(where: { $0.id == variantId })
     }
 
     /// The number this Match is played at — the limit it is played to, the
@@ -176,21 +173,20 @@ final class Match {
     /// zero in another — so the same unscoreable Match meant something
     /// different depending on who asked. Here it means one thing: `nil`.
     ///
-    /// Not yet every caller: `EliminationEngine` and `FixedRoundsEngine` still
-    /// read their number off the Variant with fallbacks of their own, and come
-    /// through here when their Variants gain a chosen number of their own.
+    /// Resolved from the Match alone. The Variant supplies which of the three
+    /// numbers the Match is played at, never the number itself — a limit is a
+    /// table's decision, not a rule a later release could correct on their
+    /// behalf, so there is nothing in the binary to stand in for it.
     ///
-    /// The stored value wins, and the Variant's constant stands in while both
-    /// exist. That fallback is temporary: once every Match records its own
-    /// number the constants go, and a Match that resolves `nil` is skipped at
-    /// the `scorable` gate exactly as a Match naming an unknown Variant id is —
-    /// never scored against a substitute, and never deleted (`docs/adr/0007`).
+    /// A Match that resolves `nil` here is skipped at the `scorable` gate
+    /// exactly as a Match naming an unknown Variant id is — never scored
+    /// against a substitute, and never deleted (`docs/adr/0007`).
     var variantNumber: Int? {
         guard let variant else { return nil }
         switch variant.winCondition {
-        case .survival: return limit ?? variant.limit
-        case .elimination: return startingScore ?? variant.startingScore
-        case .fixedRounds: return roundCount ?? variant.roundCount
+        case .survival: return limit
+        case .elimination: return startingScore
+        case .fixedRounds: return roundCount
         }
     }
 
@@ -271,20 +267,24 @@ extension Sequence<Match> {
     /// The Matches this build can score, each with its Variant already
     /// resolved.
     ///
-    /// A Match naming a Variant id that resolves to nothing is skipped rather
-    /// than shown, and never deleted: its data stays exactly where it is, so a
-    /// downgrade or a bad write is recoverable by the build that knows the id
-    /// rather than terminal (`docs/adr/0007`).
+    /// Two ways a Match can fail to be scorable, and the same answer to both:
+    /// it names a Variant id that resolves to nothing, or it carries no number
+    /// to be played at. Either is skipped rather than shown, and never
+    /// deleted: its data stays exactly where it is, so a downgrade or a bad
+    /// write is recoverable by the build that knows the id rather than
+    /// terminal (`docs/adr/0007`).
     ///
-    /// Skipping is a gate, not a guarantee the domain enforces. The Engines
-    /// will still score a Match whose Variant is `nil` — against a substitute
-    /// limit, because there is nothing else for them to read — so what keeps
-    /// that from happening is that such a Match is filtered out here, before
-    /// any screen can open it. The route into Play does not come through here:
-    /// it names one Match by id, and gates on `scorableMatch` instead.
+    /// Skipping is a gate, not a guarantee the domain enforces. An Engine
+    /// handed a Match with no number has nothing to score it by and says
+    /// nothing at all about it — an empty Standings, not a wrong one — so what
+    /// keeps a player from meeting that blank screen is that such a Match is
+    /// filtered out here, before any screen can open it. The route into Play
+    /// does not come through here: it names one Match by id, and gates on
+    /// `scorableMatch` instead.
     var scorable: [(match: Match, variant: Variant)] {
         compactMap { match in
-            match.variant.map { (match: match, variant: $0) }
+            guard let variant = match.variant, match.variantNumber != nil else { return nil }
+            return (match: match, variant: variant)
         }
     }
 
@@ -292,12 +292,14 @@ extension Sequence<Match> {
     ///
     /// Home's list is not the only way into Play: a route names a Match by id,
     /// and that id is resolved here rather than against every stored Match, so
-    /// the two ways it can stop being scorable — the Match was deleted, or its
-    /// Variant id resolves to nothing — both come back as `nil` rather than as
-    /// a Match with no rules to score it by.
+    /// the ways it can stop being scorable — the Match was deleted, its
+    /// Variant id resolves to nothing, or it carries no number to be played at
+    /// — all come back as `nil` rather than as a Match with no rules to score
+    /// it by.
     ///
     /// One id, so one Variant resolved: `scorable` would resolve every Match's
     /// Variant to build a list this throws away.
+    ///
     /// `isGone` is asked first, before the id it is guarding: reading `id`
     /// off a Match that has been deleted is itself a read of a stored
     /// property, and a deleted Match answers those by trapping. This walks
@@ -306,7 +308,9 @@ extension Sequence<Match> {
     func scorableMatch(_ id: Match.ID?) -> Match? {
         guard let id,
               let match = first(where: { !$0.isGone && $0.id == id }),
-              match.variant != nil
+              // One question covers both: a number resolves only through a
+              // Variant, so an unknown id is already `nil` here.
+              match.variantNumber != nil
         else {
             return nil
         }
@@ -320,28 +324,22 @@ extension Match {
     /// resolves it afresh on every read — so this is a starting point rather
     /// than a copy.
     ///
-    /// The number is recorded even where it came straight off the Variant, so
-    /// that every Match says what it was played at rather than leaving some to
-    /// be read off a constant that a later release could move underneath them.
+    /// The number is recorded even when it is the value Setup preselected, so
+    /// that every Match says what it was played at, and nothing downstream has
+    /// to tell "the table chose this" from "nobody was asked".
     ///
     /// `number` is the number chosen for this Match at Setup, in whichever
-    /// shape the Variant's Win Condition takes it. Every Match a player starts
-    /// carries one, so omitting it is for the callers where nobody was asked —
-    /// the demo fixtures and the tests — and falls back to the Variant's
-    /// constant.
-    ///
-    /// That constant is not the number Setup offers by default, and the two are
-    /// free to differ: Okey 101 preselects 12 Rounds while its constant is
-    /// still 8. One is what the chips open on, the other is what a Match with
-    /// no number of its own is scored by, and the second goes when the Variant
-    /// constants do. Moving the constant to agree would rescore every Match
-    /// already resting on it, which is the thing `docs/adr/0007` exists to
-    /// prevent.
+    /// shape the Variant's Win Condition takes it, and is required: there is
+    /// nothing left to fall back to. The Variants carry no numbers, and a
+    /// Match without one is skipped at the `scorable` gate rather than scored.
+    /// A caller nobody was asked for — a fixture, a test — states the number
+    /// it means, rather than inheriting a constant a later release could move
+    /// underneath it (`docs/adr/0007`).
     convenience init(
         id: UUID = UUID(),
         game: Game,
         variant: Variant,
-        number: Int? = nil,
+        number: Int,
         mode: EntrantMode,
         entrants: [Entrant],
         rounds: [Round] = [],
@@ -355,11 +353,11 @@ extension Match {
         let roundCount: Int?
         switch variant.winCondition {
         case .survival:
-            (limit, startingScore, roundCount) = (number ?? variant.limit, nil, nil)
+            (limit, startingScore, roundCount) = (number, nil, nil)
         case .elimination:
-            (limit, startingScore, roundCount) = (nil, number ?? variant.startingScore, nil)
+            (limit, startingScore, roundCount) = (nil, number, nil)
         case .fixedRounds:
-            (limit, startingScore, roundCount) = (nil, nil, number ?? variant.roundCount)
+            (limit, startingScore, roundCount) = (nil, nil, number)
         }
 
         self.init(

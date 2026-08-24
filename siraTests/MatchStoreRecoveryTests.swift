@@ -138,6 +138,7 @@ final class MatchStoreRecoveryTests: XCTestCase {
             let match = Match(
                 game: .gonga,
                 variant: .gongaStandard,
+                number: 101,
                 mode: .players,
                 entrants: [Entrant(name: "Alice"), Entrant(name: "Bob")]
             )
@@ -158,6 +159,7 @@ final class MatchStoreRecoveryTests: XCTestCase {
             let match = Match(
                 game: .gonga,
                 variant: .gongaStandard,
+                number: 101,
                 mode: .players,
                 entrants: [Entrant(name: "Alice"), Entrant(name: "Bob")]
             )
@@ -213,6 +215,7 @@ final class MatchStoreRecoveryTests: XCTestCase {
             let playable = Match(
                 game: .gonga,
                 variant: .gongaStandard,
+                number: 101,
                 mode: .players,
                 entrants: [alice, bob]
             )

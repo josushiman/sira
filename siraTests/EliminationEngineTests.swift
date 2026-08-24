@@ -3,12 +3,23 @@ import XCTest
 
 final class EliminationEngineTests: XCTestCase {
     private let variant = Variant.okeyStandard
+    /// The score these Matches count down from unless a test says otherwise.
+    /// Stated here because the Variant no longer carries one: Okey is played
+    /// from whatever its table chose, and 21 is what tables usually choose.
+    private let startingScore = 21
 
     private func makeMatch(entrants: [Entrant], number: Int? = nil, rounds: [Round]) -> Match {
-        Match(game: .okey, variant: variant, number: number, mode: .teams, entrants: entrants, rounds: rounds)
+        Match(
+            game: .okey,
+            variant: variant,
+            number: number ?? startingScore,
+            mode: .teams,
+            entrants: entrants,
+            rounds: rounds
+        )
     }
 
-    func test_startsAtTheVariantsStartingScore() {
+    func test_startsAtTheStartingScoreTheMatchWasSetUpAt() {
         let a = Entrant(name: "Team A")
         let b = Entrant(name: "Team B")
         let match = makeMatch(entrants: [a, b], rounds: [])

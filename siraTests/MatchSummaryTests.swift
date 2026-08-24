@@ -10,6 +10,7 @@ final class MatchSummaryTests: XCTestCase {
         let match = Match(
             game: .gonga,
             variant: .gongaStandard,
+            number: 101,
             mode: .players,
             entrants: [a, b],
             rounds: [Round(deltas: [a.id: 20, b.id: 5])]
@@ -26,6 +27,7 @@ final class MatchSummaryTests: XCTestCase {
         let match = Match(
             game: .gonga,
             variant: .gongaStandard,
+            number: 101,
             mode: .players,
             entrants: [a, b],
             rounds: [Round(deltas: [a.id: 110, b.id: 5])]
@@ -37,7 +39,7 @@ final class MatchSummaryTests: XCTestCase {
     }
 
     func test_matchWithNoEntrantsShowsAPlaceholder() {
-        let match = Match(game: .gonga, variant: .gongaStandard, mode: .players, entrants: [])
+        let match = Match(game: .gonga, variant: .gongaStandard, number: 101, mode: .players, entrants: [])
 
         let summary = MatchSummary(match: match, engine: engine)
 
@@ -56,6 +58,7 @@ final class MatchSummaryTests: XCTestCase {
         let inOrder = Match(
             game: .gonga,
             variant: .gongaStandard,
+            number: 101,
             mode: .players,
             entrants: [a, b],
             rounds: [
@@ -72,6 +75,7 @@ final class MatchSummaryTests: XCTestCase {
         let reversed = Match(
             game: .gonga,
             variant: .gongaStandard,
+            number: 101,
             mode: .players,
             entrants: [a, b],
             rounds: Array(inOrder.rounds.reversed())

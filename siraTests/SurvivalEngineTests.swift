@@ -3,9 +3,13 @@ import XCTest
 
 final class SurvivalEngineTests: XCTestCase {
     private let variant = Variant.gongaStandard
+    /// The limit these Matches are played to. Stated here because the Variant
+    /// no longer carries one: a Gonga Match is played to whatever its table
+    /// chose, and a fixture is a table like any other.
+    private let limit = 101
 
     private func makeMatch(entrants: [Entrant], rounds: [Round]) -> Match {
-        Match(game: .gonga, variant: variant, mode: .players, entrants: entrants, rounds: rounds)
+        Match(game: .gonga, variant: variant, number: limit, mode: .players, entrants: entrants, rounds: rounds)
     }
 
     func test_accumulatesDeltasAcrossRounds() {
@@ -203,7 +207,7 @@ final class SurvivalEngineTests: XCTestCase {
         XCTAssertEqual(alice.total, 40)
     }
 
-    func test_rejoinTargetFallsBackToTheVariantsLimitWhenEveryoneIsOut() {
+    func test_rejoinTargetFallsBackToTheMatchsLimitWhenEveryoneIsOut() {
         // Being Out means a total above the limit, so falling back to the highest
         // total among all Entrants would itself be above the limit; the fallback
         // must clamp to the limit instead of resuming someone already-busted.
@@ -218,7 +222,7 @@ final class SurvivalEngineTests: XCTestCase {
 
         let target = SurvivalEngine().rejoinTarget(for: match)
 
-        XCTAssertEqual(target, variant.limit ?? .max)
+        XCTAssertEqual(target, limit)
     }
 
     /// The cap is the limit this Match chose. At 201 a busted-out table

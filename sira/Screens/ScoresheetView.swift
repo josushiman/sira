@@ -190,6 +190,7 @@ struct ScoresheetView: View {
     let match = Match(
         game: .gonga,
         variant: .gongaStandard,
+        number: 101,
         mode: .players,
         entrants: [a, b],
         rounds: [
