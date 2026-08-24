@@ -76,4 +76,27 @@ final class VariantTests: XCTestCase {
     func test_okey21IsLabelledOkey21() {
         XCTAssertEqual(Variant.okey21.label, "Okey 21")
     }
+
+    // MARK: - The rules read back at a chosen number
+
+    func test_theRulesRestateThemselvesAtWhateverNumberIsChosen() {
+        XCTAssertEqual(
+            Variant.okey101.ruleText(at: 5),
+            "Individuals only. Accumulate points each Round over 5 Rounds. Lowest total when the Rounds run out wins."
+        )
+    }
+
+    /// The Picker runs before anything is chosen, so its copy cannot quote a
+    /// number — it says a number is coming instead of naming one that is not
+    /// binding.
+    func test_thePickersRuleTextQuotesNoNumber() {
+        XCTAssertFalse(Variant.okey101.ruleText.contains("8"))
+        XCTAssertFalse(Variant.okey101.ruleText.contains("12"))
+    }
+
+    /// Gonga and Okey gain theirs along with their chips.
+    func test_onlyTheVariantThatAsksForANumberReadsItsRulesBack() {
+        XCTAssertNil(Variant.gonga101.ruleText(at: 101))
+        XCTAssertNil(Variant.okey21.ruleText(at: 21))
+    }
 }

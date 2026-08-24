@@ -75,6 +75,27 @@ final class PlayStatsTests: XCTestCase {
         XCTAssertEqual(stats.secondaryValue, "6")
     }
 
+    /// Rounds left counts against the number this table chose, not the number
+    /// the Variant ships with — a five-Round Match is three Rounds from the end
+    /// after two, and would read as six if the Variant's 8 still stood.
+    func test_fixedRounds_countsRoundsLeftAgainstTheChosenNumber() {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        let match = Match(
+            game: .okey,
+            variant: .okey101,
+            number: 5,
+            mode: .players,
+            entrants: [a, b],
+            rounds: [Round(deltas: [a.id: 10, b.id: 5]), Round(deltas: [a.id: 10, b.id: 5])]
+        )
+
+        let stats = PlayStats(variant: .okey101, match: match, engine: FixedRoundsEngine())
+
+        XCTAssertEqual(stats.secondaryLabel, "Rounds left")
+        XCTAssertEqual(stats.secondaryValue, "3")
+    }
+
     func test_elimination_showsGapBetweenBestAndWorst() {
         let a = Entrant(name: "Team A")
         let b = Entrant(name: "Team B")

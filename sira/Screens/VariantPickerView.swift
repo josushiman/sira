@@ -55,8 +55,13 @@ struct VariantPickerView: View {
     }
 }
 
-/// A Variant row on the Variant picker, styled as the prototype's card:
-/// label, a muted numeric tag, a hairline divider, then the rule text.
+/// A Variant row on the Variant picker: label, a hairline divider, then the
+/// rule text.
+///
+/// The prototype's muted numeric tag is deliberately absent. The Picker runs
+/// before Setup, so no number has been chosen yet — the tag could only ever
+/// show a constant as decoration, and now that Setup asks for the number it
+/// would be quoting a value the player is one screen away from choosing.
 private struct VariantCard: View {
     let variant: Variant
 
@@ -65,13 +70,9 @@ private struct VariantCard: View {
     var body: some View {
         CardSurface(padding: 20) {
             VStack(alignment: .leading, spacing: 14) {
-                HStack(alignment: .firstTextBaseline) {
-                    Text(variant.label)
-                        .siraStyle(.headline)
-                    Spacer()
-                    Text(sira: .monoValueLarge, tag)
-                        .foregroundStyle(theme.ink.opacity(0.22))
-                }
+                Text(variant.label)
+                    .siraStyle(.headline)
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
                 Rectangle()
                     .fill(theme.line)
@@ -82,16 +83,6 @@ private struct VariantCard: View {
                     .foregroundStyle(theme.ink.opacity(0.6))
             }
         }
-    }
-
-    /// The prototype's short numeric tag per Variant — its Survival limit,
-    /// Elimination starting score, or Fixed Rounds "never laid down" value,
-    /// whichever the Variant defines.
-    private var tag: String {
-        if let limit = variant.limit { return "\(limit)" }
-        if let startingScore = variant.startingScore { return "\(startingScore)" }
-        if let neverLaidDownValue = variant.neverLaidDownValue { return "\(neverLaidDownValue)" }
-        return ""
     }
 }
 

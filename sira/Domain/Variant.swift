@@ -38,10 +38,25 @@ struct Variant: Identifiable, Hashable {
     /// Whether Round entry offers the Çifte doubling toggle. Okey only —
     /// Gonga has no Çifte concept.
     let supportsCifte: Bool
+    /// The rules as Setup reads them back once a number has been chosen, with
+    /// `{n}` standing where that number goes. Separate from `ruleText`, which
+    /// the Variant Picker shows before anything has been chosen and so cannot
+    /// quote a number at all.
+    ///
+    /// `nil` on the Variants whose number is not yet a Setup choice: Gonga and
+    /// Okey gain theirs along with their chips.
+    var ruleTextTemplate: String? = nil
     var entryStyle: RoundEntryStyle = .keypad
     /// Keypad entry's "never laid down" quick-entry shortcut value (Okey 101: 101).
     /// `nil` for Variants that don't offer this shortcut.
     var neverLaidDownValue: Int? = nil
+
+    /// The rules restated with `number` in them — what Setup shows under the
+    /// control, so choosing 5 immediately reads back the game that choice
+    /// makes. `nil` where this Variant has no number to restate them with yet.
+    func ruleText(at number: Int) -> String? {
+        ruleTextTemplate?.replacingOccurrences(of: "{n}", with: "\(number)")
+    }
 }
 
 extension Variant {
@@ -92,7 +107,7 @@ extension Variant {
         id: "okey-101",
         game: .okey,
         label: "Okey 101",
-        ruleText: "Individuals only. Accumulate points each Round over a fixed number of Rounds (8 or 12, chosen at Setup). Lowest total when the Rounds run out wins.",
+        ruleText: "Individuals only. Accumulate points each Round over a fixed number of Rounds, chosen at Setup. Lowest total when the Rounds run out wins.",
         winCondition: .fixedRounds,
         limit: nil,
         startingScore: nil,
@@ -100,6 +115,7 @@ extension Variant {
         entrantMode: .players,
         maxEntrants: 4,
         supportsCifte: true,
+        ruleTextTemplate: "Individuals only. Accumulate points each Round over {n} Rounds. Lowest total when the Rounds run out wins.",
         entryStyle: .keypad,
         neverLaidDownValue: 101
     )

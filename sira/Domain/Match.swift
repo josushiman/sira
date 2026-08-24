@@ -194,6 +194,19 @@ final class Match {
         }
     }
 
+    /// The number this Match is played at, as it reads beside the Variant's
+    /// label — `to 101`, `from 21`, `12 rounds`. `nil` when there is no number
+    /// to name it by.
+    ///
+    /// Here rather than on each screen because Home and Play name the same
+    /// Match and must name it identically, and because the phrasing depends on
+    /// the Win Condition, which is the Match's business to know and not a
+    /// card's.
+    var numberPhrase: String? {
+        guard let variant, let number = variantNumber else { return nil }
+        return VariantParameter.Kind(variant.winCondition).phrase(for: number)
+    }
+
     /// Detaches the most recently added Round, including any Rejoin attached to
     /// it, and hands it back so its owner can delete it — leaving the Round out
     /// of the relationship is not the same as it ceasing to exist, and a Round
@@ -310,23 +323,52 @@ extension Match {
     /// The number is recorded even where it came straight off the Variant, so
     /// that every Match says what it was played at rather than leaving some to
     /// be read off a constant that a later release could move underneath them.
+    ///
+    /// `number` is the number chosen for this Match at Setup, in whichever
+    /// shape the Variant's Win Condition takes it. Every Match a player starts
+    /// carries one, so omitting it is for the callers where nobody was asked —
+    /// the demo fixtures and the tests — and falls back to the Variant's
+    /// constant.
+    ///
+    /// That constant is not the number Setup offers by default, and the two are
+    /// free to differ: Okey 101 preselects 12 Rounds while its constant is
+    /// still 8. One is what the chips open on, the other is what a Match with
+    /// no number of its own is scored by, and the second goes when the Variant
+    /// constants do. Moving the constant to agree would rescore every Match
+    /// already resting on it, which is the thing `docs/adr/0007` exists to
+    /// prevent.
     convenience init(
         id: UUID = UUID(),
         game: Game,
         variant: Variant,
+        number: Int? = nil,
         mode: EntrantMode,
         entrants: [Entrant],
         rounds: [Round] = [],
         archived: Bool = false,
         createdAt: Date = Date()
     ) {
+        // Matched rather than compared: this initializer is nonisolated, and
+        // `WinCondition`'s synthesized `==` is not.
+        let limit: Int?
+        let startingScore: Int?
+        let roundCount: Int?
+        switch variant.winCondition {
+        case .survival:
+            (limit, startingScore, roundCount) = (number ?? variant.limit, nil, nil)
+        case .elimination:
+            (limit, startingScore, roundCount) = (nil, number ?? variant.startingScore, nil)
+        case .fixedRounds:
+            (limit, startingScore, roundCount) = (nil, nil, number ?? variant.roundCount)
+        }
+
         self.init(
             id: id,
             game: game,
             variantId: variant.id,
-            limit: variant.winCondition == .survival ? variant.limit : nil,
-            startingScore: variant.winCondition == .elimination ? variant.startingScore : nil,
-            roundCount: variant.winCondition == .fixedRounds ? variant.roundCount : nil,
+            limit: limit,
+            startingScore: startingScore,
+            roundCount: roundCount,
             mode: mode,
             entrants: entrants,
             rounds: rounds,

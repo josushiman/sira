@@ -391,4 +391,24 @@ extension MatchTests {
 
         XCTAssertFalse(match.isGone)
     }
+
+    // MARK: - How the number reads
+
+    /// Home and Play both name a Match by this, so it is phrased once here
+    /// rather than assembled the same way on two screens.
+    func test_aMatchIsNamedByTheNumberItIsPlayedAtInItsOwnKindsPhrase() {
+        let survival = match(game: .gonga, variantId: "gonga-101", limit: 201)
+        let elimination = match(game: .okey, variantId: "okey-21", startingScore: 31)
+        let fixedRounds = match(game: .okey, variantId: "okey-101", roundCount: 5)
+
+        XCTAssertEqual(survival.numberPhrase, "to 201")
+        XCTAssertEqual(elimination.numberPhrase, "from 31")
+        XCTAssertEqual(fixedRounds.numberPhrase, "5 rounds")
+    }
+
+    /// Nothing to name it by when nothing resolves — the same silence the
+    /// accessor answers with, rather than a phrase built around a blank.
+    func test_aMatchWithNoNumberHasNoPhrase() {
+        XCTAssertNil(match(game: .gonga, variantId: "gonga-from-a-later-release").numberPhrase)
+    }
 }

@@ -45,7 +45,7 @@ final class HomeCardTests: XCTestCase {
         XCTAssertTrue(match.isGone)
         XCTAssertEqual(card.title, "14th March 2026 · 9pm")
         XCTAssertEqual(card.statusText, "Round 2")
-        XCTAssertEqual(card.entrantsText, "2 players")
+        XCTAssertEqual(card.entrantsText, "2 players · to 101")
         XCTAssertEqual(card.variantLabel, "Gonga 101")
         XCTAssertEqual(card.roundCount, 1)
         XCTAssertFalse(card.archived)
@@ -86,14 +86,62 @@ final class HomeCardTests: XCTestCase {
     }
 
     func test_teamsAreCountedAsTeamsAndOneOfEitherIsSingular() {
-        XCTAssertEqual(card(for: match(mode: .teams)).entrantsText, "2 teams")
+        XCTAssertEqual(card(for: match(mode: .teams)).entrantsText, "2 teams · to 101")
         XCTAssertEqual(
             card(for: match(mode: .teams, entrants: [Entrant(name: "Us")])).entrantsText,
-            "1 team"
+            "1 team · to 101"
         )
         XCTAssertEqual(
             card(for: match(entrants: [Entrant(name: "Alice")])).entrantsText,
-            "1 player"
+            "1 player · to 101"
         )
+    }
+
+    // MARK: - The number the Match is played at
+
+    /// The card names the Match by what it is played at as well as who is
+    /// playing it, so two Matches of the same Variant over different lengths
+    /// are told apart on the list rather than only once one is opened.
+    func test_theMetadataLineCarriesTheNumberAsAPhrase() {
+        let okey101 = Match(
+            game: .okey,
+            variant: .okey101,
+            number: 12,
+            mode: .players,
+            entrants: [Entrant(name: "Alice"), Entrant(name: "Bob")]
+        )
+
+        XCTAssertEqual(HomeCard(match: okey101, variant: .okey101).entrantsText, "2 players · 12 rounds")
+    }
+
+    /// The phrase reads off the Match's own number, not the Variant's, which is
+    /// the whole point of asking for one at Setup.
+    func test_theMetadataLineFollowsTheNumberThisMatchChose() {
+        let shortMatch = Match(
+            game: .okey,
+            variant: .okey101,
+            number: 5,
+            mode: .players,
+            entrants: [Entrant(name: "Alice"), Entrant(name: "Bob")]
+        )
+
+        XCTAssertEqual(HomeCard(match: shortMatch, variant: .okey101).entrantsText, "2 players · 5 rounds")
+    }
+
+    /// The label never absorbs the number: "Okey 101" is the Variant, and the
+    /// 12 Rounds it is being played over sit in the metadata line beside it.
+    func test_theLabelIsNeverFusedWithTheNumber() {
+        let match = Match(
+            game: .okey,
+            variant: .okey101,
+            number: 12,
+            mode: .players,
+            entrants: [Entrant(name: "Alice")]
+        )
+
+        let card = HomeCard(match: match, variant: .okey101)
+
+        XCTAssertEqual(card.variantLabel, "Okey 101")
+        XCTAssertFalse(card.variantLabel.contains("12 rounds"))
     }
 }

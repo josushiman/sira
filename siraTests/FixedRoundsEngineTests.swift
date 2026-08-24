@@ -28,6 +28,32 @@ final class FixedRoundsEngineTests: XCTestCase {
         XCTAssertFalse(standings.isOver)
     }
 
+    // MARK: - The Round count this table chose
+
+    /// A Match set to five Rounds ends on the fifth, not on the eighth the
+    /// Variant ships with.
+    func test_theMatchEndsOnTheChosenRound() {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        let round = { Round(deltas: [a.id: 10, b.id: 5]) }
+        let match = Match(
+            game: .okey,
+            variant: variant,
+            number: 5,
+            mode: .players,
+            entrants: [a, b],
+            rounds: [round(), round(), round(), round()]
+        )
+
+        XCTAssertFalse(FixedRoundsEngine().standings(for: match).isOver, "Four of five Rounds is not over")
+
+        match.addRound(round())
+
+        let standings = FixedRoundsEngine().standings(for: match)
+        XCTAssertTrue(standings.isOver)
+        XCTAssertEqual(standings.result, "Bob wins!")
+    }
+
     // MARK: - Çifte
 
     /// The call came off: the caller finished the Round on 0, and everyone

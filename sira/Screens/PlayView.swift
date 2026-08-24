@@ -270,10 +270,13 @@ struct PlayView: View {
         }
     }
 
+    /// Who is playing and what they are playing to — the same phrase Home's
+    /// card carries, off the same accessor, so a Match reads the same wherever
+    /// it is named.
     private var playSubtitle: String {
         let count = match.entrants.count
         let noun = match.mode == .teams ? (count == 1 ? "team" : "teams") : (count == 1 ? "player" : "players")
-        return "\(count) \(noun)"
+        return ["\(count) \(noun)", match.numberPhrase].compactMap { $0 }.joined(separator: " · ")
     }
 
     private var archiveButton: some View {
