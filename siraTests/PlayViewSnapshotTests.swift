@@ -102,6 +102,34 @@ final class PlayViewSnapshotTests: XCTestCase {
         )
     }
 
+    /// A name far longer than a row is wide, among short ones. Setup accepts a
+    /// name of any length, so this is a Match a player can really make — and
+    /// Rename will let them make it from Play too. It is the long name that
+    /// has to give way: not the dot-badge, not the Out tag beside it, not the
+    /// progress bar or the "N left" figure under it, and not the Scoresheet's
+    /// other columns.
+    ///
+    /// The long-named Entrant is the one who busts, so the Standings row also
+    /// carries a tag beside the truncated name rather than leaving the widest
+    /// case untested.
+    private var longNameMatch: Match {
+        let a = Entrant(name: "AbdurrahmanoğullarındanmışçasınaymışAbdurrahmanoğullarındanmışçasınaymış")
+        let b = Entrant(name: "Bo")
+        let c = Entrant(name: "Cem")
+        let d = Entrant(name: "Dila")
+        return Match(
+            game: .gonga,
+            variant: .gongaStandard,
+            number: 101,
+            mode: .players,
+            entrants: [a, b, c, d],
+            rounds: [
+                Round(deltas: [a.id: 60, b.id: 34, c.id: 12, d.id: 20]),
+                Round(deltas: [a.id: 60, b.id: 10, c.id: 5, d.id: 8]),
+            ]
+        )
+    }
+
     func test_standingsTiedClosestToOut_paper() {
         assertPlay(tiedMatch, tab: .standings, theme: .paper)
     }
@@ -144,5 +172,13 @@ final class PlayViewSnapshotTests: XCTestCase {
 
     func test_scoresheetWithDoubledRounds_felt() {
         assertPlay(doubledMatch, tab: .scoresheet, theme: .felt)
+    }
+
+    func test_standingsLongName_paper() {
+        assertPlay(longNameMatch, tab: .standings, theme: .paper)
+    }
+
+    func test_scoresheetLongName_paper() {
+        assertPlay(longNameMatch, tab: .scoresheet, theme: .paper)
     }
 }

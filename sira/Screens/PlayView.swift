@@ -404,14 +404,24 @@ struct StandingRow: View {
                 .opacity(standing.isOut ? 0.4 : 1)
 
             VStack(alignment: .leading, spacing: 8) {
+                // A name of any length is a name the player can enter, so the
+                // row is laid out around one: the name is the only thing here
+                // allowed to give way, truncating on its single line rather
+                // than wrapping — the block beneath it fixes the row's height,
+                // and a taller row would break the list's rhythm. The tag
+                // keeps its full width, so what a row loses to a long name is
+                // the tail of the name and never the word telling you the
+                // Entrant is Out.
                 HStack(spacing: 7) {
                     Text(standing.name)
                         .siraStyle(.headline)
                         .lineLimit(1)
                     if standing.isOut {
                         StatusPill(text: "Out", foreground: theme.background, background: theme.accent2)
+                            .fixedSize()
                     } else if isLeader {
                         StatusPill(text: "Leads", foreground: theme.onAccent, background: theme.accent)
+                            .fixedSize()
                     }
                 }
 

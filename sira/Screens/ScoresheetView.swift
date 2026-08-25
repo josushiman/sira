@@ -85,6 +85,11 @@ struct ScoresheetView: View {
             Text(sira: .monoEyebrow, "Rd")
                 .foregroundStyle(theme.ink.opacity(0.5))
                 .frame(width: 26, alignment: .leading)
+            // Every column is an equal share of what is left beside the Rd
+            // column, header and numbers alike, so a name long enough to fill
+            // its own header truncates inside it rather than widening it and
+            // sliding every other column along — the numbers below have to
+            // stay under the name they belong to.
             ForEach(match.entrants) { entrant in
                 Text(sira: .monoEyebrow, columnLabel(for: entrant))
                     .foregroundStyle(theme.ink.opacity(0.5))
