@@ -102,6 +102,10 @@ final class PlayViewSnapshotTests: XCTestCase {
         )
     }
 
+    func test_standingsTiedClosestToOut_paper() {
+        assertPlay(tiedMatch, tab: .standings, theme: .paper)
+    }
+
     func test_standingsTiedClosestToOut_felt() {
         assertPlay(tiedMatch, tab: .standings, theme: .felt)
     }

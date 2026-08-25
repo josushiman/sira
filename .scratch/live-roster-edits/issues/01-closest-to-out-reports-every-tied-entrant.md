@@ -6,12 +6,12 @@ This is a pre-existing gap, not one introduced by live roster edits: a **Rejoin*
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Two Entrants tied on the highest total still in are both named by the tile.
-- [ ] Three or more tied Entrants are all named, and the tile's copy stays readable at that length.
-- [ ] A single at-risk Entrant renders exactly as it does today — no regression in the common path.
-- [ ] Entrants who are **Out** are still excluded from the tie, since they have no Room left.
-- [ ] A Match with no limit still reports nothing rather than inventing a tie.
-- [ ] The "Match is over" case still reports the survivor's own Room left, unchanged.
-- [ ] Covered at the existing `PlayStats` seam, asserting on the rendered value rather than on how the at-risk set is computed.
+- [x] Two Entrants tied on the highest total still in are both named by the tile.
+- [x] Three or more tied Entrants are all named, and the tile's copy stays readable at that length.
+- [x] A single at-risk Entrant renders exactly as it does today — no regression in the common path.
+- [x] Entrants who are **Out** are still excluded from the tie, since they have no Room left.
+- [x] A Match with no limit still reports nothing rather than inventing a tie.
+- [x] The "Match is over" case still reports the survivor's own Room left, unchanged.
+- [x] Covered at the existing `PlayStats` seam, asserting on the rendered value rather than on how the at-risk set is computed.
