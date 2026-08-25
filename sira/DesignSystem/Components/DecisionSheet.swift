@@ -1,19 +1,25 @@
 import SwiftUI
 
 /// A sheet that puts one decision to the player and waits: the Rejoin offer,
-/// the delete confirmation. Title, a line saying what the decision means, and
-/// the actions stacked beneath it, on the app's own slide-up surface.
+/// the delete confirmation, the rename. Title, a line saying what the decision
+/// means, whatever the player has to fill in to make it, and the actions
+/// stacked beneath, on the app's own slide-up surface.
 ///
 /// Presentation stays native — this is the content of a `.sheet`, not a
-/// mechanism of its own (`docs/adr/0003`). What it owns is the shape both
-/// decisions share, so a second one cannot drift a detent or a spacing away
-/// from the first.
-struct DecisionSheet<Actions: View>: View {
+/// mechanism of its own (`docs/adr/0003`). What it owns is the shape every one
+/// of them shares, so a second cannot drift a detent or a spacing away from
+/// the first.
+struct DecisionSheet<Prompt: View, Actions: View>: View {
     let title: String
     /// What saying yes means, in a sentence. The sheets that use this are
-    /// asking about things that cannot be taken back, so this line is the one
-    /// doing the real work.
+    /// asking about things that cannot be taken back, or that show up
+    /// everywhere at once, so this line is the one doing the real work.
     let explanation: String
+    /// What the player has to supply before the decision can be made — the
+    /// rename's name field. Empty on the sheets that only ask yes or no, and
+    /// an empty one costs nothing: a `VStack` neither draws nor spaces around
+    /// an `EmptyView`.
+    @ViewBuilder var prompt: Prompt
     @ViewBuilder var actions: Actions
 
     @Environment(\.theme) private var theme
@@ -70,6 +76,12 @@ struct DecisionSheet<Actions: View>: View {
                     .siraStyle(.body)
                     .foregroundStyle(theme.ink.opacity(0.6))
 
+                // No padding of its own: a modifier on an empty prompt is a
+                // layout item where there should be none, and the sheets that
+                // ask only yes or no must lay out exactly as they did before
+                // this slot existed.
+                prompt
+
                 VStack(spacing: 9) {
                     actions
                 }
@@ -77,6 +89,15 @@ struct DecisionSheet<Actions: View>: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+    }
+}
+
+extension DecisionSheet where Prompt == EmptyView {
+    /// A sheet that asks only yes or no, with nothing for the player to fill
+    /// in — the Rejoin offer and the delete confirmation, which is how this
+    /// sheet started out.
+    init(title: String, explanation: String, @ViewBuilder actions: () -> Actions) {
+        self.init(title: title, explanation: explanation, prompt: { EmptyView() }, actions: actions)
     }
 }
 

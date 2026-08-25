@@ -29,7 +29,12 @@ struct SetupView: View {
     /// Every Variant is fixed to one Entrant mode, so Setup records the
     /// Variant's own mode instead of offering a Players/Teams choice.
     private var mode: EntrantMode { variant.entrantMode }
-    private var entrantLabel: String { mode == .teams ? "Team" : "Player" }
+    /// The Match's own word for one Entrant, capitalized to open a name with:
+    /// the same word the rename sheet reads back and the same one the
+    /// seat-derived fallback is built from, so a `Player 3` typed here and a
+    /// `Player 3` materialised later are the same name rather than two
+    /// spellings that happen to match.
+    private var entrantLabel: String { mode.entrantNoun.capitalized }
     /// Only worth showing when the Variant actually allows more than the
     /// minimum — Okey is always exactly two teams.
     private var showsCountSelector: Bool { variant.maxEntrants > 2 }

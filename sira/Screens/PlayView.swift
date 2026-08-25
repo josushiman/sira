@@ -16,6 +16,11 @@ struct PlayView: View {
     @State private var showingKeypadEntry = false
     @State private var showingOkeyStandardEntry = false
     @State private var rejoinQueue: [Entrant.ID] = []
+    /// The Entrant whose Standings row was tapped, and so whose rename sheet
+    /// is up. Held as the object rather than an id for the same reason the
+    /// Match is: it is a model class, and there is nothing to look it back up
+    /// from that the row did not already have in hand.
+    @State private var renamingEntrant: Entrant?
     @State private var selectedTab: PlayTab
 
     @Environment(\.theme) private var theme
@@ -118,7 +123,7 @@ struct PlayView: View {
         CardSurface(cornerRadius: 24, padding: 6) {
             VStack(spacing: 0) {
                 ForEach(Array(standings.ranked.enumerated()), id: \.element.id) { index, standing in
-                    StandingRow(
+                    let row = StandingRow(
                         standing: standing,
                         rank: index + 1,
                         badgeIndex: badgeIndex(for: standing.entrantID),
@@ -126,7 +131,28 @@ struct PlayView: View {
                         maxAbsTotal: maxAbsTotal(variant, standings),
                         roomLeft: roomLeft(variant, for: standing)
                     )
+                    // A row is a way into the rename only while the Match is
+                    // still being played: a decided Match's result is not
+                    // something to reopen. Being Archived has no say in it —
+                    // that is a visibility flag, and an Archived Match still
+                    // takes Rounds — and neither has being Out: a typo is
+                    // worth fixing for someone no longer accumulating score.
+                    if let entrant = renameable(standing, isOver: standings.isOver) {
+                        Button {
+                            renamingEntrant = entrant
+                        } label: {
+                            row
+                        }
+                        .buttonStyle(.plain)
+                    } else {
+                        row
+                    }
                 }
+            }
+        }
+        .sheet(item: $renamingEntrant) { entrant in
+            RenameEntrantSheet(entrant: entrant, entrants: match.entrants, mode: match.mode) { name in
+                store.rename(entrant, to: name)
             }
         }
 
@@ -136,6 +162,14 @@ struct PlayView: View {
             StatTile(label: stats.secondaryLabel, value: stats.secondaryValue)
         }
         .padding(.top, 14)
+    }
+
+    /// The Entrant a Standings row can be tapped to rename, or `nil` where the
+    /// row is only a row — a Match already decided by its Win Condition, or a
+    /// Standing naming an Entrant this Match does not hold.
+    private func renameable(_ standing: EntrantStanding, isOver: Bool) -> Entrant? {
+        guard !isOver else { return nil }
+        return match.entrants.first { $0.id == standing.entrantID }
     }
 
     private func badgeIndex(for entrantID: Entrant.ID) -> Int {

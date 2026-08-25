@@ -110,6 +110,31 @@ final class MatchStorePersistenceTests: XCTestCase {
         }
     }
 
+    /// A name fixed mid-Match is the Match the player comes back to — and the
+    /// seat it was fixed on does not move with it, so the renamed Entrant is
+    /// still sitting where they were.
+    func test_aRenamedEntrantComesBackUnderTheirNewNameAndOnTheirOwnSeat() throws {
+        let matchID = try launch { store -> Match.ID in
+            let match = Match(
+                game: .gonga,
+                variant: .gongaStandard,
+                number: 101,
+                mode: .players,
+                entrants: [Entrant(name: "Alice"), Entrant(name: "Bob")]
+            )
+            store.add(match)
+            store.rename(try entrant("Bob", in: match), to: "Bora")
+            return match.id
+        }
+
+        try launch { store in
+            let reloaded = try match(matchID, in: store)
+
+            XCTAssertEqual(reloaded.entrants.map(\.name), ["Alice", "Bora"])
+            XCTAssertEqual(reloaded.entrants.map(\.sequence), [0, 1])
+        }
+    }
+
     // MARK: - Round order
 
     /// Enough Rounds that an accidental reordering shows up, rather than the

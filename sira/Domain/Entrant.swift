@@ -81,4 +81,18 @@ extension String {
 enum EntrantMode: String, Codable, Hashable {
     case players
     case teams
+
+    /// What one Entrant is called on a Match played this way — `player`,
+    /// `team`. The word every screen that has to name one reads from, so
+    /// Setup's placeholder, the rename sheet's copy and the seat-derived
+    /// fallback cannot drift apart into three spellings of the same idea.
+    ///
+    /// Lowercase, because that is how it reads mid-sentence; a caller starting
+    /// a phrase with it capitalizes it there.
+    var entrantNoun: String {
+        switch self {
+        case .players: return "player"
+        case .teams: return "team"
+        }
+    }
 }

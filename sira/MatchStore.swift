@@ -217,6 +217,21 @@ final class MatchStore {
         save()
     }
 
+    /// Renames an Entrant.
+    ///
+    /// Nothing else has to move with it. Every screen reads a name off the
+    /// Entrant as it renders and every score is keyed on `Entrant.ID`, so this
+    /// one write is the rename everywhere at once — Rounds already played
+    /// included — and no total, delta or Out state is touched by it.
+    ///
+    /// The name is expected to have been through `EntrantName` already: this
+    /// records a decision rather than making one, exactly as `recordRejoin`
+    /// does with a target.
+    func rename(_ entrant: Entrant, to name: String) {
+        entrant.name = name
+        save()
+    }
+
     /// Removes the Match's most recent Round and deletes it.
     ///
     /// Both halves matter: dropping the Round from the relationship is what
