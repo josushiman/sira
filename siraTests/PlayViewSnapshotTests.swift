@@ -109,9 +109,14 @@ final class PlayViewSnapshotTests: XCTestCase {
     /// progress bar or the "N left" figure under it, and not the Scoresheet's
     /// other columns.
     ///
-    /// The long-named Entrant is the one who busts, so the Standings row also
-    /// carries a tag beside the truncated name rather than leaving the widest
-    /// case untested.
+    /// The long-named Entrant is the one who busts, so the Standings row has a
+    /// tag beside the truncated name rather than the name alone. That is the
+    /// Out tag; a leader's Leads tag is wider still, and no fixture can hold
+    /// both, since an Entrant who is Out is never the one leading.
+    ///
+    /// Only `.paper` is snapshotted. A Theme changes what the row is painted
+    /// in and not how wide anything in it is, so a felt pair would cost a
+    /// second reference image to assert the same truncation twice.
     private var longNameMatch: Match {
         let a = Entrant(name: "AbdurrahmanoğullarındanmışçasınaymışAbdurrahmanoğullarındanmışçasınaymış")
         let b = Entrant(name: "Bo")
