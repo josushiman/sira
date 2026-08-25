@@ -58,7 +58,15 @@ final class Match {
     ///
     /// Write it through `start()`, never directly: Starting is permanent, and
     /// nothing in the app has cause to un-Start a Match.
-    var started: Bool
+    ///
+    /// The default is here for the migration rather than for any caller — the
+    /// initializer sets this from the Rounds regardless. A non-optional
+    /// attribute added without one cannot be lightweight-migrated, which would
+    /// turn opening an existing store into the `fatalError` in `forApp()`
+    /// (`SiraSchema`, and `Entrant.arrivedMidMatch` before it). `false` is the
+    /// wrong answer for a Match already carrying Rounds, and
+    /// `MatchStore.discardUnstartedMatches()` is what corrects it at launch.
+    var started: Bool = false
     /// When the Match was started. Home lists Matches newest-first by this,
     /// and each card is titled with it, so it never changes after creation.
     var createdAt: Date
