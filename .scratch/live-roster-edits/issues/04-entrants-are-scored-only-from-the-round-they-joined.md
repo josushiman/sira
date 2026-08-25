@@ -18,3 +18,23 @@ This matters because the Scoresheet derives its cells by diffing Standings betwe
 - [x] The Scoresheet's per-Round derivation seeds its previous totals only for joined Entrants, so an unjoined Entrant contributes no cell rather than a zero.
 - [x] `rejoinTarget` continues to compute the highest total among Entrants still in, unchanged.
 - [x] Covered at the existing `SurvivalEngine` seam, asserting on returned Standings rather than on how the Engine iterates. Prior art: `SurvivalEngineTests`, which already covers Rejoin replay in the same shape.
+
+## Comments
+
+Closed out at `f4500e5`. Three commits on `feature/live-roster-edits`: the
+rule itself (`8ea1072`), plus two review fixes — the storage-order fixture
+was dropping a Round's `joins` (`efff5c5`), and the join loop cleared an
+Out state no unjoined Entrant can hold (`f4500e5`). The whole existing
+suite passed unmodified throughout, which was this ticket's acceptance
+test: 380 tests, 0 failures.
+
+Both review axes reported the same latent issue — `SurvivalEngine`
+announcing a winner without consulting `isOver`. It predates this ticket
+and fixing it changes behaviour for a one-Entrant Match, so it was carried
+to ticket 06 rather than folded in here.
+
+The `JoinEvent` carries the total the joiner enters on, which reads ahead
+of this ticket's "from when" framing. Kept deliberately: a join with no
+total would have to be reworked in 05, which is the opposite of what a
+prefactor is for, and it is what lets the Scoresheet assert a join Round
+reading as a jump rather than a zero.
