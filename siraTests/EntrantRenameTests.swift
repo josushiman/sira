@@ -110,6 +110,42 @@ final class EntrantRenameTests: XCTestCase {
         XCTAssertEqual(stats.leadValue, "Zeynep · 5")
     }
 
+    /// A Match its Win Condition has decided is finished with: its result is
+    /// not something a rename can reopen. This is the rule the Standings rows
+    /// stop being tappable by, asserted where it lives rather than through the
+    /// screen that asks it.
+    func test_aMatchDecidedByItsWinConditionStopsAcceptingRosterEdits() throws {
+        let ali = Entrant(name: "Ali")
+        let veli = Entrant(name: "Veli")
+        let match = makeMatch(entrants: [ali, veli], rounds: [Round(deltas: [ali.id: 120, veli.id: 5])])
+
+        let standings = SurvivalEngine().standings(for: match)
+
+        XCTAssertTrue(standings.isOver)
+        XCTAssertFalse(standings.acceptsRosterEdits)
+    }
+
+    func test_aMatchStillBeingPlayedAcceptsRosterEdits() throws {
+        let ali = Entrant(name: "Ali")
+        let veli = Entrant(name: "Veli")
+        let match = makeMatch(entrants: [ali, veli], rounds: [Round(deltas: [ali.id: 20, veli.id: 5])])
+
+        XCTAssertTrue(SurvivalEngine().standings(for: match).acceptsRosterEdits)
+    }
+
+    /// Archiving is not a way of locking a Match, so it does not reach this
+    /// rule at all — an Archived Match that is still live still takes edits.
+    func test_anArchivedMatchThatIsStillLiveStillAcceptsRosterEdits() throws {
+        let ali = Entrant(name: "Ali")
+        let veli = Entrant(name: "Veli")
+        let match = makeMatch(entrants: [ali, veli], rounds: [Round(deltas: [ali.id: 20, veli.id: 5])])
+        let store = MatchStore()
+        store.add(match)
+        store.archive(match)
+
+        XCTAssertTrue(SurvivalEngine().standings(for: match).acceptsRosterEdits)
+    }
+
     /// Archived is a visibility flag and nothing else: an Archived Match still
     /// takes Rounds, so refusing it a rename would be an inconsistency with
     /// nothing behind it.

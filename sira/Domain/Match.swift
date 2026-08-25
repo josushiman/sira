@@ -123,6 +123,16 @@ final class Match {
         storedEntrants.sorted { $0.sequence < $1.sequence }
     }
 
+    /// The Entrant this Match holds under `id`, or `nil` where it holds none.
+    ///
+    /// Everything downstream of the Engines is keyed on `Entrant.ID` — a
+    /// Standing, a Round's deltas, a Çifte caller — so getting from one of
+    /// those back to the Entrant it names is a question asked often enough to
+    /// be the Match's to answer rather than each caller's to walk.
+    func entrant(_ id: Entrant.ID) -> Entrant? {
+        storedEntrants.first { $0.id == id }
+    }
+
     /// The Rounds in the order they were played, which is the order every
     /// cumulative total, delta, Scoresheet row number and Undo depends on.
     var rounds: [Round] {

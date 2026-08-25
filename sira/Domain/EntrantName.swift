@@ -44,13 +44,26 @@ struct EntrantName {
     /// before this rule can hold two Alis, and it stays openable and scorable
     /// until one of them is edited.
     func resolved(against existing: [Entrant]) -> Resolution {
-        let name = trimmed.isEmpty ? fallback : trimmed
+        let name = materialised
         let folded = Self.folded(name)
         let clash = existing.first { entrant in
             entrant.id != renaming && Self.folded(entrant.name) == folded
         }
         guard let clash else { return .accepted(name) }
         return .duplicate(clash.name)
+    }
+
+    /// The name this candidate becomes before anyone is asked whether it
+    /// clashes: trimmed, or the seat's fallback where the field was left
+    /// empty.
+    ///
+    /// What `resolved(against:)` goes on to judge, and what Setup takes
+    /// directly — Setup is naming Entrants who are not in a Match yet, so
+    /// there is nothing for them to be unique within, but the name a blank
+    /// field produces there has to be the same name a blank field produces
+    /// here or the two would be telling the player different things.
+    var materialised: String {
+        trimmed.isEmpty ? fallback : trimmed
     }
 
     /// The name an empty field materialises — `Player 3`, `Team 2`. Baked into
@@ -72,7 +85,7 @@ struct EntrantName {
     /// and two on a Turkish one — and the pair a Turkish speaker is actually
     /// typing is the second. Whose phone it is has nothing to do with which
     /// names the table can tell apart.
-    private static func folded(_ name: String) -> String {
+    static func folded(_ name: String) -> String {
         name
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .lowercased(with: comparisonLocale)

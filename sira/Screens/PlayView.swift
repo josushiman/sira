@@ -131,13 +131,10 @@ struct PlayView: View {
                         maxAbsTotal: maxAbsTotal(variant, standings),
                         roomLeft: roomLeft(variant, for: standing)
                     )
-                    // A row is a way into the rename only while the Match is
-                    // still being played: a decided Match's result is not
-                    // something to reopen. Being Archived has no say in it —
-                    // that is a visibility flag, and an Archived Match still
-                    // takes Rounds — and neither has being Out: a typo is
-                    // worth fixing for someone no longer accumulating score.
-                    if let entrant = renameable(standing, isOver: standings.isOver) {
+                    // A row is a way into the rename only while the Match
+                    // still accepts roster edits — the Standings' own rule,
+                    // asked here rather than restated.
+                    if standings.acceptsRosterEdits, let entrant = match.entrant(standing.entrantID) {
                         Button {
                             renamingEntrant = entrant
                         } label: {
@@ -162,14 +159,6 @@ struct PlayView: View {
             StatTile(label: stats.secondaryLabel, value: stats.secondaryValue)
         }
         .padding(.top, 14)
-    }
-
-    /// The Entrant a Standings row can be tapped to rename, or `nil` where the
-    /// row is only a row — a Match already decided by its Win Condition, or a
-    /// Standing naming an Entrant this Match does not hold.
-    private func renameable(_ standing: EntrantStanding, isOver: Bool) -> Entrant? {
-        guard !isOver else { return nil }
-        return match.entrants.first { $0.id == standing.entrantID }
     }
 
     private func badgeIndex(for entrantID: Entrant.ID) -> Int {

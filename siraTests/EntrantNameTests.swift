@@ -80,18 +80,28 @@ final class EntrantNameTests: XCTestCase {
 
     /// The folding is pinned to Turkish rather than inherited from the device,
     /// so a Turkish-speaking table gets the same answer on an English phone.
-    /// The two foldings are computed here rather than implied, so the test
-    /// states the wrong answer it is guarding against beside the right one.
-    func test_foldingIsPinnedToTurkishRatherThanTheDevicesOwnLocale() {
-        XCTAssertEqual("ALI".lowercased(with: Locale(identifier: "en_US")), "ali")
+    ///
+    /// What makes this an assertion rather than a restatement is the host it
+    /// runs on: on any non-Turkish host, `Locale.current` folds `I` to `i`, so
+    /// the Turkish answer below can only come from a locale the code named
+    /// itself. A Turkish host cannot tell the two apart — both foldings agree
+    /// there — so it is skipped rather than allowed to pass for no reason.
+    func test_foldingIsPinnedToTurkishRatherThanTheDevicesOwnLocale() throws {
+        try XCTSkipIf(
+            Locale.current.language.languageCode?.identifier == "tr",
+            "A Turkish host folds this way anyway, so it cannot tell a pinned locale from an inherited one."
+        )
+        // The wrong answer this rule exists to avoid, stated rather than
+        // implied — and the right one beside it.
+        XCTAssertEqual("ALI".lowercased(with: Locale.current), "ali")
         XCTAssertEqual("ALI".lowercased(with: Locale(identifier: "tr_TR")), "alı")
 
-        let existing = [entrant("Ali", seat: 0)]
-        let resolution = EntrantName("ALI", seat: 1, mode: .players).resolved(against: existing)
-
-        // Turkish says these are two names, and the device's locale is not
-        // asked — whatever the host running this test is set to.
-        XCTAssertEqual(resolution, .accepted("ALI"))
+        XCTAssertEqual(EntrantName.folded("ALI"), "alı")
+        XCTAssertEqual(EntrantName.folded("ALİ"), "ali")
+        XCTAssertEqual(
+            EntrantName("ALI", seat: 1, mode: .players).resolved(against: [entrant("Ali", seat: 0)]),
+            .accepted("ALI")
+        )
     }
 
     // MARK: - Trimming
@@ -172,6 +182,16 @@ final class EntrantNameTests: XCTestCase {
     }
 
     // MARK: - The seat-derived fallback
+
+    /// The name a candidate becomes before anyone is asked whether it clashes.
+    /// Setup takes this directly — it is naming Entrants who are not in a
+    /// Match yet — so it has to produce the same name a blank field produces
+    /// in the rename sheet.
+    func test_materialisingANameTrimsItOrFallsBackToTheSeat() {
+        XCTAssertEqual(EntrantName("  Cem ", seat: 0, mode: .players).materialised, "Cem")
+        XCTAssertEqual(EntrantName("", seat: 2, mode: .players).materialised, "Player 3")
+        XCTAssertEqual(EntrantName("   ", seat: 1, mode: .teams).materialised, "Team 2")
+    }
 
     /// Numbered from the seat rather than from a position in a list: seats are
     /// unique and never renumbered, so two Entrants who both left the field

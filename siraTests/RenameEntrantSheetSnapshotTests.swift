@@ -55,6 +55,17 @@ final class RenameEntrantSheetSnapshotTests: XCTestCase {
         assertRename(entrants: Self.teams, mode: .teams, theme: .felt)
     }
 
+    /// The field cleared: the placeholder names the seat's fallback, and the
+    /// badge shows that fallback's initial rather than going blank — the name
+    /// about to be saved is `Player 1`, not nothing.
+    func test_renameSheet_clearedField_paper() {
+        assertRename(entrants: Self.players, mode: .players, initialName: "", theme: .paper)
+    }
+
+    func test_renameSheet_clearedField_felt() {
+        assertRename(entrants: Self.players, mode: .players, initialName: "", theme: .felt)
+    }
+
     /// Ali typed onto Veli's name: the clash is named under the field and Save
     /// is dimmed, rather than the sheet accepting the tap and failing later.
     func test_renameSheet_duplicateName_paper() {

@@ -10,8 +10,8 @@ import SwiftUI
 /// state or Round modifier is keyed on a name, so none of them move. Nothing
 /// records what the Entrant used to be called.
 ///
-/// The name itself is judged by `EntrantName`, which the Add flow calls too,
-/// so the two cannot come to disagree about what a duplicate is.
+/// The name itself is judged by `EntrantName` rather than here, so that the
+/// Add flow can be given the same judgement rather than its own.
 struct RenameEntrantSheet: View {
     let entrant: Entrant
     /// The Match's Entrants, `entrant` included — the roster as it stands, not
@@ -92,10 +92,17 @@ struct RenameEntrantSheet: View {
         VStack(alignment: .leading, spacing: 8) {
             CardSurface(cornerRadius: 16, padding: 12) {
                 HStack(spacing: 12) {
-                    // Follows what is being typed rather than what is stored,
-                    // so the badge the player will end up with is the one on
-                    // screen while they decide.
-                    DotBadge(text: typed.dotBadgeInitial, index: entrant.sequence, size: 32)
+                    // The initial of the name that would be saved, not of the
+                    // characters in the field: clearing the field is not a
+                    // nameless Entrant, it is `Player 3`, and the badge says
+                    // `P` while the placeholder says the rest. A refused name
+                    // has none to show, so the field's own initial stands in
+                    // until it is fixed.
+                    DotBadge(
+                        text: (resolution.name ?? typed).dotBadgeInitial,
+                        index: entrant.sequence,
+                        size: 32
+                    )
                     TextField(candidate.fallback, text: $typed)
                         .font(.sira(.subheadline))
                         .textFieldStyle(.plain)
