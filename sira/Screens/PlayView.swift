@@ -460,10 +460,17 @@ private struct StatTile: View {
             Text(value)
                 .siraStyle(.subheadline)
                 .fontWeight(.semibold)
-                .lineLimit(1)
+                // Closest to out names every Entrant tied at the top, so a
+                // four-way tie is longer than one line can hold — and it is
+                // the trailing "N left" that a single line drops, which is
+                // the half of the tile worth reading. A second line is spent
+                // only when there is something to put on it.
+                .lineLimit(2)
                 .minimumScaleFactor(0.8)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        // Both tiles grow to the taller of the two, so a wrapped value never
+        // leaves its neighbour a short box beside a tall one.
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .padding(14)
         .background(theme.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay {

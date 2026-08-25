@@ -63,6 +63,88 @@ final class PlayStatsTests: XCTestCase {
         XCTAssertEqual(stats.secondaryValue, "Bob · 61 left")
     }
 
+    /// A joining or rejoining Entrant enters on the highest total still in, so
+    /// two Entrants level at the top is the ordinary case rather than a
+    /// curiosity. Naming one of them would state something untrue.
+    func test_survivalClosestToOut_namesBothEntrantsTiedOnTheHighestTotal() {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        let c = Entrant(name: "Cem")
+        let match = Match(
+            game: .gonga,
+            variant: .gongaStandard,
+            number: 101,
+            mode: .players,
+            entrants: [a, b, c],
+            rounds: [Round(deltas: [a.id: 20, b.id: 60, c.id: 60])]
+        )
+
+        let stats = PlayStats(variant: .gongaStandard, match: match, engine: SurvivalEngine())
+
+        XCTAssertEqual(stats.secondaryLabel, "Closest to out")
+        XCTAssertEqual(stats.secondaryValue, "Bob & Cem · 41 left")
+    }
+
+    func test_survivalClosestToOut_namesEveryEntrantWhenThreeAreTied() {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        let c = Entrant(name: "Cem")
+        let d = Entrant(name: "Dila")
+        let match = Match(
+            game: .gonga,
+            variant: .gongaStandard,
+            number: 101,
+            mode: .players,
+            entrants: [a, b, c, d],
+            rounds: [Round(deltas: [a.id: 20, b.id: 60, c.id: 60, d.id: 60])]
+        )
+
+        let stats = PlayStats(variant: .gongaStandard, match: match, engine: SurvivalEngine())
+
+        XCTAssertEqual(stats.secondaryValue, "Bob, Cem & Dila · 41 left")
+    }
+
+    /// An Out Entrant has no Room left to run out of, so they cannot be the
+    /// closest to out even when their total is the highest on the table — and
+    /// they must not pull a still-in Entrant into a tie with them either.
+    func test_survivalClosestToOut_excludesOutEntrantsFromTheTie() {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        let c = Entrant(name: "Cem")
+        let match = Match(
+            game: .gonga,
+            variant: .gongaStandard,
+            number: 101,
+            mode: .players,
+            entrants: [a, b, c],
+            rounds: [Round(deltas: [a.id: 20, b.id: 60, c.id: 110])]
+        )
+
+        let stats = PlayStats(variant: .gongaStandard, match: match, engine: SurvivalEngine())
+
+        XCTAssertEqual(stats.secondaryValue, "Bob · 41 left")
+    }
+
+    /// Room left is measured against the Match's limit, so a Match played
+    /// without one has no tie to report rather than a tie at zero.
+    func test_survivalClosestToOut_withNoLimitReportsNothing() {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        let match = Match(
+            game: .gonga,
+            variantId: Variant.gongaStandard.id,
+            limit: nil,
+            mode: .players,
+            entrants: [a, b],
+            rounds: [Round(deltas: [a.id: 60, b.id: 60])]
+        )
+
+        let stats = PlayStats(variant: .gongaStandard, match: match, engine: SurvivalEngine())
+
+        XCTAssertEqual(stats.secondaryLabel, "Closest to out")
+        XCTAssertEqual(stats.secondaryValue, "—")
+    }
+
     /// Room left is the survivor's distance from the limit the table agreed
     /// on, not from the one the Variant ships with.
     func test_survivalRoomLeft_countsAgainstTheLimitThisMatchChose() {

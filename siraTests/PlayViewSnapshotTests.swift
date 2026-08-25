@@ -84,6 +84,28 @@ final class PlayViewSnapshotTests: XCTestCase {
         )
     }
 
+    /// Four Entrants level at the top — the longest Closest to out copy a
+    /// Gonga table is likely to produce, and the check that naming all of them
+    /// still fits the tile rather than needing one picked arbitrarily.
+    private var tiedMatch: Match {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        let c = Entrant(name: "Cem")
+        let d = Entrant(name: "Dila")
+        return Match(
+            game: .gonga,
+            variant: .gongaStandard,
+            number: 101,
+            mode: .players,
+            entrants: [a, b, c, d],
+            rounds: [Round(deltas: [a.id: 40, b.id: 40, c.id: 40, d.id: 40])]
+        )
+    }
+
+    func test_standingsTiedClosestToOut_felt() {
+        assertPlay(tiedMatch, tab: .standings, theme: .felt)
+    }
+
     func test_standingsFreshMatch_felt() {
         assertPlay(freshMatch, tab: .standings, theme: .felt)
     }
