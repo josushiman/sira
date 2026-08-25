@@ -30,8 +30,10 @@ Where an Entrant sits at their Match's table, stamped by the Match when it seats
 
 The next Seat is one past the highest in use, never the count of Entrants, and unlike a **Round**'s sequence a Seat is never freed and reused: undoing the Round a **Join** sits on takes the arrival with it but leaves the Entrant seated, so the Seat stays spoken for.
 
-Stored as `Entrant.sequence` — the older name, kept because it is a stored SwiftData property and the storage-order argument it shares with `Round.sequence` is the reason it exists at all. Seat is the word in every other position: `EntrantName.seat`, `RosterAddition.seat`, `Match.nextSeat`, and this glossary. Where the two meet, read `Entrant.sequence` as "the Seat as stored."
-_Avoid_: "index," "position," "order" — none of them say that the number is owned by the table and never moves; "sequence" for an Entrant outside the stored property itself.
+Stored as `Entrant.sequence`, and stamped by `withSequence(_:)` — the older name, kept because it is a stored SwiftData property and the storage-order argument it shares with `Round.sequence` is the reason it exists at all. The stamping method keeps it too, for symmetry with `Round.withSequence(_:)`: a Match seats an Entrant and orders a Round by the same gesture, and spelling one of them differently would hide that. Seat is the word everywhere the number is *read* or offered — `EntrantName.seat`, `RosterAddition.seat`, `Match.nextSeat`, and this glossary. Where the two meet, read `sequence` as "the Seat as stored."
+
+One more exception, and it is a rendering one: `DotBadge` takes the number as `index`, because a badge is picking a colour out of a palette and does not know it is looking at a table.
+_Avoid_: "index," "position," "order" for the concept — none of them say that the number is owned by the table and never moves; "sequence" for an Entrant anywhere outside the two spellings named above.
 
 **Round**:
 One scored turn within a Match. Produces a per-Entrant delta and, for limit Variants, may trigger an Entrant going Out. Every Round knows where it sits in its Match — its **sequence** — rather than that being implied by the order it happens to be held in; cumulative totals, the delta from the last Round, Scoresheet row numbers and Undo all read that sequence. Sequences are assigned when a Round is added and never renumbered: Undo removes only the last Round, freeing the highest sequence for the next one to take again.

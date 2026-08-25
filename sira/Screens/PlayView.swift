@@ -347,8 +347,10 @@ struct PlayView: View {
     }
 
     /// Who is playing and what they are playing to — the same phrase Home's
-    /// card carries, off the same accessor, so a Match reads the same wherever
-    /// it is named.
+    /// card carries, so a Match reads the same wherever it is named. Built
+    /// here rather than read off a shared accessor, which `HomeCard` does too:
+    /// the two agree by having been written to agree, so a change to either
+    /// has to be made to both.
     private var playSubtitle: String {
         let count = match.entrants.count
         let noun = match.mode == .teams ? (count == 1 ? "team" : "teams") : (count == 1 ? "player" : "players")

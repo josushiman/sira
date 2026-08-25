@@ -26,12 +26,15 @@ final class Entrant {
     /// at, and never changed afterwards. Entrants can be added to a Match;
     /// they can never be removed from one.
     ///
-    /// Spelled `sequence` here and `seat` everywhere else — `EntrantName.seat`,
-    /// `RosterAddition.seat`, `Match.nextSeat`, `CONTEXT.md` — because this is
-    /// the stored property, and the storage-order argument it shares with
-    /// `Round.sequence` is the reason it exists. Read it as "the Seat as
-    /// stored"; renaming it is a schema change for a synonym, which is not a
-    /// trade worth making.
+    /// Spelled `sequence` here and in `withSequence(_:)`, and `seat` where the
+    /// number is read or offered — `EntrantName.seat`, `RosterAddition.seat`,
+    /// `Match.nextSeat`, `CONTEXT.md`. This one because it is the stored
+    /// property and the storage-order argument it shares with `Round.sequence`
+    /// is the reason it exists; the stamping method to stay symmetric with
+    /// `Round.withSequence(_:)`, a Match seating an Entrant and ordering a
+    /// Round being one gesture. Read both as "the Seat as stored"; renaming
+    /// them is a schema change and a broken symmetry spent on a synonym, which
+    /// is not a trade worth making.
     ///
     /// A Seat is carried here rather than by position in `Match.entrants`
     /// because position in a relationship array is not a guarantee a store can
