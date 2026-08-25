@@ -1,0 +1,99 @@
+import Foundation
+import StoreKit
+
+/// The app's one conversation with the App Store: a single non-consumable,
+/// bought and verified on the device (`docs/adr/0010`).
+///
+/// The only file that imports StoreKit, which is the point of the seam it fills
+/// in. Everything above it — the entitlement rule, the sheet, the wall — is
+/// driven by values, so all of it is exercised in tests and none of it can be.
+///
+/// There is no receipt endpoint, no server and no third-party purchase SDK.
+/// Verification is StoreKit 2's own check of Apple's signature against the
+/// device, which is why an app with no network of its own can sell something.
+extension UnlockStore.Operations {
+    /// What ties this to App Store Connect. One product, matching the bundle
+    /// identifier, non-consumable, Family Sharing enabled.
+    static let productID = "com.10bitlabs.sira.unlock"
+
+    static let storeKit = UnlockStore.Operations(
+        displayPrice: { await unlockProduct()?.displayPrice },
+        purchase: purchaseUnlock,
+        restore: { try await AppStore.sync() },
+        entitlements: currentEntitlements,
+        updates: transactionUpdates
+    )
+
+    private static func unlockProduct() async -> Product? {
+        try? await Product.products(for: [productID]).first
+    }
+
+    private static func purchaseUnlock() async -> UnlockStore.PurchaseOutcome {
+        guard let product = await unlockProduct() else {
+            return .failed(UnlockCopy.purchaseFailed)
+        }
+        do {
+            switch try await product.purchase() {
+            case let .success(verification):
+                // An unverified transaction is one Apple's signature does not
+                // vouch for, which is the one case that is not a purchase at
+                // all — so it is reported as a failure rather than trusted.
+                guard case let .verified(transaction) = verification else {
+                    return .failed(UnlockCopy.purchaseFailed)
+                }
+                await transaction.finish()
+                return .unlocked
+            case .userCancelled:
+                return .cancelled
+            case .pending:
+                return .awaitingApproval
+            @unknown default:
+                return .failed(UnlockCopy.purchaseFailed)
+            }
+        } catch {
+            return .failed(UnlockCopy.purchaseFailed)
+        }
+    }
+
+    /// What this device is entitled to, right now, as far as StoreKit's local
+    /// cache knows.
+    ///
+    /// Empty is the answer offline, and on a device whose cache has never
+    /// synced — which is exactly the silence `UnlockStore` refuses to read as a
+    /// refusal. It is also, notably, the answer for a revoked purchase:
+    /// `currentEntitlements` simply stops listing one. That is why a revocation
+    /// re-locks through `updates` below, where the revoked transaction is
+    /// delivered explicitly, rather than through a gap in this list.
+    private static func currentEntitlements() async -> [UnlockStore.Entitlement] {
+        var found: [UnlockStore.Entitlement] = []
+        for await result in Transaction.currentEntitlements {
+            guard case let .verified(transaction) = result,
+                  transaction.productID == productID else { continue }
+            found.append(UnlockStore.Entitlement(isRevoked: transaction.revocationDate != nil))
+        }
+        return found
+    }
+
+    /// Transactions that arrive without the player buying anything in this
+    /// session: a purchase made on their other device, a Family Sharing
+    /// member's, an Ask to Buy that has been approved, or a revocation.
+    ///
+    /// Each is finished as it is taken, which is what stops StoreKit
+    /// re-delivering it at every launch.
+    private static func transactionUpdates() -> AsyncStream<UnlockStore.Entitlement> {
+        AsyncStream { continuation in
+            let task = Task {
+                for await result in Transaction.updates {
+                    guard case let .verified(transaction) = result,
+                          transaction.productID == productID else { continue }
+                    await transaction.finish()
+                    continuation.yield(
+                        UnlockStore.Entitlement(isRevoked: transaction.revocationDate != nil)
+                    )
+                }
+                continuation.finish()
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    }
+}

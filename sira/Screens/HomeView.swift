@@ -3,6 +3,9 @@ import SwiftData
 
 struct HomeView: View {
     @Environment(MatchStore.self) private var store
+    /// The Unlock, and the price of it. Home asks it one question — through
+    /// `access` — and never speaks to StoreKit itself.
+    @Environment(UnlockStore.self) private var unlockStore
     /// Every Match there is, read through the framework rather than kept in a
     /// hand-maintained array: `@Query` re-runs itself when the context changes,
     /// so a Match started in Setup or a Round added in Play reaches this list
@@ -22,6 +25,17 @@ struct HomeView: View {
     /// dismissing, and a deleted model is not something to be reading
     /// properties from.
     @State private var pendingDeletion: PendingDeletion?
+    /// Whether the offer is up. Raised by tapping a Game card with no free
+    /// games left and no Unlock; lowered by any of the sheet's three buttons,
+    /// none of which leaves Home.
+    @State private var offeringUnlock = false
+
+    /// What the player may start: Unlocked, free with some games left, or
+    /// **Locked**. The one question Home asks about the paywall, and the only
+    /// thing either the meter or the wall reads.
+    private var access: GameAccess {
+        .resolved(freeMatches: store.freeMatches, isUnlocked: unlockStore.isUnlocked)
+    }
 
     /// The Match the route into Play resolves to, or nothing.
     ///
@@ -127,6 +141,29 @@ struct HomeView: View {
         .sheet(item: $pendingDeletion) { deletion in
             DeleteMatchSheet(deletion: deletion) { delete(deletion) }
         }
+        // Over a dimmed Home, which stays visible behind it — the same
+        // presentation the Rejoin offer and the delete confirmation use. What
+        // dismissing it costs is one tap, and where it lands is here.
+        .sheet(isPresented: $offeringUnlock) {
+            // Whatever the last attempt said is cleared on the way out, so
+            // raising the offer again is a fresh offer rather than an old
+            // failure still on screen.
+            unlockStore.clearStatus()
+        } content: {
+            UnlockSheet(
+                displayPrice: unlockStore.displayPrice,
+                status: unlockStore.status,
+                onBuy: { Task { await unlockStore.purchase() } },
+                onRestore: { Task { await unlockStore.restore() } }
+            )
+        }
+        // Buying is the one thing that lifts the wall while it is on screen,
+        // and it lifts it immediately: the sheet comes down and every other
+        // trace of the paywall — the meter, the wall itself — is already gone,
+        // because `access` answered before this ran.
+        .onChange(of: unlockStore.isUnlocked) { _, unlocked in
+            if unlocked { offeringUnlock = false }
+        }
         .navigationDestination(item: $navigator.pickingVariantsFor) { game in
             gameDestination(for: game)
         }
@@ -178,7 +215,16 @@ struct HomeView: View {
     @ViewBuilder
     private func gameCardButton(for game: Game, @ViewBuilder label: () -> some View) -> some View {
         Button {
-            navigator.pickingVariantsFor = game
+            // The wall, and the only place in the app there is one. A Locked
+            // player is offered the Unlock instead of the Variant picker —
+            // here, before they have chosen anything or named anybody, rather
+            // than at Setup or at the first Round, which is the version of this
+            // that reads as bait.
+            if access.isLocked {
+                offeringUnlock = true
+            } else {
+                navigator.pickingVariantsFor = game
+            }
         } label: {
             label()
                 .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
@@ -241,8 +287,14 @@ struct HomeView: View {
                 Rectangle()
                     .fill(theme.ink.opacity(0.12))
                     .frame(height: 1)
-                FreeMatchMeter(freeMatches: store.freeMatches)
-                    .layoutPriority(1)
+                // Gone entirely once the app is Unlocked, along with the
+                // wall and the offer: a player who has paid should be unable
+                // to tell the app ever had a paywall. The rule between the
+                // heading and the meter simply runs to the edge instead.
+                if let meter = access.meter {
+                    FreeMatchMeter(freeMatches: meter)
+                        .layoutPriority(1)
+                }
             }
             FilterPillRow(options: MatchFilter.allCases, label: \.rawValue, selection: $filter)
                 .frame(maxWidth: .infinity, alignment: .trailing)

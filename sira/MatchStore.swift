@@ -43,6 +43,21 @@ final class MatchStore {
     /// `recordStart()` being the only thing that moves either.
     private(set) var freeMatches: FreeMatches
 
+    /// Whether this device has ever seen a verified Unlock — the local half of
+    /// `GameAccess`, and a **cache of a truth Apple owns** rather than a source
+    /// of truth (`UnlockCache`, `docs/adr/0011`).
+    ///
+    /// Kept here, beside the meter, because it is durable state that changes
+    /// through a save like every other durable state in the app, and because
+    /// the two things `GameAccess` is made of are then durable in one place.
+    /// What decides its value is `UnlockStore`, which is the only thing that
+    /// has ever spoken to StoreKit; this store records what it was told.
+    ///
+    /// Held in memory as well as stored for the same reason `freeMatches` is:
+    /// Home watches it, and a value fetched on demand would move without
+    /// telling anyone.
+    private(set) var hasSeenUnlock: Bool
+
     /// Writing the context out. Injected so tests can exercise the failure
     /// path: SwiftData offers no way to make a real save fail on demand, and
     /// what happens when the disk is full is the behaviour worth pinning down
@@ -67,6 +82,11 @@ final class MatchStore {
         // three Free Matches.
         let stored = (try? container.mainContext.fetch(FetchDescriptor<StartedMatchTally>()))?.first
         self.freeMatches = FreeMatches(startedMatches: stored?.startedMatches ?? 0)
+        // And the same for the Unlock: no row is the honest answer for a
+        // device that has never seen a verified purchase, and for one whose
+        // cache StoreKit has not written yet.
+        let cached = (try? container.mainContext.fetch(FetchDescriptor<UnlockCache>()))?.first
+        self.hasSeenUnlock = cached?.hasSeenVerifiedUnlock ?? false
         // Stated rather than inherited from the framework's default. Every
         // mutation here saves explicitly, so autosave is only ever a backstop —
         // but it is one this store means to have, and a default is not a
@@ -360,6 +380,34 @@ final class MatchStore {
 
     func restore(_ match: Match) {
         match.restore()
+        save()
+    }
+
+    /// Records what StoreKit last said about the Unlock: `true` from a
+    /// verified transaction, `false` from an explicitly revoked or refunded
+    /// one.
+    ///
+    /// Silence is not a value this takes. Nothing calls it when StoreKit
+    /// returns nothing, which is what leaves a device that has seen a purchase
+    /// unlocked offline — the rule lives in `UnlockStore`, and this is the
+    /// write it asks for once the rule has been applied.
+    ///
+    /// A no-op when nothing changes, so that the entitlement check every
+    /// launch performs does not write a row and a save for an answer the
+    /// device already had.
+    ///
+    /// Re-locking touches nothing else. Every Match, Round and Entrant is
+    /// exactly where it was, and stays readable and scorable: what a revocation
+    /// changes is what the player may *start*.
+    func recordUnlock(seen: Bool) {
+        guard seen != hasSeenUnlock else { return }
+        let cache = (try? context.fetch(FetchDescriptor<UnlockCache>()))?.first ?? {
+            let fresh = UnlockCache()
+            context.insert(fresh)
+            return fresh
+        }()
+        cache.hasSeenVerifiedUnlock = seen
+        hasSeenUnlock = seen
         save()
     }
 
