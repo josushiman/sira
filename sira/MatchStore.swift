@@ -66,7 +66,7 @@ final class MatchStore {
         // install, and the reinstall case with it, both of which start with
         // three Free Matches.
         let stored = (try? container.mainContext.fetch(FetchDescriptor<StartedMatchTally>()))?.first
-        self.freeMatches = FreeMatches(started: stored?.startedMatches ?? 0)
+        self.freeMatches = FreeMatches(startedMatches: stored?.startedMatches ?? 0)
         // Stated rather than inherited from the framework's default. Every
         // mutation here saves explicitly, so autosave is only ever a backstop —
         // but it is one this store means to have, and a default is not a
@@ -390,7 +390,7 @@ final class MatchStore {
             return fresh
         }()
         tally.recordStart()
-        freeMatches = FreeMatches(started: tally.startedMatches)
+        freeMatches = FreeMatches(startedMatches: tally.startedMatches)
     }
 
     /// Writes the context out, recording rather than raising a failure.

@@ -30,8 +30,12 @@ final class StartedMatchTally {
     /// going up by one.
     var startedMatches: Int
 
-    init(startedMatches: Int = 0) {
-        self.startedMatches = startedMatches
+    /// Always starts at nothing, and takes no initial count: a tally exists
+    /// only from the first Start onwards, and every one after that goes
+    /// through `recordStart()`. A parameter here would be the one way to set
+    /// this number directly, which is what the property above rules out.
+    init() {
+        self.startedMatches = 0
     }
 
     /// Records one Match Starting.

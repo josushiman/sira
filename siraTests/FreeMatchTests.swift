@@ -90,7 +90,7 @@ final class FreeMatchTests: XCTestCase {
 
         XCTAssertEqual(store.freeMatches.remaining, 0)
         XCTAssertEqual(store.freeMatches.used, 3)
-        XCTAssertEqual(store.freeMatches.started, 5)
+        XCTAssertEqual(store.freeMatches.startedMatches, 5)
     }
 
     func test_undoingTheOnlyRoundDoesNotGiveTheFreeGameBack() {

@@ -64,7 +64,7 @@ struct FreeMatchMeter: View {
         ForEach([Theme.paper, Theme.felt], id: \.name) { theme in
             VStack(alignment: .leading, spacing: 12) {
                 ForEach(0...FreeMatches.allowance, id: \.self) { used in
-                    FreeMatchMeter(freeMatches: FreeMatches(started: used))
+                    FreeMatchMeter(freeMatches: FreeMatches(startedMatches: used))
                 }
             }
             .padding()
