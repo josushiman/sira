@@ -82,4 +82,28 @@ final class HomeViewSnapshotTests: XCTestCase {
     func test_emptyState_felt() {
         assertHome(MatchStore(), theme: .felt)
     }
+
+    /// A Match set up and backed out of before its first Round. Home reads as
+    /// empty — not as a list with an unscored row in it — which is the whole
+    /// visible effect of Started on this screen.
+    private func storeWithOnlyAnUnStartedMatch() -> MatchStore {
+        let store = MatchStore()
+        store.add(Match(
+            game: .gonga,
+            variant: .gongaStandard,
+            number: 101,
+            mode: .players,
+            entrants: [Entrant(name: "Alice"), Entrant(name: "Bob")],
+            createdAt: .fixture(year: 2026, month: 3, day: 14, hour: 21)
+        ))
+        return store
+    }
+
+    func test_onlyAnUnStartedMatch_paper() {
+        assertHome(storeWithOnlyAnUnStartedMatch(), theme: .paper)
+    }
+
+    func test_onlyAnUnStartedMatch_felt() {
+        assertHome(storeWithOnlyAnUnStartedMatch(), theme: .felt)
+    }
 }

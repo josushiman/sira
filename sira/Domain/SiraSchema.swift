@@ -17,15 +17,27 @@ import SwiftData
 /// `SiraSchemaV1` still describes what is actually on devices while the live
 /// types move on. A migration stage is the thing that maps between them.
 ///
-/// Version 1.0.0 has since absorbed two **additive** changes, both properties
-/// with defaults that SwiftData lightweight-migrates and that read correctly
-/// off data written before they existed: `Round.joins` (empty) and
+/// Version 1.0.0 has since absorbed three **additive** changes, all properties
+/// with defaults that SwiftData lightweight-migrates: `Round.joins` (empty),
 /// `Entrant.arrivedMidMatch` (`false` — seated at Setup, which every Entrant
-/// stored before it truthfully was). Recorded here rather than left implicit,
-/// because the recipe above says v1's shape is recovered by copying today's
-/// declarations into this enum, and today's declarations are no longer the
-/// shape 1.0.0 first described. A third such change is the point to stop and
-/// cut a v2 instead: "additive and defaulted" is a run of luck, not a policy.
+/// stored before it truthfully was) and `Match.started`. Recorded here rather
+/// than left implicit, because the recipe above says v1's shape is recovered
+/// by copying today's declarations into this enum, and today's declarations
+/// are no longer the shape 1.0.0 first described.
+///
+/// The third is where the run of luck ends, and it is worth being precise
+/// about why. `Match.started` is the first of these whose default is *wrong*
+/// for data written before it: a Match with Rounds on it was scored, and
+/// `false` says it was not. What covers that is not the schema but a
+/// reconciliation at launch — `MatchStore.discardUnstartedMatches()` believes
+/// the Rounds over the default — which is a migration living outside the
+/// migration plan.
+///
+/// It is done that way because nothing has shipped: there are no devices
+/// holding v1 data, so cutting a v2 here would be a stage that migrates
+/// nothing, and the launch sweep has to exist regardless. The next such change
+/// does not get the same argument. Cut a v2 then, and move this reconciliation
+/// into its stage where it belongs.
 enum SiraSchemaV1: VersionedSchema {
     static var versionIdentifier: Schema.Version { Schema.Version(1, 0, 0) }
 

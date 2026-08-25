@@ -120,6 +120,64 @@ final class MatchStoreTests: XCTestCase {
         XCTAssertEqual(Set(entrantIDs).count, entrantIDs.count)
     }
 
+    // MARK: - Started
+
+    /// Scoring is what turns an intention into a game, so the Round that does
+    /// it Starts the Match — through the same store call that records it,
+    /// rather than as a second thing a screen has to remember.
+    func test_theFirstRoundScoredStartsTheMatch() throws {
+        let store = MatchStore()
+        let alice = Entrant(name: "Alice")
+        let match = gongaMatch(entrants: [alice])
+        store.add(match)
+        XCTAssertFalse(match.started)
+
+        store.addRound(Round(deltas: [alice.id: 10]), to: match)
+
+        XCTAssertTrue(try XCTUnwrap(try storedMatches(in: store).first).started)
+    }
+
+    /// Undo takes back the score, never the Start. A Match the player has been
+    /// scoring stays on Home while they correct it.
+    func test_undoingTheOnlyRoundLeavesTheMatchStarted() throws {
+        let store = MatchStore()
+        let alice = Entrant(name: "Alice")
+        let match = gongaMatch(entrants: [alice])
+        store.add(match)
+        store.addRound(Round(deltas: [alice.id: 10]), to: match)
+
+        store.undoLastRound(in: match)
+
+        XCTAssertTrue(match.rounds.isEmpty)
+        XCTAssertTrue(match.started)
+    }
+
+    /// Adding a Match is not scoring it: Setup hands the store a Match nobody
+    /// has played yet, and Home does not list it.
+    func test_addingAMatchDoesNotStartIt() throws {
+        let store = MatchStore()
+        let match = gongaMatch()
+
+        store.add(match)
+
+        XCTAssertFalse(try XCTUnwrap(try storedMatches(in: store).first).started)
+    }
+
+    /// The launch sweep, in one store: what was never scored goes, what was
+    /// stays.
+    func test_discardingUnstartedMatchesLeavesTheStartedOnes() throws {
+        let store = MatchStore()
+        let alice = Entrant(name: "Alice")
+        let scored = gongaMatch(entrants: [alice])
+        store.add(scored)
+        store.addRound(Round(deltas: [alice.id: 10]), to: scored)
+        store.add(gongaMatch())
+
+        store.discardUnstartedMatches()
+
+        XCTAssertEqual(try storedMatches(in: store).map(\.id), [scored.id])
+    }
+
     // MARK: - Deleting
 
     /// Delete means deleted: the Match goes, and the Rounds and Entrants it

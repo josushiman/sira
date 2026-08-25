@@ -46,6 +46,19 @@ final class Match {
     @Relationship(deleteRule: .cascade, inverse: \Round.match)
     private(set) var storedRounds: [Round]
     var archived: Bool
+    /// Whether a Round has ever been scored on this Match — see **Started** in
+    /// `CONTEXT.md`. Home lists Started Matches only: a Match nobody has
+    /// scored is an intention rather than history.
+    ///
+    /// A flag rather than a reading of `rounds.isEmpty`, and the difference is
+    /// the whole point. Undoing the only Round leaves the Match Started, so a
+    /// player correcting a mistake does not watch their game disappear from
+    /// Home — and scoring the next Round does not Start it a second time,
+    /// which is what lets anything counting Starts count them once.
+    ///
+    /// Write it through `start()`, never directly: Starting is permanent, and
+    /// nothing in the app has cause to un-Start a Match.
+    var started: Bool
     /// When the Match was started. Home lists Matches newest-first by this,
     /// and each card is titled with it, so it never changes after creation.
     var createdAt: Date
@@ -78,6 +91,16 @@ final class Match {
         self.storedRounds = storedRounds
         self.archived = archived
         self.createdAt = createdAt
+        // A Match handed its Rounds all at once has been scored just as surely
+        // as one that took them one at a time, so it is Started here rather
+        // than left to the caller to say — the same reconciliation the
+        // arrivals below get, and for the same reason: every way of building a
+        // Match says the same thing about the same facts.
+        //
+        // Not a parameter. Starting is what scoring does, and there is no
+        // caller with standing to claim a Match with no Rounds was scored, or
+        // that one with Rounds was not.
+        self.started = !storedRounds.isEmpty
         // An Entrant some Round says arrived is one who arrived, reconciled
         // here — in the designated initializer, so that every way of building
         // a Match says the same thing about the same roster rather than each
@@ -165,6 +188,27 @@ final class Match {
     /// sits is the Match's to say, not the Round's.
     func addRound(_ round: Round) {
         storedRounds.append(round.withSequence(nextSequence))
+        // Scoring a Round is what Starts a Match, so it happens here rather
+        // than at whichever screen happened to enter the Round. Whether this
+        // was the Round that did it is `start()`'s answer, and nothing at this
+        // level has a use for it — adding a Round is the same act either way.
+        _ = start()
+    }
+
+    /// Records that this Match has been scored, and answers whether that was
+    /// news — `true` the once, `false` every time after.
+    ///
+    /// The answer is what a caller counting Starts reads. Returning it from
+    /// here rather than leaving each caller to check the flag first and set it
+    /// second is what keeps "has this Match Started before?" and "it has now"
+    /// from drifting apart.
+    ///
+    /// One-way: there is no `unstart()`. Undo removes the Round, never the
+    /// fact that the Match was played.
+    func start() -> Bool {
+        guard !started else { return false }
+        started = true
+        return true
     }
 
     /// Attaches `rejoin` to the latest Round, so undoing that Round undoes the

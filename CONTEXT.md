@@ -58,6 +58,11 @@ _Avoid_: "add a player" in domain prose (that is the button's label, not the con
 How much an Entrant can still take before passing their Match's limit and going Out — the limit minus their total. Only Survival Variants have one; an Entrant already Out has none. Standings shows it per Entrant beside their bar, and the Entrants with the least of it are the Match's **Closest to out** — every one of them, plural where they tie, since a **Rejoin** and a **Join** both land an Entrant on the highest total still in and so produce ties as a matter of course.
 _Avoid_: "headroom," "remaining," using it for Okey's countdown (that total *is* the distance to 0).
 
+**Started**:
+A Match that has had at least one **Round** scored on it. Permanent: **Undo** removes the Round but never the Start, so a Match whose only Round has been undone is still Started, and scoring the next one does not Start it again. Home lists Started Matches — under every filter, since the chips are views of that list — and an un-Started Match is not history yet: it is discarded at the next launch rather than kept, taking nothing with it but a Variant choice and some Entrant names. Carried as a flag on the Match rather than read off its Round count, which is exactly what the undo case turns on.
+Defined against **Archived**, which hides a Started Match, and **Delete**, which removes one.
+_Avoid_: "created" — every Match is created, so it no longer distinguishes anything Home acts on; "in progress", which is about whether a Match has finished rather than whether it has begun.
+
 **Archived**:
 A Match hidden from the default "Active" view. Purely a visibility flag, and **orthogonal to whether a Match is live**: an Archived Match is not locked, and takes Rounds, Rejoins, renames and Joins exactly as an unarchived one does. What closes a roster to edits is the Win Condition deciding the Match (`Standings.acceptsRosterEdits`), never its filter.
 _Avoid_: using "Archived" and "Deleted" for each other. Archiving hides a Match and is reversible; deleting destroys it and is not.

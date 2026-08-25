@@ -281,6 +281,36 @@ final class MatchStore {
         save()
     }
 
+    /// Clears out the Matches that were set up and never scored, and is the
+    /// app's first act at launch (`forApp()`).
+    ///
+    /// Home lists Started Matches only, so an un-Started one is unreachable
+    /// the moment the player leaves it — backed out of, or lost to iOS
+    /// reclaiming the app mid-Match. There is nothing to preserve: a Match
+    /// with no Rounds has no tally, only a Variant choice and some Entrant
+    /// names. Left alone it would sit on the device forever, invisible.
+    ///
+    /// Run at launch and nowhere else, because the one un-Started Match that
+    /// must survive is the one being played right now — Setup hands Play a
+    /// Match before its first Round, and at launch there is no such Match.
+    ///
+    /// A Match carrying Rounds is Started first rather than swept up with the
+    /// rest. Data written before the flag existed reads back as un-Started
+    /// whatever it holds, and deleting a played Match because a default said
+    /// so is not a trade this app gets to make on the player's behalf. The
+    /// Rounds are older than the flag, and they are believed over it.
+    func discardUnstartedMatches() {
+        let matches = (try? context.fetch(FetchDescriptor<Match>())) ?? []
+        for match in matches where !match.started {
+            if match.rounds.isEmpty {
+                context.delete(match)
+            } else {
+                _ = match.start()
+            }
+        }
+        save()
+    }
+
     func archive(_ match: Match) {
         match.archive()
         save()
@@ -343,7 +373,13 @@ extension MatchStore {
     /// amount of falling back can turn into a working app.
     static func forApp() -> MatchStore {
         do {
-            return try MatchStore(recoveringAt: defaultStoreURL())
+            let store = try MatchStore(recoveringAt: defaultStoreURL())
+            // Before anything reads them: a Match set up and never scored is
+            // unreachable now that Home lists Started Matches only, and the
+            // launch it did not survive is the last moment it could be tidied
+            // away on the player's behalf.
+            store.discardUnstartedMatches()
+            return store
         } catch {
             fatalError("Could not open or replace the Match store: \(error)")
         }
