@@ -106,4 +106,70 @@ final class HomeViewSnapshotTests: XCTestCase {
     func test_onlyAnUnStartedMatch_felt() {
         assertHome(storeWithOnlyAnUnStartedMatch(), theme: .felt)
     }
+
+    // MARK: - The free-game meter
+
+    /// A store that has played `count` Matches, one Round each — the only way
+    /// a free game is spent — with fixed dates so the cards read the same on
+    /// every run.
+    ///
+    /// The Matches are what makes each of these a real Home rather than a
+    /// meter on its own: the list grows by one card as the meter fills by one
+    /// mark, which is the thing the player is meant to connect.
+    private func storeWithFreeGamesUsed(_ count: Int) -> MatchStore {
+        let store = MatchStore()
+        for index in 0..<count {
+            let alice = Entrant(name: "Alice")
+            let bob = Entrant(name: "Bob")
+            let match = Match(
+                game: .gonga,
+                variant: .gongaStandard,
+                number: 101,
+                mode: .players,
+                entrants: [alice, bob],
+                createdAt: .fixture(year: 2026, month: 3, day: 10 + index, hour: 21)
+            )
+            store.add(match)
+            store.addRound(Round(deltas: [alice.id: 20, bob.id: 15]), to: match)
+        }
+        return store
+    }
+
+    /// Nothing played yet: three free games left, and the meter's first
+    /// showing — the one that has to explain itself without a word from
+    /// anywhere else on the screen.
+    func test_noFreeGamesUsed_paper() {
+        assertHome(storeWithFreeGamesUsed(0), theme: .paper)
+    }
+
+    func test_noFreeGamesUsed_felt() {
+        assertHome(storeWithFreeGamesUsed(0), theme: .felt)
+    }
+
+    func test_oneFreeGameUsed_paper() {
+        assertHome(storeWithFreeGamesUsed(1), theme: .paper)
+    }
+
+    func test_oneFreeGameUsed_felt() {
+        assertHome(storeWithFreeGamesUsed(1), theme: .felt)
+    }
+
+    func test_twoFreeGamesUsed_paper() {
+        assertHome(storeWithFreeGamesUsed(2), theme: .paper)
+    }
+
+    func test_twoFreeGamesUsed_felt() {
+        assertHome(storeWithFreeGamesUsed(2), theme: .felt)
+    }
+
+    /// All three gone. Every mark is filled and the label takes the accent
+    /// colour — the meter's only change on reaching the limit. Nothing is
+    /// blocked here and no offer appears: that is ticket 03.
+    func test_allThreeFreeGamesUsed_paper() {
+        assertHome(storeWithFreeGamesUsed(3), theme: .paper)
+    }
+
+    func test_allThreeFreeGamesUsed_felt() {
+        assertHome(storeWithFreeGamesUsed(3), theme: .felt)
+    }
 }

@@ -30,6 +30,19 @@ final class MatchStore {
     /// Standings on screen rather than against a Round that was thrown away.
     private(set) var saveFailure: SaveFailure?
 
+    /// How many of the three Free Matches are left — what Home's meter draws
+    /// and, from ticket 03, what the wall asks.
+    ///
+    /// Held here as well as stored so that reading it is not a fetch on every
+    /// redraw, and so that it changes observably: this is the property Home
+    /// watches, and a count living only in a `StartedMatchTally` fetched on
+    /// demand would move without telling anyone.
+    ///
+    /// The stored row is the truth and this is loaded from it at init, so the
+    /// two agree at every launch. Between launches they are kept in step by
+    /// `recordStart()` being the only thing that moves either.
+    private(set) var freeMatches: FreeMatches
+
     /// Writing the context out. Injected so tests can exercise the failure
     /// path: SwiftData offers no way to make a real save fail on demand, and
     /// what happens when the disk is full is the behaviour worth pinning down
@@ -48,6 +61,12 @@ final class MatchStore {
     ) {
         self.container = container
         self.saveContext = saveContext
+        // Read once, here, rather than fetched wherever it is asked for. A
+        // store over a database holding no tally reads as zero — a fresh
+        // install, and the reinstall case with it, both of which start with
+        // three Free Matches.
+        let stored = (try? container.mainContext.fetch(FetchDescriptor<StartedMatchTally>()))?.first
+        self.freeMatches = FreeMatches(started: stored?.startedMatches ?? 0)
         // Stated rather than inherited from the framework's default. Every
         // mutation here saves explicitly, so autosave is only ever a backstop —
         // but it is one this store means to have, and a default is not a
@@ -196,15 +215,32 @@ final class MatchStore {
 
     func add(_ match: Match) {
         context.insert(match)
+        // A Match built with Rounds arrives Started — `Match.init` says so
+        // from the Rounds themselves — and a Match that arrives Started has
+        // consumed a Free Match as surely as one that Starts a Round at a
+        // time. Recorded here so that the tally counts Started Matches however
+        // they came to be, rather than only those that went through
+        // `addRound`. Setup's Match has no Rounds and costs nothing until one
+        // is scored on it, which is the path the app itself takes.
+        if match.started { recordStart() }
         save()
     }
 
     /// Adds `round` as the Match's latest. The Round is inserted alongside so
     /// that it is a stored object in its own right rather than reachable only
     /// through the Match that happens to hold it.
+    /// Whether this Round Starts the Match is read before it is added rather
+    /// than after: `Match.addRound` Starts the Match on the way through, so by
+    /// the time it returns every Match looks Started and the Round that did it
+    /// is indistinguishable from the ones after. Asked here, and the tally
+    /// moves inside the same `save()` as the Round, so a Free Match can never
+    /// be spent by a Round that did not reach the disk or kept by one that
+    /// did.
     func addRound(_ round: Round, to match: Match) {
+        let starting = !match.started
         context.insert(round)
         match.addRound(round)
+        if starting { recordStart() }
         save()
     }
 
@@ -304,8 +340,14 @@ final class MatchStore {
         for match in matches where !match.started {
             if match.rounds.isEmpty {
                 context.delete(match)
-            } else {
-                _ = match.start()
+            } else if match.start() {
+                // Started here rather than by a Round, and counted all the
+                // same: the Rounds are the evidence the game was played, and a
+                // tally that believed the flag over them would hand back Free
+                // Matches this player has already spent. The `if` is what
+                // keeps it to once — `start()` answers `true` only the first
+                // time — so a launch that sweeps nothing counts nothing.
+                recordStart()
             }
         }
         save()
@@ -326,6 +368,29 @@ final class MatchStore {
     /// data.
     func acknowledgeSaveFailure() {
         saveFailure = nil
+    }
+
+    /// Counts one Match Starting, against the stored tally and the count held
+    /// here, and saves neither: every caller is mid-mutation and about to
+    /// save, and going through their `save()` is what puts the Start and the
+    /// Round that caused it in one write.
+    ///
+    /// The stored row is created on first use rather than at launch, so
+    /// opening the app and not playing writes nothing, and a store that has
+    /// never seen a Start holds no tally to read back.
+    ///
+    /// A save that then fails leaves this exactly as it leaves everything else
+    /// here: the change stands in memory, the failure is surfaced, and the
+    /// next save that succeeds writes it out. A Free Match spent on screen and
+    /// not on the disk is the same window every other mutation has.
+    private func recordStart() {
+        let tally = (try? context.fetch(FetchDescriptor<StartedMatchTally>()))?.first ?? {
+            let fresh = StartedMatchTally()
+            context.insert(fresh)
+            return fresh
+        }()
+        tally.recordStart()
+        freeMatches = FreeMatches(started: tally.startedMatches)
     }
 
     /// Writes the context out, recording rather than raising a failure.

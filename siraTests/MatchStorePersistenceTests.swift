@@ -567,6 +567,49 @@ final class MatchStorePersistenceTests: XCTestCase {
         }
     }
 
+    // MARK: - Free games
+
+    /// The reinstall case, and the first launch with it: a store over a
+    /// location holding nothing has three free games. Deliberate — the tally
+    /// lives in the app's own database and goes when the app goes, rather than
+    /// being hidden somewhere that survives being deleted.
+    func test_aStoreOverAFreshLocationHasThreeFreeGames() throws {
+        let remaining = try launch { $0.freeMatches.remaining }
+
+        XCTAssertEqual(remaining, 3)
+    }
+
+    func test_theFreeGamesSpentAreStillSpentAtTheNextLaunch() throws {
+        try launch { store in
+            for _ in 0..<2 {
+                let alice = Entrant(name: "Alice")
+                let match = Match(game: .gonga, variant: .gongaStandard, number: 101, mode: .players, entrants: [alice])
+                store.add(match)
+                store.addRound(Round(deltas: [alice.id: 10]), to: match)
+            }
+        }
+
+        XCTAssertEqual(try launch { $0.freeMatches.remaining }, 1)
+    }
+
+    /// The case a count taken by fetching Started Matches would get wrong.
+    /// Deleting the games does not unplay them, so the next launch opens on
+    /// an empty Home with two free games left rather than three.
+    func test_deletingAPlayedMatchDoesNotGiveItsFreeGameBackAtTheNextLaunch() throws {
+        try launch { store in
+            let alice = Entrant(name: "Alice")
+            let match = Match(game: .gonga, variant: .gongaStandard, number: 101, mode: .players, entrants: [alice])
+            store.add(match)
+            store.addRound(Round(deltas: [alice.id: 10]), to: match)
+            store.delete(match)
+        }
+
+        try launch { store in
+            XCTAssertEqual(store.freeMatches.remaining, 2)
+            XCTAssertEqual(try store.context.fetch(FetchDescriptor<Match>()).count, 0)
+        }
+    }
+
     // MARK: - When a save fails
 
     /// A full disk is the realistic case. The Round the player just entered
@@ -631,6 +674,37 @@ final class MatchStorePersistenceTests: XCTestCase {
         store.addRound(Round(deltas: [alice.id: 40]), to: match)
 
         XCTAssertNil(store.saveFailure)
+    }
+
+    /// A free game spent on screen and not on the disk is the meter's version
+    /// of the same failure, and it behaves the same way: the count stands, the
+    /// player is told, and the next save that succeeds writes it out.
+    ///
+    /// Following `test_aDeletionThatCannotBeSavedIsSurfacedAndStillStands` —
+    /// the store is built healthy so the Match can be added, and only then
+    /// made to fail, because a Round is what spends the free game and there
+    /// has to be a Match for it to land on.
+    func test_aFreeGameSpentWhenTheSaveFailsIsSurfacedAndStillStands() throws {
+        var failing = false
+        let store = MatchStore { context in
+            if failing { throw DiskFull() }
+            try context.save()
+        }
+        let alice = Entrant(name: "Alice")
+        let match = Match(game: .gonga, variant: .gongaStandard, number: 101, mode: .players, entrants: [alice])
+        store.add(match)
+
+        failing = true
+        store.addRound(Round(deltas: [alice.id: 40]), to: match)
+
+        XCTAssertNotNil(store.saveFailure)
+        XCTAssertEqual(store.freeMatches.remaining, 2)
+
+        failing = false
+        store.addRound(Round(deltas: [alice.id: 10]), to: match)
+
+        XCTAssertNil(store.saveFailure)
+        XCTAssertEqual(store.freeMatches.remaining, 2)
     }
 
     func test_acknowledgingASaveFailureLeavesTheChangeInPlace() throws {

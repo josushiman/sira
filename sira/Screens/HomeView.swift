@@ -221,17 +221,31 @@ struct HomeView: View {
         .padding(.top, 10)
     }
 
+    /// "Your games", the free-game meter, then the filters.
+    ///
+    /// The meter sits on this row because that is where the design put it, and
+    /// it sits *above* the filters rather than beside them because the three
+    /// of them will not fit on one line at this width — the meter is roughly
+    /// as wide as the filter row, and the rule between them has nothing left
+    /// to give. Splitting the row keeps both readable and keeps the meter
+    /// against the heading it explains, which is the half of the design that
+    /// matters; a meter crushed against the right edge is not the treatment
+    /// that was resolved.
     private var sectionHeader: some View {
-        HStack(spacing: 10) {
-            Text(sira: .monoEyebrow, "Your games")
-                .foregroundStyle(theme.ink.opacity(0.5))
-                .fixedSize()
-                .layoutPriority(1)
-            Rectangle()
-                .fill(theme.ink.opacity(0.12))
-                .frame(height: 1)
+        VStack(spacing: 12) {
+            HStack(spacing: 10) {
+                Text(sira: .monoEyebrow, "Your games")
+                    .foregroundStyle(theme.ink.opacity(0.5))
+                    .fixedSize()
+                    .layoutPriority(1)
+                Rectangle()
+                    .fill(theme.ink.opacity(0.12))
+                    .frame(height: 1)
+                FreeMatchMeter(freeMatches: store.freeMatches)
+                    .layoutPriority(1)
+            }
             FilterPillRow(options: MatchFilter.allCases, label: \.rawValue, selection: $filter)
-                .layoutPriority(1)
+                .frame(maxWidth: .infinity, alignment: .trailing)
         }
         .padding(.bottom, 12)
     }

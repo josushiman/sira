@@ -38,11 +38,26 @@ import SwiftData
 /// nothing, and the launch sweep has to exist regardless. The next such change
 /// does not get the same argument. Cut a v2 then, and move this reconciliation
 /// into its stage where it belongs.
+///
+/// The fourth change is `StartedMatchTally`, a new entity rather than a new
+/// property. SwiftData lightweight-migrates that too — an added table, which
+/// reads back holding no rows — and `MatchStore` treats no row as a tally of
+/// zero, so nothing has to exist before the first Match Starts.
+///
+/// Zero is the *wrong* answer for a store that already holds Started Matches,
+/// which is the same kind of wrongness `Match.started` had, and it is covered
+/// the same way and only as far: `discardUnstartedMatches()` counts the
+/// Matches it Starts at launch, which reaches data written before the flag
+/// existed. Data written after the flag and before this tally is already
+/// Started, so the sweep does not look at it and it goes uncounted — a player
+/// in that window would get their three Free Matches over again. That window
+/// is entirely pre-release, which is the only reason it is acceptable to leave
+/// it. It is the second thing owed to the v2 stage when one is cut.
 enum SiraSchemaV1: VersionedSchema {
     static var versionIdentifier: Schema.Version { Schema.Version(1, 0, 0) }
 
     static var models: [any PersistentModel.Type] {
-        [Match.self, Round.self, Entrant.self]
+        [Match.self, Round.self, Entrant.self, StartedMatchTally.self]
     }
 }
 

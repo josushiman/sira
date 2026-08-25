@@ -63,6 +63,11 @@ A Match that has had at least one **Round** scored on it. Permanent: **Undo** re
 Defined against **Archived**, which hides a Started Match, and **Delete**, which removes one.
 _Avoid_: "created" — every Match is created, so it no longer distinguishes anything Home acts on; "in progress", which is about whether a Match has finished rather than whether it has begun.
 
+**Free Match**:
+One of the three Matches that can be **Started** before the app has to be paid for. Consumed the moment a Match Starts — the first Round scored on it — and never returned: **Undo**, **Delete** and **Archived** all leave the count exactly where it was, because what was spent was the playing of a game and none of those unplays it. Counted by a tally stored beside the Matches, so the Start and the Round that caused it are written together. The tally goes with the app if it is deleted, and a reinstalling player gets three again — a deliberate choice, not an oversight.
+Defined against **Started**, which is the event that consumes one, and against a Match, of which there may be any number: the limit is on starting them, never on keeping or reading them.
+_Avoid_: "trial", which suggests a period that expires; "credit", which suggests something that can be topped up or spent back. To the player these are "free games" — Home's own word — never "free Matches".
+
 **Archived**:
 A Match hidden from the default "Active" view. Purely a visibility flag, and **orthogonal to whether a Match is live**: an Archived Match is not locked, and takes Rounds, Rejoins, renames and Joins exactly as an unarchived one does. What closes a roster to edits is the Win Condition deciding the Match (`Standings.acceptsRosterEdits`), never its filter.
 _Avoid_: using "Archived" and "Deleted" for each other. Archiving hides a Match and is reversible; deleting destroys it and is not.
