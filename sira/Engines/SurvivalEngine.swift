@@ -75,15 +75,23 @@ struct SurvivalEngine: MatchEngine {
         let joinedEntrants = match.entrants.filter { joined.contains($0.id) }
         let stillIn = joinedEntrants.filter { isOut[$0.id] == false }
         let isOver = joinedEntrants.count > 1 && stillIn.count <= 1
+        // Nothing to announce until the Match is over, and `isOver` is the
+        // only thing that says whether it is. Read the other way round — a
+        // winner off `stillIn.count == 1`, checked before `isOver` — a Match of
+        // one Entrant would carry a result line while `isOver` said it was
+        // still being played. That Match is out of reach in the app (Setup
+        // seats at least two, and a join implies two were seated already), so
+        // this is guarding the two answers against disagreeing rather than
+        // fixing something a player can see.
         let result: String?
-        if stillIn.count == 1 {
+        if !isOver {
+            result = nil
+        } else if stillIn.count == 1 {
             result = "\(stillIn[0].name) wins!"
-        } else if isOver {
+        } else {
             // Everyone still standing busted in the same Round: lowest total wins the tiebreak.
             let winner = joinedEntrants.min { (totals[$0.id] ?? 0) < (totals[$1.id] ?? 0) }
             result = winner.map { "\($0.name) wins!" }
-        } else {
-            result = nil
         }
 
         let ranked = joinedEntrants

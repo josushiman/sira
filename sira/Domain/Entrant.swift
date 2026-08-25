@@ -21,14 +21,22 @@ final class Entrant {
     /// quietly retype the whole domain rather than fail where it was deleted.
     var id: UUID
     var name: String
-    /// Where this Entrant sits at the table, assigned by the Match when it
-    /// seats them — at Setup, or at whichever Round they arrived at — and
-    /// never changed afterwards. Entrants can be added to a Match; they can
-    /// never be removed from one. Order is carried here rather than by
-    /// position in `Match.entrants` for the same reason `Round.sequence`
-    /// exists: position in a relationship array is not a guarantee a store can
-    /// make, and an Entrant's seat decides their dot-badge colour, which has
-    /// no business changing between launches of a Match whose scores have not
+    /// This Entrant's **Seat** — where they sit at the table, assigned by the
+    /// Match when it seats them, at Setup or at whichever Round they arrived
+    /// at, and never changed afterwards. Entrants can be added to a Match;
+    /// they can never be removed from one.
+    ///
+    /// Spelled `sequence` here and `seat` everywhere else — `EntrantName.seat`,
+    /// `RosterAddition.seat`, `Match.nextSeat`, `CONTEXT.md` — because this is
+    /// the stored property, and the storage-order argument it shares with
+    /// `Round.sequence` is the reason it exists. Read it as "the Seat as
+    /// stored"; renaming it is a schema change for a synonym, which is not a
+    /// trade worth making.
+    ///
+    /// A Seat is carried here rather than by position in `Match.entrants`
+    /// because position in a relationship array is not a guarantee a store can
+    /// make, and a Seat decides its Entrant's dot-badge colour, which has no
+    /// business changing between launches of a Match whose scores have not
     /// moved.
     ///
     /// Deliberately absent from `init`: an Entrant has no opinion about where

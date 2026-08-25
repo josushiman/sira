@@ -585,4 +585,21 @@ final class SurvivalEngineTests: XCTestCase {
 
         XCTAssertEqual(SurvivalEngine().rejoinTarget(for: match), 60)
     }
+
+    /// A Match with one Entrant is not a Match somebody has won. `isOver` says
+    /// so — one Entrant is nobody to be decided over — and the result line has
+    /// to agree with it rather than reading "last one standing" off a table of
+    /// one. Unreachable in the app, where Setup seats at least two and a join
+    /// implies two were seated already, and asserted here so the two answers
+    /// cannot drift apart the next time the join rule moves.
+    func test_aMatchWithOneEntrantIsNotOverAndAnnouncesNoWinner() {
+        let a = Entrant(name: "Alice")
+        let match = makeMatch(entrants: [a], rounds: [Round(deltas: [a.id: 20])])
+
+        let standings = SurvivalEngine().standings(for: match)
+
+        XCTAssertFalse(standings.isOver)
+        XCTAssertNil(standings.result)
+        XCTAssertEqual(standings.ranked.map(\.total), [20])
+    }
 }

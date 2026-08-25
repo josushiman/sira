@@ -1,5 +1,7 @@
 # The domain types are the SwiftData models
 
+> **Still current; its no-removal constraint was re-examined by [0009](0009-a-join-is-a-round-attached-event.md) and left intact.** Live roster edits made Entrants addable mid-Match and produced a case — a joiner whose Round has been undone — where removing one would have been convenient. 0009 records why the flat rule below was kept rather than weakened to "cannot be removed once they have scored," and accepts a seated, unscored Entrant instead.
+
 Matches must survive the app closing, so `Match`, `Round` and `Entrant` have to be stored. We decided these domain types *become* the persistence types — `@Model` classes, with no parallel records and no mapping layer — so there is one description of a Match in the codebase rather than two.
 
 ## Considered Options
