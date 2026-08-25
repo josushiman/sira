@@ -217,6 +217,23 @@ final class MatchStore {
         save()
     }
 
+    /// Seats a new Entrant at the Match's next free seat, entering on `total`,
+    /// and records the arrival against the Match's latest Round — so Undo
+    /// reverses a mistaken add exactly as it reverses a mistaken score.
+    ///
+    /// The Entrant is inserted alongside for the same reason a Round is: a
+    /// stored object in its own right rather than one reachable only through
+    /// the Match that happens to hold it.
+    ///
+    /// Both the name and the total are expected to have been decided already —
+    /// the name by `EntrantName`, the total by `RosterAddition`. This records
+    /// the arrival rather than judging it, exactly as `recordRejoin` does.
+    func addEntrant(_ entrant: Entrant, to match: Match, joiningOn total: Int) {
+        context.insert(entrant)
+        match.addEntrant(entrant, joiningOn: total)
+        save()
+    }
+
     /// Renames an Entrant.
     ///
     /// Nothing else has to move with it. Every screen reads a name off the

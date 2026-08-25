@@ -135,6 +135,77 @@ final class PlayViewSnapshotTests: XCTestCase {
         )
     }
 
+    /// A Gonga table with every seat taken. There is nowhere to put a
+    /// newcomer, so the Add row is gone rather than present and refusing.
+    private var fullTableMatch: Match {
+        let entrants = (0..<Variant.gongaStandard.maxEntrants).map { Entrant(name: "P\($0 + 1)") }
+        return Match(
+            game: .gonga,
+            variant: .gongaStandard,
+            number: 101,
+            mode: .players,
+            entrants: entrants,
+            rounds: [Round(deltas: Dictionary(uniqueKeysWithValues: entrants.map { ($0.id, 12) }))]
+        )
+    }
+
+    /// Okey 101 with two of its four seats free — the case a free-seat rule
+    /// alone would let through. There is no running total a newcomer could be
+    /// brought in on, so there is no row.
+    private var okey101RoomToSpareMatch: Match {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        return Match(
+            game: .okey,
+            variant: .okey101,
+            number: 8,
+            mode: .players,
+            entrants: [a, b],
+            rounds: [Round(deltas: [a.id: 20, b.id: 0])]
+        )
+    }
+
+    /// The Add row as the table reads it before agreeing to anything: the free
+    /// seat's colour in outline, and the score the newcomer would start on.
+    /// Alice is Out on the highest total there is, which is the total the row
+    /// must *not* be previewing.
+    private var addableMatch: Match {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        let c = Entrant(name: "Cem")
+        return Match(
+            game: .gonga,
+            variant: .gongaStandard,
+            number: 101,
+            mode: .players,
+            entrants: [a, b, c],
+            rounds: [Round(deltas: [a.id: 120, b.id: 61, c.id: 40])]
+        )
+    }
+
+    func test_standingsAddRow_paper() {
+        assertPlay(addableMatch, tab: .standings, theme: .paper)
+    }
+
+    func test_standingsAddRow_felt() {
+        assertPlay(addableMatch, tab: .standings, theme: .felt)
+    }
+
+    /// The three ways the row is hidden entirely. Only `.paper` for each: what
+    /// is being asserted is an absence, and an absence looks the same in both
+    /// Themes.
+    func test_standingsNoAddRowAtAFullTable_paper() {
+        assertPlay(fullTableMatch, tab: .standings, theme: .paper)
+    }
+
+    func test_standingsNoAddRowOnAnOkeyMatch_paper() {
+        assertPlay(okey101RoomToSpareMatch, tab: .standings, theme: .paper)
+    }
+
+    func test_standingsNoAddRowOnADecidedMatch_paper() {
+        assertPlay(overMatch, tab: .standings, theme: .paper)
+    }
+
     func test_standingsTiedClosestToOut_paper() {
         assertPlay(tiedMatch, tab: .standings, theme: .paper)
     }

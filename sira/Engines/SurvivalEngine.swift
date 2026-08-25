@@ -25,13 +25,16 @@ struct SurvivalEngine: MatchEngine {
         // through is joined from the Round their JoinEvent sits on, and the
         // Rounds before it are not theirs to be scored — or ranked — for.
         //
-        // Read from the whole Match rather than from `rounds`, which is often a
-        // prefix: an Entrant whose join Round falls outside the prefix must come
-        // out omitted, not seated at Setup on a total of zero. That distinction
-        // is the whole point of the rule, and the Scoresheet — which scores every
-        // prefix in turn — is what would lose it.
-        let joinedLater = Set(match.rounds.flatMap(\.joins).map(\.id))
-        var joined = Set(match.entrants.map(\.id)).subtracting(joinedLater)
+        // Read from the Entrants rather than from the Rounds, and so not from
+        // `rounds`, which is often a prefix: an Entrant whose join Round falls
+        // outside the prefix must come out omitted, not seated at Setup on a
+        // total of zero. That distinction is the whole point of the rule, and
+        // the Scoresheet — which scores every prefix in turn — is what would
+        // lose it. It is also what survives an Undo of the Round an arrival was
+        // recorded against: the JoinEvent goes, the arrival does not, and the
+        // seat is simply in no Round of the Match.
+        let arrivals = Set(match.entrants.filter(\.arrivedMidMatch).map(\.id))
+        var joined = Set(match.entrants.map(\.id)).subtracting(arrivals)
 
         var lastRoundDeltas: [Entrant.ID: Int] = [:]
 

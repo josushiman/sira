@@ -21,17 +21,39 @@ final class Entrant {
     /// quietly retype the whole domain rather than fail where it was deleted.
     var id: UUID
     var name: String
-    /// Where this Entrant sits at the table, assigned by the Match when it is
-    /// built and never changed afterwards — Entrants cannot be added to or
-    /// removed from a Match. Order is carried here rather than by position in
-    /// `Match.entrants` for the same reason `Round.sequence` exists: position
-    /// in a relationship array is not a guarantee a store can make, and an
-    /// Entrant's seat decides their dot-badge colour, which has no business
-    /// changing between launches of a Match whose scores have not moved.
+    /// Where this Entrant sits at the table, assigned by the Match when it
+    /// seats them — at Setup, or at whichever Round they arrived at — and
+    /// never changed afterwards. Entrants can be added to a Match; they can
+    /// never be removed from one. Order is carried here rather than by
+    /// position in `Match.entrants` for the same reason `Round.sequence`
+    /// exists: position in a relationship array is not a guarantee a store can
+    /// make, and an Entrant's seat decides their dot-badge colour, which has
+    /// no business changing between launches of a Match whose scores have not
+    /// moved.
     ///
     /// Deliberately absent from `init`: an Entrant has no opinion about where
     /// they sit, so only a Match can stamp one, via `withSequence(_:)`.
     private(set) var sequence = 0
+    /// Whether this Entrant took a free seat partway through the Match rather
+    /// than sitting down at Setup. What it decides is *from when* they are
+    /// scored: someone seated at Setup is in the Match from its first Round,
+    /// while someone who arrived is in it from the Round carrying their
+    /// `JoinEvent` — and in none of it at all where no Round carries one.
+    ///
+    /// Carried by the Entrant rather than derived from the Rounds, which is
+    /// where it used to be read from and is one Undo away from being wrong.
+    /// Undoing the Round a join sits on takes the JoinEvent with it, and an
+    /// arrival derived from the JoinEvent alone would then read as an Entrant
+    /// who had been at the table from the start on a total of zero — a player
+    /// the Match invents rather than the orphan the Undo actually left.
+    ///
+    /// Defaults to `false`, which is what every Entrant stored before this
+    /// existed truthfully is: seated at Setup.
+    ///
+    /// Deliberately absent from `init`, like `sequence`: an Entrant has no
+    /// opinion about when they arrived, so only a Match can say, via
+    /// `arrivingMidMatch()`.
+    private(set) var arrivedMidMatch = false
     /// The Match that owns this Entrant. The inverse of `Match.storedEntrants`,
     /// declared there.
     ///
@@ -61,6 +83,19 @@ final class Entrant {
     @discardableResult
     func withSequence(_ sequence: Int) -> Entrant {
         self.sequence = sequence
+        return self
+    }
+
+    /// Marks this Entrant as having taken a free seat partway through their
+    /// Match, and returns them. One-way: an arrival is a fact about how they
+    /// got to the table, and undoing the Round their arrival was recorded
+    /// against does not turn them into someone who was there all along.
+    ///
+    /// Stamps **in place** and hands back the same object, as `withSequence`
+    /// does, for the same reason: an Entrant is a reference type.
+    @discardableResult
+    func arrivingMidMatch() -> Entrant {
+        arrivedMidMatch = true
         return self
     }
 }

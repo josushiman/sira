@@ -78,6 +78,21 @@ final class Match {
         self.storedRounds = storedRounds
         self.archived = archived
         self.createdAt = createdAt
+        // An Entrant some Round says arrived is one who arrived, reconciled
+        // here — in the designated initializer, so that every way of building
+        // a Match says the same thing about the same roster rather than each
+        // caller having to remember to.
+        //
+        // Only ever additive: `arrivingMidMatch()` is one-way, so a caller
+        // handing over an Entrant already marked keeps the mark even where no
+        // Round carries their JoinEvent any more. That case is real — undoing
+        // the Round an arrival sits on leaves exactly it — and it is why the
+        // Rounds are read as a second source for this fact rather than as the
+        // only one (`Entrant.arrivedMidMatch`).
+        let arrivals = Set(storedRounds.flatMap(\.joins).map(\.id))
+        for entrant in storedEntrants where arrivals.contains(entrant.id) {
+            entrant.arrivingMidMatch()
+        }
     }
 
     convenience init(
@@ -157,6 +172,44 @@ final class Match {
     /// reach — it is only offered in response to a Round just added.
     func recordRejoin(_ rejoin: RejoinEvent) {
         rounds.last?.rejoins.append(rejoin)
+    }
+
+    /// The seat the next Entrant to sit down takes. One past the highest in
+    /// use rather than the count of Entrants, for the same reason
+    /// `nextSequence` is: a seat decides a dot-badge colour, and two Entrants
+    /// sharing one would share a colour.
+    ///
+    /// Unlike a Round's sequence, this is never freed and reused. Undoing the
+    /// Round a join sits on takes the arrival with it but leaves the Entrant
+    /// seated, so the seat stays spoken for.
+    var nextSeat: Int {
+        (storedEntrants.map(\.sequence).max() ?? -1) + 1
+    }
+
+    /// Seats `entrant` at the next free seat, entering on `total`, and records
+    /// the arrival against the latest Round — so Undo reverses a mistaken add
+    /// exactly as it reverses a mistaken score.
+    ///
+    /// With no Rounds there is nothing to attach the arrival to, and nothing
+    /// worth attaching: an Entrant who has missed no Rounds is an Entrant
+    /// seated at Setup, which is what the absence of a JoinEvent already
+    /// means. That is the same rule arriving at the same place rather than a
+    /// second one — with no Rounds played, the highest total still in *is*
+    /// zero, so `total` is zero and there is no jump to record.
+    ///
+    /// No existing seat moves: this appends, and `withSequence` is the only
+    /// thing that stamps one.
+    func addEntrant(_ entrant: Entrant, joiningOn total: Int) {
+        storedEntrants.append(entrant.withSequence(nextSeat))
+        guard let latest = rounds.last else { return }
+        // Both halves, and in this order: the Entrant records *that* they
+        // arrived, which no Undo takes back, and the Round records *where*,
+        // which Undo takes back with the Round. Together they say an Entrant
+        // whose arrival has been undone is in no Round of this Match at all —
+        // which is the orphan, rather than a player on zero who was never
+        // agreed to.
+        entrant.arrivingMidMatch()
+        latest.joins.append(JoinEvent(id: entrant.id, to: total))
     }
 
     /// The Variant this Match is played under, resolved from `variantId`

@@ -6,9 +6,9 @@ extension Match {
     /// order — the arrangement that breaks anything still reading order by
     /// array position.
     ///
-    /// Every Entrant and Round is copied whole, id and sequence included: only
-    /// where it sits in the array changes, which is exactly the thing that is
-    /// supposed to carry no meaning.
+    /// Every Entrant and Round is copied whole — id, sequence and arrival
+    /// included: only where it sits in the array changes, which is exactly the
+    /// thing that is supposed to carry no meaning.
     ///
     /// Copies rather than the originals because Entrants and Rounds are owned
     /// by their Match: handing the same objects to a second Match would move
@@ -27,7 +27,9 @@ extension Match {
             roundCount: roundCount,
             mode: mode,
             storedEntrants: entrants.reversed().map { entrant in
-                Entrant(id: entrant.id, name: entrant.name).withSequence(entrant.sequence)
+                let copy = Entrant(id: entrant.id, name: entrant.name).withSequence(entrant.sequence)
+                if entrant.arrivedMidMatch { copy.arrivingMidMatch() }
+                return copy
             },
             storedRounds: rounds.reversed().map { round in
                 Round(
