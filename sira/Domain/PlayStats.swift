@@ -25,25 +25,32 @@ struct PlayStats {
         switch variant.winCondition {
         case .survival:
             // The Entrant with the least Room left is the one the Match is
-            // about to lose — more telling than the leader's own headroom,
+            // about to lose — more telling than the leader's own Room left,
             // which the rows now spell out for every Entrant anyway.
-            let atRisk = standings.ranked.filter { !$0.isOut }.max { $0.total < $1.total }
+            //
+            // Every Entrant on that total is named, not one of them: a Rejoin
+            // — and a Join — puts an Entrant on the highest total still in, so
+            // a tie at the top is the ordinary case. Picking one by ranking
+            // order would state a fact that isn't true.
+            let stillIn = standings.ranked.filter { !$0.isOut }
+            let highest = stillIn.map(\.total).max()
+            let atRiskEntrants = stillIn.filter { $0.total == highest }
             // Room left is measured against the Match's limit, so a Match with
             // no limit has none to report — the same em dash as a Match with
             // nobody left to report it for. Resolving the limit as zero used
             // to say instead that everyone had run out of room.
             let roomLeft = match.variantNumber.flatMap { limit in
-                atRisk.map { max(0, limit - $0.total) }
+                highest.map { max(0, limit - $0) }
             }
             if standings.isOver {
                 // Over means one Entrant is left in, so nobody is close to
-                // anything — report the survivor's headroom instead.
+                // anything — report the survivor's own Room left instead.
                 secondaryLabel = "Room left"
                 secondaryValue = roomLeft.map { "\($0)" } ?? "—"
             } else {
                 secondaryLabel = "Closest to out"
-                secondaryValue = atRisk.flatMap { standing in
-                    roomLeft.map { "\(standing.name) · \($0) left" }
+                secondaryValue = Self.names(atRiskEntrants).flatMap { names in
+                    roomLeft.map { "\(names) · \($0) left" }
                 } ?? "—"
             }
         case .fixedRounds:
@@ -55,5 +62,17 @@ struct PlayStats {
             let worst = standings.ranked.last?.total ?? 0
             secondaryValue = "\(abs(best - worst))"
         }
+    }
+
+    /// Names a set of tied Entrants for a stat tile: `Bob`, `Bob & Cem`,
+    /// `Bob, Cem & Dila`. A comma list with an ampersand on the last pair
+    /// still fits the tile's two lines at four names, where spelling out
+    /// "and" between each would not. `nil` when there is nobody to name, so
+    /// the caller reports an em dash rather than an empty string.
+    private static func names(_ standings: [EntrantStanding]) -> String? {
+        let names = standings.map(\.name)
+        guard let last = names.last else { return nil }
+        guard names.count > 1 else { return last }
+        return "\(names.dropLast().joined(separator: ", ")) & \(last)"
     }
 }

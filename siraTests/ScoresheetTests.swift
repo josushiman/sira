@@ -201,4 +201,29 @@ final class ScoresheetTests: XCTestCase {
         let reversed = makeMatch(entrants: [a, b], rounds: played.reversed())
         XCTAssertNotEqual(engine.standings(for: reversed), expected.totals)
     }
+
+    /// A Round played before an Entrant arrived carries no entry for them at
+    /// all — which is what lets the Scoresheet draw a dash there rather than a
+    /// zero, a distinction a missing key can make and a value of 0 cannot.
+    func test_roundsBeforeAJoinCarryNoEntryForTheJoinerRatherThanAZero() {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        let c = Entrant(name: "Cara")
+        let match = makeMatch(
+            entrants: [a, b, c],
+            rounds: [
+                Round(deltas: [a.id: 20, b.id: 5]),
+                Round(deltas: [a.id: 10, b.id: 15], joins: [JoinEvent(id: c.id, to: 30)]),
+                Round(deltas: [a.id: 5, b.id: 5, c.id: 12]),
+            ]
+        )
+
+        let scoresheet = Scoresheet(match: match, engine: engine)
+
+        XCTAssertNil(scoresheet.rows[0].deltas[c.id])
+        // The join Round reads like a Rejoin's: the total they entered on,
+        // shown as the jump it is.
+        XCTAssertEqual(scoresheet.rows[1].deltas[c.id], 30)
+        XCTAssertEqual(scoresheet.rows[2].deltas[c.id], 12)
+    }
 }

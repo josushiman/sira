@@ -496,4 +496,110 @@ final class SurvivalEngineTests: XCTestCase {
         let reversed = makeMatch(entrants: [a, b], rounds: inOrder.rounds.reversed())
         XCTAssertEqual(SurvivalEngine().newlyOutEntrantIDs(for: reversed), [a.id])
     }
+
+    // MARK: - Join Round
+
+    /// The Rounds an Entrant was not at the table for are not theirs: they are
+    /// absent from those Standings altogether, rather than sitting in them on a
+    /// total of zero they never played to.
+    func test_anEntrantIsOmittedFromStandingsForTheRoundsBeforeTheyJoined() {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        let c = Entrant(name: "Cara")
+        let round1 = Round(deltas: [a.id: 20, b.id: 5])
+        let round2 = Round(deltas: [a.id: 10, b.id: 15], joins: [JoinEvent(id: c.id, to: 30)])
+        let match = makeMatch(entrants: [a, b, c], rounds: [round1, round2])
+
+        let beforeCaraJoined = SurvivalEngine().standings(for: match, rounds: [round1])
+
+        XCTAssertEqual(beforeCaraJoined.ranked.map(\.entrantID), [b.id, a.id])
+    }
+
+    /// And from the Round they joined at they are in the Standings on the total
+    /// they entered on, taking score from the next Round like anyone else.
+    func test_aJoinedEntrantEntersOnTheirJoinTotalAndIsScoredFromThereOn() {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        let c = Entrant(name: "Cara")
+        let round1 = Round(deltas: [a.id: 20, b.id: 5])
+        let round2 = Round(deltas: [a.id: 10, b.id: 15], joins: [JoinEvent(id: c.id, to: 30)])
+        let round3 = Round(deltas: [a.id: 5, b.id: 5, c.id: 12])
+        let match = makeMatch(entrants: [a, b, c], rounds: [round1, round2, round3])
+
+        let atJoin = SurvivalEngine().standings(for: match, rounds: [round1, round2])
+        let after = SurvivalEngine().standings(for: match)
+
+        XCTAssertEqual(atJoin.ranked.first { $0.entrantID == c.id }?.total, 30)
+        XCTAssertEqual(after.ranked.first { $0.entrantID == c.id }?.total, 42)
+    }
+
+    /// A seat that has not joined yet is not someone still in: the Match it
+    /// belongs to is decided the moment every *joined* Entrant but one is Out.
+    func test_anEntrantYetToJoinDoesNotKeepADecidedMatchAlive() {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        let c = Entrant(name: "Cara")
+        let round1 = Round(deltas: [a.id: 110, b.id: 20])
+        // Cara's arrival is recorded on the Round after, so she is not yet
+        // joined when Round 1 puts Alice Out and leaves Bob alone in the Match.
+        let round2 = Round(deltas: [b.id: 5], joins: [JoinEvent(id: c.id, to: 20)])
+        let match = makeMatch(entrants: [a, b, c], rounds: [round1, round2])
+
+        let standings = SurvivalEngine().standings(for: match, rounds: [round1])
+
+        XCTAssertTrue(standings.isOver)
+        XCTAssertEqual(standings.result, "Bob wins!")
+    }
+
+    /// The everyone-busted tiebreak picks the lowest total among the Entrants
+    /// actually playing — a seat yet to join holds no total to win it with.
+    func test_everyoneBustedTiebreakIgnoresAnEntrantYetToJoin() {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        let c = Entrant(name: "Cara")
+        let round1 = Round(deltas: [a.id: 110, b.id: 120])
+        let round2 = Round(deltas: [:], joins: [JoinEvent(id: c.id, to: 101)])
+        let match = makeMatch(entrants: [a, b, c], rounds: [round1, round2])
+
+        let standings = SurvivalEngine().standings(for: match, rounds: [round1])
+
+        XCTAssertTrue(standings.isOver)
+        XCTAssertEqual(standings.result, "Alice wins!")
+        XCTAssertEqual(standings.ranked.count, 2)
+    }
+
+    /// The Rejoin target is the highest total among Entrants still in, and a
+    /// joiner who arrived above them all raises it like anyone else's score
+    /// would — there is no separate rule for how a total was arrived at.
+    func test_rejoinTargetCountsAJoinedEntrantsTotalLikeAnyOther() {
+        let a = Entrant(name: "Alice")
+        let b = Entrant(name: "Bob")
+        let c = Entrant(name: "Cara")
+        let match = makeMatch(
+            entrants: [a, b, c],
+            rounds: [
+                Round(deltas: [a.id: 20, b.id: 5]),
+                Round(deltas: [a.id: 10, b.id: 15], joins: [JoinEvent(id: c.id, to: 60)]),
+            ]
+        )
+
+        XCTAssertEqual(SurvivalEngine().rejoinTarget(for: match), 60)
+    }
+
+    /// A Match with one Entrant is not a Match somebody has won. `isOver` says
+    /// so — one Entrant is nobody to be decided over — and the result line has
+    /// to agree with it rather than reading "last one standing" off a table of
+    /// one. Unreachable in the app, where Setup seats at least two and a join
+    /// implies two were seated already, and asserted here so the two answers
+    /// cannot drift apart the next time the join rule moves.
+    func test_aMatchWithOneEntrantIsNotOverAndAnnouncesNoWinner() {
+        let a = Entrant(name: "Alice")
+        let match = makeMatch(entrants: [a], rounds: [Round(deltas: [a.id: 20])])
+
+        let standings = SurvivalEngine().standings(for: match)
+
+        XCTAssertFalse(standings.isOver)
+        XCTAssertNil(standings.result)
+        XCTAssertEqual(standings.ranked.map(\.total), [20])
+    }
 }

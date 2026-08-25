@@ -217,6 +217,38 @@ final class MatchStore {
         save()
     }
 
+    /// Seats a new Entrant at the Match's next free seat, entering on `total`,
+    /// and records the arrival against the Match's latest Round — so Undo
+    /// reverses a mistaken add exactly as it reverses a mistaken score.
+    ///
+    /// The Entrant is inserted alongside for the same reason a Round is: a
+    /// stored object in its own right rather than one reachable only through
+    /// the Match that happens to hold it.
+    ///
+    /// Both the name and the total are expected to have been decided already —
+    /// the name by `EntrantName`, the total by `RosterAddition`. This records
+    /// the arrival rather than judging it, exactly as `recordRejoin` does.
+    func addEntrant(_ entrant: Entrant, to match: Match, joiningOn total: Int) {
+        context.insert(entrant)
+        match.addEntrant(entrant, joiningOn: total)
+        save()
+    }
+
+    /// Renames an Entrant.
+    ///
+    /// Nothing else has to move with it. Every screen reads a name off the
+    /// Entrant as it renders and every score is keyed on `Entrant.ID`, so this
+    /// one write is the rename everywhere at once — Rounds already played
+    /// included — and no total, delta or Out state is touched by it.
+    ///
+    /// The name is expected to have been through `EntrantName` already: this
+    /// records a decision rather than making one, exactly as `recordRejoin`
+    /// does with a target.
+    func rename(_ entrant: Entrant, to name: String) {
+        entrant.name = name
+        save()
+    }
+
     /// Removes the Match's most recent Round and deletes it.
     ///
     /// Both halves matter: dropping the Round from the relationship is what

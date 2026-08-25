@@ -29,7 +29,10 @@ struct SetupView: View {
     /// Every Variant is fixed to one Entrant mode, so Setup records the
     /// Variant's own mode instead of offering a Players/Teams choice.
     private var mode: EntrantMode { variant.entrantMode }
-    private var entrantLabel: String { mode == .teams ? "Team" : "Player" }
+    /// The Match's own word for one Entrant, capitalized to open a name with.
+    /// Labels the name rows and their placeholders; the fallback those
+    /// placeholders stand for is `EntrantName`'s to build, off this same word.
+    private var entrantLabel: String { mode.entrantNoun.capitalized }
     /// Only worth showing when the Variant actually allows more than the
     /// minimum — Okey is always exactly two teams.
     private var showsCountSelector: Bool { variant.maxEntrants > 2 }
@@ -211,9 +214,18 @@ struct SetupView: View {
         // nobody agreed to is not something to leave a view layout in charge of.
         guard parameter.isStartable, let number = parameter.value else { return }
 
-        let entrants = entrantNames.enumerated().map { index, name -> Entrant in
-            let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-            return Entrant(name: trimmed.isEmpty ? "\(entrantLabel) \(index + 1)" : trimmed)
+        // Named through `EntrantName` rather than here, so that a blank field
+        // produces the same `Player 3` at Setup as a blank field does in the
+        // rename sheet — one rule, not two that happen to agree today.
+        //
+        // The position in this list is the seat: the Match stamps Entrants
+        // with their index as it is built, so the number Setup shows is the
+        // one the Entrant will be sitting on afterwards.
+        //
+        // Nothing to be unique against yet, so nothing is passed: these
+        // Entrants are not in a Match until the line below builds one.
+        let entrants = entrantNames.enumerated().map { index, name in
+            Entrant(name: EntrantName(name, seat: index, mode: mode).materialised)
         }
         // The Match names its Variant rather than copying it, so all Setup
         // records is the id plus the one number the Variant's Win Condition is

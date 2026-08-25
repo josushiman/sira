@@ -85,6 +85,11 @@ struct ScoresheetView: View {
             Text(sira: .monoEyebrow, "Rd")
                 .foregroundStyle(theme.ink.opacity(0.5))
                 .frame(width: 26, alignment: .leading)
+            // Every column is an equal share of what is left beside the Rd
+            // column, header and numbers alike, so a name long enough to fill
+            // its own header truncates inside it rather than widening it and
+            // sliding every other column along — the numbers below have to
+            // stay under the name they belong to.
             ForEach(match.entrants) { entrant in
                 Text(sira: .monoEyebrow, columnLabel(for: entrant))
                     .foregroundStyle(theme.ink.opacity(0.5))
@@ -110,7 +115,10 @@ struct ScoresheetView: View {
                     }
                     Text(deltaText(row.deltas[entrant.id]))
                         .siraStyle(.monoLabel)
-                        .foregroundStyle(row.deltas[entrant.id] == 0 ? theme.ink.opacity(0.35) : theme.ink)
+                        // A dash is dimmed like a zero: neither is a score
+                        // this Round moved, and the numbers that did move are
+                        // what the column is read for.
+                        .foregroundStyle((row.deltas[entrant.id] ?? 0) == 0 ? theme.ink.opacity(0.35) : theme.ink)
                 }
                 .frame(maxWidth: .infinity, alignment: .trailing)
             }
@@ -178,8 +186,13 @@ struct ScoresheetView: View {
         String(entrant.name.split(separator: " ").first.map(String.init) ?? entrant.name)
     }
 
+    /// An em-dash where the Round holds no entry for this Entrant, which is
+    /// not the same as a zero and must not read like one: an Entrant who
+    /// joined at Round 3 was not at the table for Rounds 1 and 2, and a `0`
+    /// there would claim they played them and scored nothing. A dash says they
+    /// weren't there.
     private func deltaText(_ delta: Int?) -> String {
-        guard let delta else { return "·" }
+        guard let delta else { return "\u{2014}" }
         return delta > 0 ? "+\(delta)" : "\(delta)"
     }
 }

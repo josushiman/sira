@@ -16,6 +16,15 @@ struct PlayView: View {
     @State private var showingKeypadEntry = false
     @State private var showingOkeyStandardEntry = false
     @State private var rejoinQueue: [Entrant.ID] = []
+    /// The Entrant whose Standings row was tapped, and so whose rename sheet
+    /// is up. Held as the object rather than an id for the same reason the
+    /// Match is: it is a model class, and there is nothing to look it back up
+    /// from that the row did not already have in hand.
+    @State private var renamingEntrant: Entrant?
+    /// Whether the Add sheet is up. A flag rather than the offer itself: the
+    /// offer is derived afresh on every pass through `body`, so holding one
+    /// here is exactly the staleness the Add row exists to avoid.
+    @State private var addingEntrant = false
     @State private var selectedTab: PlayTab
 
     @Environment(\.theme) private var theme
@@ -118,7 +127,7 @@ struct PlayView: View {
         CardSurface(cornerRadius: 24, padding: 6) {
             VStack(spacing: 0) {
                 ForEach(Array(standings.ranked.enumerated()), id: \.element.id) { index, standing in
-                    StandingRow(
+                    let row = StandingRow(
                         standing: standing,
                         rank: index + 1,
                         badgeIndex: badgeIndex(for: standing.entrantID),
@@ -126,6 +135,51 @@ struct PlayView: View {
                         maxAbsTotal: maxAbsTotal(variant, standings),
                         roomLeft: roomLeft(variant, for: standing)
                     )
+                    // A row is a way into the rename only while the Match
+                    // still accepts roster edits — the Standings' own rule,
+                    // asked here rather than restated.
+                    if standings.acceptsRosterEdits, let entrant = match.entrant(standing.entrantID) {
+                        Button {
+                            renamingEntrant = entrant
+                        } label: {
+                            row
+                        }
+                        .buttonStyle(.plain)
+                    } else {
+                        row
+                    }
+                }
+
+                // Derived here, on every pass through the body, rather than
+                // held in state: the number the row previews has to move as
+                // Rounds are scored and as Entrants go Out, with the list
+                // still on screen. `nil` is a table with no seat to give away,
+                // and it takes the row with it — never leaves it shown and
+                // disabled.
+                if let addition = rosterAddition(variant, standings) {
+                    Button {
+                        addingEntrant = true
+                    } label: {
+                        AddEntrantRow(addition: addition, mode: match.mode)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .sheet(item: $renamingEntrant) { entrant in
+            RenameEntrantSheet(entrant: entrant, entrants: match.entrants, mode: match.mode) { name in
+                store.rename(entrant, to: name)
+            }
+        }
+        .sheet(isPresented: $addingEntrant) {
+            // Re-derived rather than carried in from the row that opened the
+            // sheet, so a Round scored underneath it moves the number here
+            // too. The offer can also have lapsed between the tap and the
+            // presentation — a last Entrant going Out decides the Match — and
+            // then there is nothing to add anyone to.
+            if let addition = rosterAddition(variant, standings) {
+                AddEntrantSheet(addition: addition, entrants: match.entrants, mode: match.mode) { name in
+                    store.addEntrant(Entrant(name: name), to: match, joiningOn: addition.total)
                 }
             }
         }
@@ -136,6 +190,18 @@ struct PlayView: View {
             StatTile(label: stats.secondaryLabel, value: stats.secondaryValue)
         }
         .padding(.top, 14)
+    }
+
+    /// The offer the Add row makes, or `nil` where this Match has no seat to
+    /// give away.
+    ///
+    /// A function of what the body already has in hand rather than a stored
+    /// property, and called at each of the two places that need it rather than
+    /// worked out once and passed along: the number it carries has to move as
+    /// Rounds are scored and as Entrants go Out, and the sheet has to see that
+    /// movement as much as the row does.
+    private func rosterAddition(_ variant: Variant, _ standings: Standings) -> RosterAddition? {
+        RosterAddition(match: match, variant: variant, standings: standings)
     }
 
     private func badgeIndex(for entrantID: Entrant.ID) -> Int {
@@ -166,8 +232,13 @@ struct PlayView: View {
     }
 
     private func keypadRoundEntry(_ variant: Variant, _ standings: Standings) -> some View {
+        // Who takes score this Round: an Entrant the Standings rank, and not
+        // Out. Absent from the Standings is not "assume they're in" — a seat
+        // whose arrival was undone is seated in the Match and in no Round of
+        // it, and putting them on the keypad would score someone the Match has
+        // no record of ever having joined.
         let stillIn = match.entrants.filter { entrant in
-            standings.ranked.first { $0.entrantID == entrant.id }.map { !$0.isOut } ?? true
+            standings.ranked.contains { $0.entrantID == entrant.id && !$0.isOut }
         }
         let totals = Dictionary(uniqueKeysWithValues: standings.ranked.map { ($0.entrantID, $0.total) })
         let badgeIndices = Dictionary(uniqueKeysWithValues: match.entrants.enumerated().map { ($1.id, $0) })
@@ -276,8 +347,10 @@ struct PlayView: View {
     }
 
     /// Who is playing and what they are playing to — the same phrase Home's
-    /// card carries, off the same accessor, so a Match reads the same wherever
-    /// it is named.
+    /// card carries, so a Match reads the same wherever it is named. Built
+    /// here rather than read off a shared accessor, which `HomeCard` does too:
+    /// the two agree by having been written to agree, so a change to either
+    /// has to be made to both.
     private var playSubtitle: String {
         let count = match.entrants.count
         let noun = match.mode == .teams ? (count == 1 ? "team" : "teams") : (count == 1 ? "player" : "players")
@@ -381,14 +454,24 @@ struct StandingRow: View {
                 .opacity(standing.isOut ? 0.4 : 1)
 
             VStack(alignment: .leading, spacing: 8) {
+                // A name of any length is a name the player can enter, so the
+                // row is laid out around one: the name is the only thing here
+                // allowed to give way, truncating on its single line rather
+                // than wrapping — the block beneath it fixes the row's height,
+                // and a taller row would break the list's rhythm. The tag
+                // keeps its full width, so what a row loses to a long name is
+                // the tail of the name and never the word telling you the
+                // Entrant is Out.
                 HStack(spacing: 7) {
                     Text(standing.name)
                         .siraStyle(.headline)
                         .lineLimit(1)
                     if standing.isOut {
                         StatusPill(text: "Out", foreground: theme.background, background: theme.accent2)
+                            .fixedSize()
                     } else if isLeader {
                         StatusPill(text: "Leads", foreground: theme.onAccent, background: theme.accent)
+                            .fixedSize()
                     }
                 }
 
@@ -446,6 +529,66 @@ struct StandingRow: View {
     }
 }
 
+/// The dashed row at the foot of the Standings list: a free seat, and the
+/// score whoever takes it would start on.
+///
+/// Dashed rather than solid, and carrying no rank, because it is not a
+/// Standing — nobody is on this row yet. It sits at the foot of the same card
+/// so that adding someone reads as filling in the list rather than as leaving
+/// it, which is the whole point: a Match is not worth abandoning because a
+/// fourth player turned up.
+///
+/// The score is stated before anything is committed to, so the table can agree
+/// the number out loud. It is the one thing on the row the tap does not
+/// change, and it moves under them until they take it.
+struct AddEntrantRow: View {
+    let addition: RosterAddition
+    let mode: EntrantMode
+
+    @Environment(\.theme) private var theme
+
+    var body: some View {
+        HStack(spacing: 12) {
+            // The empty rank column, so the badge lines up with the badges
+            // above it rather than sitting a column to their left.
+            Color.clear
+                .frame(width: 14, height: 1)
+
+            // The seat's own colour, dashed: this is the dot that appears in
+            // the list the moment someone takes it, shown in outline because
+            // nobody has yet.
+            RoundedRectangle(cornerRadius: 34 / 3, style: .continuous)
+                .strokeBorder(
+                    theme.dot(addition.seat),
+                    style: StrokeStyle(lineWidth: 1.5, dash: [4, 3])
+                )
+                .frame(width: 34, height: 34)
+                .overlay {
+                    Image(systemName: "plus")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(theme.dot(addition.seat))
+                }
+
+            Text("Add \(mode.entrantNoun)")
+                .siraStyle(.headline)
+                .lineLimit(1)
+
+            Spacer(minLength: 8)
+
+            Text(sira: .monoLabel, addition.joinPhrase)
+                .foregroundStyle(theme.ink.opacity(0.42))
+                .fixedSize()
+        }
+        .padding(13)
+        .background {
+            RoundedRectangle(cornerRadius: 19, style: .continuous)
+                .strokeBorder(theme.line, style: StrokeStyle(lineWidth: 1, dash: [5, 4]))
+        }
+        .foregroundStyle(theme.ink.opacity(0.75))
+        .contentShape(RoundedRectangle(cornerRadius: 19, style: .continuous))
+    }
+}
+
 /// One of Play's two summary tiles above Standings: a label over a value.
 private struct StatTile: View {
     let label: String
@@ -460,10 +603,17 @@ private struct StatTile: View {
             Text(value)
                 .siraStyle(.subheadline)
                 .fontWeight(.semibold)
-                .lineLimit(1)
+                // Closest to out names every Entrant tied at the top, so a
+                // four-way tie is longer than one line can hold — and it is
+                // the trailing "N left" that a single line drops, which is
+                // the half of the tile worth reading. A second line is spent
+                // only when there is something to put on it.
+                .lineLimit(2)
                 .minimumScaleFactor(0.8)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        // Both tiles grow to the taller of the two, so a wrapped value never
+        // leaves its neighbour a short box beside a tall one.
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .padding(14)
         .background(theme.surface, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay {

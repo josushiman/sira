@@ -20,13 +20,30 @@ struct SurvivalEngine: MatchEngine {
             isOut[entrant.id] = false
         }
 
+        // Who is being scored, and from when. An Entrant seated at Setup is
+        // joined from the Match's first Round; one who took a free seat partway
+        // through is joined from the Round their JoinEvent sits on, and the
+        // Rounds before it are not theirs to be scored — or ranked — for.
+        //
+        // Read from the Entrants rather than from the Rounds, and so not from
+        // `rounds`, which is often a prefix: an Entrant whose join Round falls
+        // outside the prefix must come out omitted, not seated at Setup on a
+        // total of zero. That distinction is the whole point of the rule, and
+        // the Scoresheet — which scores every prefix in turn — is what would
+        // lose it. It is also what survives an Undo of the Round an arrival was
+        // recorded against: the JoinEvent goes, the arrival does not, and the
+        // seat is simply in no Round of the Match.
+        let arrivals = Set(match.entrants.filter(\.arrivedMidMatch).map(\.id))
+        var joined = Set(match.entrants.map(\.id)).subtracting(arrivals)
+
         var lastRoundDeltas: [Entrant.ID: Int] = [:]
 
         for round in rounds {
             lastRoundDeltas = [:]
             let multipliers = round.multipliers(in: match, winCondition: .survival)
             for entrant in match.entrants {
-                guard isOut[entrant.id] == false, let delta = round.deltas[entrant.id] else { continue }
+                guard joined.contains(entrant.id), isOut[entrant.id] == false,
+                      let delta = round.deltas[entrant.id] else { continue }
                 let appliedDelta = delta * (multipliers[entrant.id] ?? 1)
                 let newTotal = (totals[entrant.id] ?? 0) + appliedDelta
                 totals[entrant.id] = newTotal
@@ -39,22 +56,45 @@ struct SurvivalEngine: MatchEngine {
                 totals[rejoin.id] = rejoin.to
                 isOut[rejoin.id] = false
             }
+            // Applied after the Round's deltas, like a Rejoin: a joiner arrives
+            // at an agreed total for a Round already scored, rather than taking
+            // score in it. Unlike a Rejoin, nothing here clears Out — an
+            // Entrant who has not joined has taken no score to have gone Out
+            // on, and a joining total above the limit is 05's to refuse rather
+            // than this loop's to absolve.
+            for join in round.joins {
+                joined.insert(join.id)
+                totals[join.id] = join.to
+            }
         }
 
-        let stillIn = match.entrants.filter { isOut[$0.id] == false }
-        let isOver = match.entrants.count > 1 && stillIn.count <= 1
+        // Only joined Entrants are in the Match to be decided over. One who is
+        // seated but has not joined yet — every Round of this prefix predates
+        // their arrival — must not keep a settled Match open by counting as
+        // someone still in.
+        let joinedEntrants = match.entrants.filter { joined.contains($0.id) }
+        let stillIn = joinedEntrants.filter { isOut[$0.id] == false }
+        let isOver = joinedEntrants.count > 1 && stillIn.count <= 1
+        // Nothing to announce until the Match is over, and `isOver` is the
+        // only thing that says whether it is. Read the other way round — a
+        // winner off `stillIn.count == 1`, checked before `isOver` — a Match of
+        // one Entrant would carry a result line while `isOver` said it was
+        // still being played. That Match is out of reach in the app (Setup
+        // seats at least two, and a join implies two were seated already), so
+        // this is guarding the two answers against disagreeing rather than
+        // fixing something a player can see.
         let result: String?
-        if stillIn.count == 1 {
-            result = "\(stillIn[0].name) wins!"
-        } else if isOver {
-            // Everyone still standing busted in the same Round: lowest total wins the tiebreak.
-            let winner = match.entrants.min { (totals[$0.id] ?? 0) < (totals[$1.id] ?? 0) }
-            result = winner.map { "\($0.name) wins!" }
-        } else {
+        if !isOver {
             result = nil
+        } else if stillIn.count == 1 {
+            result = "\(stillIn[0].name) wins!"
+        } else {
+            // Everyone still standing busted in the same Round: lowest total wins the tiebreak.
+            let winner = joinedEntrants.min { (totals[$0.id] ?? 0) < (totals[$1.id] ?? 0) }
+            result = winner.map { "\($0.name) wins!" }
         }
 
-        let ranked = match.entrants
+        let ranked = joinedEntrants
             .map { entrant in
                 EntrantStanding(
                     entrantID: entrant.id,

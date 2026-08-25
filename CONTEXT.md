@@ -21,7 +21,19 @@ _Avoid_: "Target" (wrong for Okey, where the number is where the count starts an
 
 **Entrant**:
 A player or a team of two, scored uniformly regardless of which. A Match is either all-player or all-team Entrants (`mode`), never mixed — and the mode is fixed by the Variant, not chosen at Setup. Okey is the only Teams Variant, and is always exactly two teams; Gonga and Okey 101 are individuals only, seating up to 8 and 4 players respectively.
-_Avoid_: player, team, side (as a generic term — use Entrant when talking about either).
+
+A roster is not fixed at Setup: an Entrant can be added to a live Match while the table has a free Seat — see **Join** — but one can never be **removed** from a Match, at any point, for any reason. That is not a missing feature. A Round's deltas and Çifte callers name Entrants by id with no referential integrity behind them, so a removal would silently orphan every key naming the departed (`docs/adr/0006`). Somebody who stops playing is left seated, and goes **Out** in the ordinary way.
+_Avoid_: player, team, side (as a generic term — use Entrant when talking about either); "leaving" or "dropping out" for anything that takes an Entrant off the roster — nothing does.
+
+**Seat**:
+Where an Entrant sits at their Match's table, stamped by the Match when it seats them — at Setup, or at whichever Round they arrived at — and never changed afterwards. A Seat decides the Entrant's dot-badge colour and the name a blank field falls back to (`Player 3`), so it has to be as stable as a score: two Entrants sharing one would share a colour, and renumbering would move colours between launches of a Match nobody had played.
+
+The next Seat is one past the highest in use, never the count of Entrants, and unlike a **Round**'s sequence a Seat is never freed and reused: undoing the Round a **Join** sits on takes the arrival with it but leaves the Entrant seated, so the Seat stays spoken for.
+
+Stored as `Entrant.sequence`, and stamped by `withSequence(_:)` — the older name, kept because it is a stored SwiftData property and the storage-order argument it shares with `Round.sequence` is the reason it exists at all. The stamping method keeps it too, for symmetry with `Round.withSequence(_:)`: a Match seats an Entrant and orders a Round by the same gesture, and spelling one of them differently would hide that. Seat is the word everywhere the number is *read* or offered — `EntrantName.seat`, `RosterAddition.seat`, `Match.nextSeat`, and this glossary. Where the two meet, read `sequence` as "the Seat as stored."
+
+One more exception, and it is a rendering one: `DotBadge` takes the number as `index`, because a badge is picking a colour out of a palette and does not know it is looking at a table.
+_Avoid_: "index," "position," "order" for the concept — none of them say that the number is owned by the table and never moves; "sequence" for an Entrant anywhere outside the two spellings named above.
 
 **Round**:
 One scored turn within a Match. Produces a per-Entrant delta and, for limit Variants, may trigger an Entrant going Out. Every Round knows where it sits in its Match — its **sequence** — rather than that being implied by the order it happens to be held in; cumulative totals, the delta from the last Round, Scoresheet row numbers and Undo all read that sequence. Sequences are assigned when a Round is added and never renumbered: Undo removes only the last Round, freeing the highest sequence for the next one to take again.
@@ -32,13 +44,22 @@ An Entrant that has passed the Match's score limit. Permanent for the rest of th
 
 **Rejoin**:
 The one-time offer made to an Entrant the moment they go Out: re-enter the Match at the highest score currently held by any Entrant still in. Declined via "They're out."
+_Avoid_: using it for **Join** — a Rejoin returns somebody the Match already had, a Join brings in somebody it never did.
+
+**Join**:
+An Entrant added to a live Match after Setup — someone arriving two Rounds in and taking a free **Seat**. They enter on the highest total among Entrants **still in** (Entrants who are Out are excluded, since one of them typically holds the highest total on the table and inheriting it would start the newcomer past everyone actually playing), and they are scored from that Round onward: Rounds before it are not theirs, and the Scoresheet shows an em-dash there rather than a zero. The arrival is recorded against the latest Round, so **Undo** reverses a mistaken add exactly as it reverses a mistaken score.
+
+Only a Survival Match can offer one, because only a Match played to a running total has a total to bring somebody in on — which keeps both Okey Variants out without either being named.
+
+Distinct from **Rejoin**, and the two are easy to conflate because they land an Entrant on the same number by the same rule: a Rejoin returns an Entrant the Match already had, one who went Out and is being let back; a Join seats one the Match never had. What a Rejoin clears — an Out state — a Join has nothing to clear.
+_Avoid_: "add a player" in domain prose (that is the button's label, not the concept), "re-add," "invite."
 
 **Room left**:
-How much an Entrant can still take before passing their Match's limit and going Out — the limit minus their total. Only Survival Variants have one; an Entrant already Out has none. Standings shows it per Entrant beside their bar, and the Entrant with the least of it is the Match's **Closest to out**.
+How much an Entrant can still take before passing their Match's limit and going Out — the limit minus their total. Only Survival Variants have one; an Entrant already Out has none. Standings shows it per Entrant beside their bar, and the Entrants with the least of it are the Match's **Closest to out** — every one of them, plural where they tie, since a **Rejoin** and a **Join** both land an Entrant on the highest total still in and so produce ties as a matter of course.
 _Avoid_: "headroom," "remaining," using it for Okey's countdown (that total *is* the distance to 0).
 
 **Archived**:
-A Match hidden from the default "Active" view. Purely a visibility flag — an Archived Match is not locked, and Rounds can still be added to it.
+A Match hidden from the default "Active" view. Purely a visibility flag, and **orthogonal to whether a Match is live**: an Archived Match is not locked, and takes Rounds, Rejoins, renames and Joins exactly as an unarchived one does. What closes a roster to edits is the Win Condition deciding the Match (`Standings.acceptsRosterEdits`), never its filter.
 _Avoid_: using "Archived" and "Deleted" for each other. Archiving hides a Match and is reversible; deleting destroys it and is not.
 
 **Delete**:

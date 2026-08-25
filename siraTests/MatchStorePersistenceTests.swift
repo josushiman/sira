@@ -110,6 +110,31 @@ final class MatchStorePersistenceTests: XCTestCase {
         }
     }
 
+    /// A name fixed mid-Match is the Match the player comes back to — and the
+    /// seat it was fixed on does not move with it, so the renamed Entrant is
+    /// still sitting where they were.
+    func test_aRenamedEntrantComesBackUnderTheirNewNameAndOnTheirOwnSeat() throws {
+        let matchID = try launch { store -> Match.ID in
+            let match = Match(
+                game: .gonga,
+                variant: .gongaStandard,
+                number: 101,
+                mode: .players,
+                entrants: [Entrant(name: "Alice"), Entrant(name: "Bob")]
+            )
+            store.add(match)
+            store.rename(try entrant("Bob", in: match), to: "Bora")
+            return match.id
+        }
+
+        try launch { store in
+            let reloaded = try match(matchID, in: store)
+
+            XCTAssertEqual(reloaded.entrants.map(\.name), ["Alice", "Bora"])
+            XCTAssertEqual(reloaded.entrants.map(\.sequence), [0, 1])
+        }
+    }
+
     // MARK: - Round order
 
     /// Enough Rounds that an accidental reordering shows up, rather than the
@@ -170,6 +195,42 @@ final class MatchStorePersistenceTests: XCTestCase {
             XCTAssertEqual(round.losingEntrantID, alice.id)
             XCTAssertEqual(round.gostergeFinderID, bob.id)
             XCTAssertEqual(round.rejoins, [RejoinEvent(id: alice.id, to: 40)])
+        }
+    }
+
+    /// Someone who arrived partway through comes back as someone who arrived
+    /// partway through: the Entrant with the seat they took, and the arrival
+    /// itself, on the Round it was recorded against. Lose either half and the
+    /// reload has a fourth player who has been there all along on a total
+    /// nobody can account for.
+    func test_anEntrantAddedMidMatchSurvivesWithTheirSeatAndTheirArrival() throws {
+        let (matchID, before) = try launch { store -> (Match.ID, Standings) in
+            let alice = Entrant(name: "Alice")
+            let bob = Entrant(name: "Bob")
+            let match = Match(
+                game: .gonga,
+                variant: .gongaStandard,
+                number: 101,
+                mode: .players,
+                entrants: [alice, bob]
+            )
+            store.add(match)
+            store.addRound(Round(deltas: [alice.id: 40, bob.id: 30]), to: match)
+            store.addRound(Round(deltas: [alice.id: 21, bob.id: 15]), to: match)
+            store.addEntrant(Entrant(name: "Carol"), to: match, joiningOn: 61)
+            return (match.id, WinCondition.survival.engine.standings(for: match))
+        }
+
+        try launch { store in
+            let reloaded = try match(matchID, in: store)
+            let carol = try entrant("Carol", in: reloaded)
+
+            XCTAssertEqual(reloaded.entrants.map(\.name), ["Alice", "Bob", "Carol"])
+            XCTAssertEqual(carol.sequence, 2)
+            XCTAssertTrue(carol.arrivedMidMatch)
+            XCTAssertEqual(reloaded.entrants.filter(\.arrivedMidMatch).map(\.name), ["Carol"])
+            XCTAssertEqual(reloaded.rounds.map(\.joins), [[], [JoinEvent(id: carol.id, to: 61)]])
+            XCTAssertEqual(WinCondition.survival.engine.standings(for: reloaded), before)
         }
     }
 

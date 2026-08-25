@@ -14,6 +14,22 @@ struct RejoinEvent: Codable, Hashable {
     let to: Int
 }
 
+/// An Entrant taking a free seat partway through a Match, recorded against the
+/// Round they arrived at so that undoing that Round undoes the arrival with it.
+///
+/// Deliberately not a `RejoinEvent`, though the two carry the same two fields
+/// and land on a total the same way. A Rejoin returns an Entrant the Match has
+/// been scoring all along; a Join is the first Round an Entrant is scored at,
+/// and the Rounds before it are ones they were not at the table for. Only the
+/// Join answers "from when", and that is the whole question the Standings ask
+/// of it — folding them into one type would leave the Engine unable to tell an
+/// Entrant seated at Setup from one who arrived at Round 3.
+struct JoinEvent: Codable, Hashable {
+    let id: Entrant.ID
+    /// The total the Entrant starts on, agreed at the table before they sit.
+    let to: Int
+}
+
 @Model
 final class Round {
     /// The identity a Scoresheet row is keyed on, and the one `undoLastRound`
@@ -48,6 +64,14 @@ final class Round {
     /// cannot be removed from a Match (`docs/adr/0006`).
     var deltas: [Entrant.ID: Int]
     var rejoins: [RejoinEvent]
+    /// The Entrants who joined the Match at this Round, taking a free seat
+    /// partway through. Empty for every Round of a Match whose roster was
+    /// settled at Setup, which is every Match until one is added to.
+    ///
+    /// Stored inline on the Round for the same reason `rejoins` is, and on the
+    /// Round rather than on the Entrant so that Undo — which removes only the
+    /// last Round — reverses an arrival exactly as it reverses a score.
+    var joins: [JoinEvent] = []
     /// The Entrants who called Çifte this Round. A fact, not an instruction:
     /// what it does to each Entrant's delta is derived in `multipliers(for:)`,
     /// because the rule resolves on who won the Round.
@@ -75,6 +99,7 @@ final class Round {
         id: UUID = UUID(),
         deltas: [Entrant.ID: Int] = [:],
         rejoins: [RejoinEvent] = [],
+        joins: [JoinEvent] = [],
         cifteCallers: Set<Entrant.ID> = [],
         okeyAtanID: Entrant.ID? = nil,
         losingEntrantID: Entrant.ID? = nil,
@@ -83,6 +108,7 @@ final class Round {
         self.id = id
         self.deltas = deltas
         self.rejoins = rejoins
+        self.joins = joins
         self.cifteCallers = cifteCallers
         self.okeyAtanID = okeyAtanID
         self.losingEntrantID = losingEntrantID
