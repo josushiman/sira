@@ -34,6 +34,7 @@ extension Match {
                     id: round.id,
                     deltas: round.deltas,
                     rejoins: round.rejoins,
+                    joins: round.joins,
                     cifteCallers: round.cifteCallers,
                     okeyAtanID: round.okeyAtanID,
                     losingEntrantID: round.losingEntrantID,
