@@ -55,11 +55,13 @@ struct SurvivalEngine: MatchEngine {
             }
             // Applied after the Round's deltas, like a Rejoin: a joiner arrives
             // at an agreed total for a Round already scored, rather than taking
-            // score in it.
+            // score in it. Unlike a Rejoin, nothing here clears Out — an
+            // Entrant who has not joined has taken no score to have gone Out
+            // on, and a joining total above the limit is 05's to refuse rather
+            // than this loop's to absolve.
             for join in round.joins {
                 joined.insert(join.id)
                 totals[join.id] = join.to
-                isOut[join.id] = false
             }
         }
 
