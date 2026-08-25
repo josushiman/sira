@@ -37,7 +37,13 @@ struct Scoresheet {
 
     init(match: Match, engine: MatchEngine) {
         var rows: [ScoresheetRow] = []
-        var previousTotals: [Entrant.ID: Int] = Dictionary(uniqueKeysWithValues: match.entrants.map { ($0.id, 0) })
+        // Seeded by the Standings themselves, one Round at a time, rather than
+        // by the roster: an Entrant who joined partway through is absent from
+        // the Standings for the Rounds before they arrived, so they pick up a
+        // previous total — and a row entry — only from the Round they joined
+        // at. Seeding every seat at zero up front would have made those earlier
+        // Rounds read as a delta of zero, which is a score they never took.
+        var previousTotals: [Entrant.ID: Int] = [:]
 
         // `match.rounds` is sequence-ordered, so a row's number is its position
         // in that order — never its position in however the Rounds were stored.

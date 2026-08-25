@@ -8,13 +8,13 @@ This matters because the Scoresheet derives its cells by diffing Standings betwe
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] The Engine omits an Entrant from Standings for every Round before their join Round, and includes them from it onward.
-- [ ] An Entrant seated at Setup is joined from the first Round, so all existing behaviour is preserved exactly.
-- [ ] The whole existing test suite passes **unmodified** — this is the acceptance test for the ticket. Any test that needs changing is a signal the rule has altered behaviour it shouldn't.
-- [ ] The Match-over determination counts only **joined** Entrants. An Entrant present in the Match but not yet joined must not keep a decided Match alive.
-- [ ] The everyone-busted tiebreak, which picks the lowest total when all remaining Entrants pass the limit in the same Round, considers only joined Entrants.
-- [ ] The Scoresheet's per-Round derivation seeds its previous totals only for joined Entrants, so an unjoined Entrant contributes no cell rather than a zero.
-- [ ] `rejoinTarget` continues to compute the highest total among Entrants still in, unchanged.
-- [ ] Covered at the existing `SurvivalEngine` seam, asserting on returned Standings rather than on how the Engine iterates. Prior art: `SurvivalEngineTests`, which already covers Rejoin replay in the same shape.
+- [x] The Engine omits an Entrant from Standings for every Round before their join Round, and includes them from it onward.
+- [x] An Entrant seated at Setup is joined from the first Round, so all existing behaviour is preserved exactly.
+- [x] The whole existing test suite passes **unmodified** — this is the acceptance test for the ticket. Any test that needs changing is a signal the rule has altered behaviour it shouldn't.
+- [x] The Match-over determination counts only **joined** Entrants. An Entrant present in the Match but not yet joined must not keep a decided Match alive.
+- [x] The everyone-busted tiebreak, which picks the lowest total when all remaining Entrants pass the limit in the same Round, considers only joined Entrants.
+- [x] The Scoresheet's per-Round derivation seeds its previous totals only for joined Entrants, so an unjoined Entrant contributes no cell rather than a zero.
+- [x] `rejoinTarget` continues to compute the highest total among Entrants still in, unchanged.
+- [x] Covered at the existing `SurvivalEngine` seam, asserting on returned Standings rather than on how the Engine iterates. Prior art: `SurvivalEngineTests`, which already covers Rejoin replay in the same shape.
