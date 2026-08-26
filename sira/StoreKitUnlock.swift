@@ -14,7 +14,12 @@ import StoreKit
 extension UnlockStore.Operations {
     /// What ties this to App Store Connect. One product, matching the bundle
     /// identifier, non-consumable, Family Sharing enabled.
-    static let productID = "com.10bitlabs.sira.unlock"
+    ///
+    /// `nonisolated` for the same reason `transactionUpdates()` below is: this
+    /// type inherits `UnlockStore`'s main actor, and a string constant that
+    /// cannot be read from off it is a constant that cannot be read from the
+    /// stream this file opens.
+    nonisolated static let productID = "com.10bitlabs.sira.unlock"
 
     static let storeKit = UnlockStore.Operations(
         displayPrice: { await unlockProduct()?.displayPrice },
@@ -96,7 +101,19 @@ extension UnlockStore.Operations {
     ///
     /// Each is finished as it is taken, which is what stops StoreKit
     /// re-delivering it at every launch.
-    private static func transactionUpdates() -> AsyncStream<UnlockStore.Entitlement> {
+    ///
+    /// `nonisolated` because it is handed over as a function value rather than
+    /// called: `Operations` is nested in a main-actor type and inherits that
+    /// isolation, so a *synchronous* member of it referenced from the
+    /// `storeKit` initialiser below is a main-actor call from a nonisolated
+    /// context — a warning today and an error under the Swift 6 language mode.
+    /// The same trap `HomeView.filteredMatches` documents about
+    /// `.map(HomeCard.init)`. Nothing in here touches main-actor state; it opens
+    /// a stream and hands it back, and the values that come out of it are
+    /// applied by `UnlockStore` on the main actor as before. The `async`
+    /// members alongside it need no such annotation — an `await` gets to the
+    /// actor on its own.
+    nonisolated private static func transactionUpdates() -> AsyncStream<UnlockStore.Entitlement> {
         AsyncStream { continuation in
             let task = Task {
                 for await result in Transaction.updates {
