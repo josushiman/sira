@@ -29,11 +29,7 @@ struct UnlockSheet: View {
                     benefitLine(benefit)
                 }
                 if let note {
-                    Text(note)
-                        .siraStyle(.caption)
-                        .foregroundStyle(theme.accent2)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(.top, 4)
+                    noteLine(note)
                 }
             }
             .padding(.top, 14)
@@ -74,6 +70,29 @@ struct UnlockSheet: View {
         case .nothingToRestore: return UnlockCopy.nothingToRestore
         case .awaitingApproval: return UnlockCopy.awaitingApproval
         }
+    }
+
+    /// The inline message: a failure, or Restore finding nothing.
+    ///
+    /// The text is ink rather than the warning colour, and the warning colour
+    /// is a bar beside it. `accent2` on Paper's background comes to 4.20:1,
+    /// which is under WCAG AA for text and comfortably over the 3:1 a
+    /// non-text element is held to — so the colour marks the line and the ink
+    /// carries the words. This message is what a player reads to find out
+    /// whether they have been charged; it is not the place to trade legibility
+    /// for a tint.
+    private func noteLine(_ text: String) -> some View {
+        HStack(alignment: .top, spacing: 9) {
+            RoundedRectangle(cornerRadius: 1.5, style: .continuous)
+                .fill(theme.accent2)
+                .frame(width: 3)
+            Text(text)
+                .siraStyle(.caption)
+                .foregroundStyle(theme.ink.opacity(0.9))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .fixedSize(horizontal: false, vertical: true)
+        .padding(.top, 6)
     }
 
     private func benefitLine(_ text: String) -> some View {

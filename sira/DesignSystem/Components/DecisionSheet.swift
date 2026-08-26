@@ -72,9 +72,22 @@ struct DecisionSheet<Prompt: View, Actions: View>: View {
             VStack(alignment: .leading, spacing: 10) {
                 Text(title)
                     .siraStyle(.displayTitle)
+                    // Wraps rather than truncating. Every title this sheet has
+                    // carried so far has been short enough for one line, so
+                    // nothing needed saying — the offer's is not, and a
+                    // heading that ends in an ellipsis is a heading that has
+                    // stopped saying what happened.
+                    .fixedSize(horizontal: false, vertical: true)
                 Text(explanation)
                     .siraStyle(.body)
-                    .foregroundStyle(theme.ink.opacity(0.6))
+                    // 0.7 rather than the 0.6 muted ink used for secondary
+                    // text elsewhere: composited over Paper's background that
+                    // came to 4.40:1, which is under WCAG AA for body text.
+                    // This line is the one doing the real work on every sheet
+                    // that composes this — what a deletion takes with it, what
+                    // a purchase costs — so it is held to AA rather than to
+                    // the house muting (`UnlockSheetContrastTests`).
+                    .foregroundStyle(theme.ink.opacity(0.7))
 
                 // No padding of its own: a modifier on an empty prompt is a
                 // layout item where there should be none, and the sheets that

@@ -536,10 +536,19 @@ private struct MatchCard: View {
     HomePreview(store: MatchStore())
 }
 
+/// What a player who has paid sees: the same Home with no meter on it.
+#Preview("Home — unlocked") {
+    HomePreview(store: .seeded(), unlocked: true)
+}
+
 /// Home with a store and its container wired together, which `@Query` needs and
 /// a bare `.environment(store)` no longer supplies.
 private struct HomePreview: View {
     let store: MatchStore
+    /// Whether the previewed player has paid. `.silent` operations either way —
+    /// a preview has no business reaching the App Store, and by the fail-open
+    /// rule silence leaves this exactly where the cache puts it.
+    var unlocked = false
 
     var body: some View {
         NavigationStack {
@@ -547,6 +556,10 @@ private struct HomePreview: View {
         }
         .environment(store)
         .environment(Navigator())
+        .environment(UnlockStore(
+            operations: .silent,
+            cache: .inMemory(hasSeenUnlock: unlocked)
+        ))
         .modelContainer(store.container)
         .themed()
     }

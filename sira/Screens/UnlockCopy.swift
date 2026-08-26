@@ -19,8 +19,10 @@ import Foundation
 ///
 /// "Games", never "Matches" — Home's own word for them (`CONTEXT.md`).
 enum UnlockCopy {
-    /// What has happened, said as a fact rather than as a warning.
-    static let title = "You've played your three free games"
+    /// What has happened, said as a fact rather than as a warning — and short,
+    /// because `displayTitle` is 28pt heavy and a sentence set in it is a wall
+    /// rather than a heading.
+    static let title = "Your three free games are up"
 
     /// What the purchase is, in a sentence — and, because this is the sentence
     /// a player decides on, that it is not a subscription.

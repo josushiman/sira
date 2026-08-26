@@ -4,13 +4,29 @@ import SwiftData
 import SnapshotTesting
 @testable import sira
 
+/// On the main actor because Home now reads a `UnlockStore`, which is — like
+/// every other piece of UI state in the app — main-actor isolated.
+@MainActor
 final class HomeViewSnapshotTests: XCTestCase {
-    private func assertHome(_ store: MatchStore, theme: Theme, testName: String = #function) {
+    private func assertHome(
+        _ store: MatchStore,
+        theme: Theme,
+        unlocked: Bool = false,
+        testName: String = #function
+    ) {
         let view = NavigationStack {
             HomeView()
         }
         .environment(store)
         .environment(Navigator())
+        // Home reads the Unlock through `GameAccess` — what it draws is the
+        // meter or nothing at all. `.silent` operations, because no test here
+        // is buying anything: the cache is what decides, exactly as it does on
+        // a device with no network.
+        .environment(UnlockStore(
+            operations: .silent,
+            cache: .inMemory(hasSeenUnlock: unlocked)
+        ))
         // Home reads its Matches with `@Query`, which reads the container
         // rather than the store object — without this it renders an empty list
         // whatever the store holds.
@@ -163,13 +179,26 @@ final class HomeViewSnapshotTests: XCTestCase {
     }
 
     /// All three gone. Every mark is filled and the label takes the accent
-    /// colour — the meter's only change on reaching the limit. Nothing is
-    /// blocked here and no offer appears: that is ticket 03.
+    /// colour — the meter's only change on reaching the limit. Home itself is
+    /// unchanged: the wall is a thing that happens on the *tap*, and the offer
+    /// it raises is snapshot in `UnlockSheetSnapshotTests`.
     func test_allThreeFreeGamesUsed_paper() {
         assertHome(storeWithFreeGamesUsed(3), theme: .paper)
     }
 
     func test_allThreeFreeGamesUsed_felt() {
         assertHome(storeWithFreeGamesUsed(3), theme: .felt)
+    }
+
+    /// A player who has paid, with their three free games long spent: no meter
+    /// beside the heading, and nothing else on Home that says the app was ever
+    /// sold. The rule between "Your games" and the edge simply runs the whole
+    /// width.
+    func test_unlockedHomeHasNoMeter_paper() {
+        assertHome(storeWithFreeGamesUsed(3), theme: .paper, unlocked: true)
+    }
+
+    func test_unlockedHomeHasNoMeter_felt() {
+        assertHome(storeWithFreeGamesUsed(3), theme: .felt, unlocked: true)
     }
 }

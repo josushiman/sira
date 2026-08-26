@@ -14,8 +14,24 @@ struct ContentView: View {
     /// shows nothing at all. The Alice/Bob fixtures live in previews and view
     /// tests (`MatchStore.seeded()`), which is where they were always meant to
     /// be.
-    @State private var store = MatchStore.forApp()
+    @State private var store: MatchStore
     @State private var navigator = Navigator()
+    /// The Unlock, over the real App Store. Built from the same store, because
+    /// the local flag it caches lives beside the meter — see `UnlockCache`.
+    ///
+    /// Built here rather than in `MatchStore.forApp()` so that the one object
+    /// that talks to StoreKit is created where the app is assembled, in plain
+    /// sight, rather than folded into the store that talks to the disk.
+    @State private var unlock: UnlockStore
+
+    init() {
+        let store = MatchStore.forApp()
+        _store = State(initialValue: store)
+        _unlock = State(initialValue: UnlockStore(
+            operations: .storeKit,
+            cache: .stored(in: store)
+        ))
+    }
 
     var body: some View {
         NavigationStack {
@@ -23,6 +39,7 @@ struct ContentView: View {
         }
         .environment(store)
         .environment(navigator)
+        .environment(unlock)
         // Home reads Matches with `@Query`, which needs the container the store
         // is writing to — the same one, so a Round added in Play shows up in
         // Home's summary without anything being told to refresh.
@@ -51,6 +68,16 @@ struct ContentView: View {
                 """
             )
         }
+        // The app's first word to StoreKit: the price for this player's
+        // storefront, and what this device is already entitled to. Not a
+        // Restore — that prompts for an Apple Account password, and it lives on
+        // the offer sheet where the player asked for it.
+        .task { await unlock.prepare() }
+        // And for as long as the app is up, transactions arriving from anywhere
+        // else: another device, a Family Sharing member, an approved Ask to
+        // Buy, or a revocation. A purchase reaching this stream lifts the wall
+        // without the player buying anything in this session.
+        .task { await unlock.observeUpdates() }
         .themed()
     }
 }

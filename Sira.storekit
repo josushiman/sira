@@ -1,0 +1,35 @@
+{
+  "identifier" : "A1B2C3D4-5E6F-4A7B-8C9D-0E1F2A3B4C5D",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+    {
+      "displayPrice" : "2.99",
+      "familyShareable" : true,
+      "internalID" : "F1E2D3C4-B5A6-4978-8B9C-0D1E2F3A4B5C",
+      "localizations" : [
+        {
+          "description" : "Removes the three free games limit. One payment, not a subscription.",
+          "displayName" : "Unlock Sıra",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.10bitlabs.sira.unlock",
+      "referenceName" : "Unlock",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : {
+    "_applicationInternalID" : "",
+    "_developerTeamID" : "",
+    "_lastSynchronizedDate" : 0
+  },
+  "subscriptionGroups" : [
+
+  ],
+  "version" : {
+    "major" : 4,
+    "minor" : 0
+  }
+}
