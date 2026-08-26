@@ -26,7 +26,7 @@ struct UnlockSheet: View {
         DecisionSheet(title: UnlockCopy.title, explanation: UnlockCopy.explanation) {
             VStack(alignment: .leading, spacing: 8) {
                 ForEach(UnlockCopy.benefits, id: \.self) { benefit in
-                    benefitLine(benefit)
+                    benefitCard(benefit)
                 }
                 if let note {
                     noteLine(note)
@@ -43,12 +43,19 @@ struct UnlockSheet: View {
                 emphasis: .filled(background: theme.accent, foreground: theme.onAccent),
                 action: onBuy
             )
-            // Outlined rather than plain text, and the same height as the
-            // other two: this is the app's only Restore affordance, and one
-            // the App Store requires to be findable. A caption-sized link
-            // under the fold is the version of it that fails that.
-            SheetButton(title: UnlockCopy.restore, emphasis: .outlined, action: onRestore)
-            SheetButton(title: UnlockCopy.dismiss, emphasis: .outlined) { dismiss() }
+            // The two ways that are not buying, side by side under the one
+            // that is: neither of them is the sheet's question, and stacking
+            // three full-width buttons gave the last two the same weight as
+            // the first. Out on the left, Restore on the right — the order a
+            // thumb reaching for the way out expects.
+            //
+            // Outlined rather than plain text, and full height: this is the
+            // app's only Restore affordance, and one the App Store requires to
+            // be findable. A caption-sized link under the fold fails that.
+            HStack(spacing: 9) {
+                SheetButton(title: UnlockCopy.dismiss, emphasis: .outlined) { dismiss() }
+                SheetButton(title: UnlockCopy.restore, emphasis: .outlined, action: onRestore)
+            }
         }
         // While Apple has the purchase, the app's own controls come out of
         // reach — Apple draws the payment sheet over this one, and a live Buy
@@ -95,16 +102,31 @@ struct UnlockSheet: View {
         .padding(.top, 6)
     }
 
-    private func benefitLine(_ text: String) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 9) {
-            Text("·")
-                .siraStyle(.subheadline)
-                .foregroundStyle(theme.accent)
+    /// One benefit, on a card of its own.
+    ///
+    /// A card rather than a bullet because these are the three things the
+    /// payment buys, and a run of dotted lines under an explanation reads as a
+    /// footnote to it. Each one on its own surface makes them the list they
+    /// are — and gives a two-line benefit somewhere to be without the second
+    /// line looking like a fourth item.
+    ///
+    /// `track` for the fill: ink at 0.06, so the card sits a shade off the
+    /// sheet in both themes without a colour of its own being invented here.
+    private func benefitCard(_ text: String) -> some View {
+        HStack(alignment: .center, spacing: 12) {
+            RoundedRectangle(cornerRadius: 2, style: .continuous)
+                .fill(theme.accent)
+                .frame(width: 7, height: 7)
             Text(text)
                 .siraStyle(.body)
                 .foregroundStyle(theme.ink.opacity(0.75))
                 .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(theme.track, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }
 

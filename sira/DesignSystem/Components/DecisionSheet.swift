@@ -88,6 +88,13 @@ struct DecisionSheet<Prompt: View, Actions: View>: View {
                     // a purchase costs — so it is held to AA rather than to
                     // the house muting (`UnlockSheetContrastTests`).
                     .foregroundStyle(theme.ink.opacity(0.7))
+                    // Wraps to as many lines as it takes. Inside a sheet whose
+                    // height is measured from its own content, a `Text` that
+                    // has not been told to keep its ideal height is free to
+                    // settle for one truncated line — which is what the offer
+                    // sheet's two-sentence explanation did. This line is the
+                    // one the decision is made on; it is never abbreviated.
+                    .fixedSize(horizontal: false, vertical: true)
 
                 // No padding of its own: a modifier on an empty prompt is a
                 // layout item where there should be none, and the sheets that
