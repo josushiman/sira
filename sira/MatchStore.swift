@@ -30,11 +30,48 @@ final class MatchStore {
     /// Standings on screen rather than against a Round that was thrown away.
     private(set) var saveFailure: SaveFailure?
 
+    /// How many of the three Free Matches are left — what Home's meter draws
+    /// and, from ticket 03, what the wall asks.
+    ///
+    /// Held here as well as stored so that reading it is not a fetch on every
+    /// redraw, and so that it changes observably: this is the property Home
+    /// watches, and a count living only in a `StartedMatchTally` fetched on
+    /// demand would move without telling anyone.
+    ///
+    /// The stored row is the truth and this is loaded from it at init, so the
+    /// two agree at every launch. Between launches they are kept in step by
+    /// `recordStart()` being the only thing that moves either.
+    private(set) var freeMatches: FreeMatches
+
+    /// Whether this device has ever seen a verified Unlock — the local half of
+    /// `GameAccess`, and a **cache of a truth Apple owns** rather than a source
+    /// of truth (`UnlockCache`, `docs/adr/0011`).
+    ///
+    /// Kept here, beside the meter, because it is durable state that changes
+    /// through a save like every other durable state in the app, and because
+    /// the two things `GameAccess` is made of are then durable in one place.
+    /// What decides its value is `UnlockStore`, which is the only thing that
+    /// has ever spoken to StoreKit; this store records what it was told.
+    ///
+    /// Held in memory as well as stored for the same reason `freeMatches` is:
+    /// Home watches it, and a value fetched on demand would move without
+    /// telling anyone.
+    private(set) var hasSeenUnlock: Bool
+
     /// Writing the context out. Injected so tests can exercise the failure
     /// path: SwiftData offers no way to make a real save fail on demand, and
     /// what happens when the disk is full is the behaviour worth pinning down
     /// here.
     private let saveContext: (ModelContext) throws -> Void
+
+    /// When this store was opened — the line between the Matches an earlier
+    /// run left behind and the Match the player is setting up right now.
+    ///
+    /// `discardUnstartedMatches()` deletes only from the first group. That is
+    /// what stops the sweep from being able to take the live Match with it,
+    /// whenever and however often it is called: a Match created in this run is
+    /// one somebody may still be looking at.
+    private let openedAt: Date
 
     /// The context every mutation runs against — the container's own main
     /// context, which is also the one `@Query` reads from, so a Round added in
@@ -48,6 +85,18 @@ final class MatchStore {
     ) {
         self.container = container
         self.saveContext = saveContext
+        self.openedAt = Date()
+        // Read once, here, rather than fetched wherever it is asked for. A
+        // store over a database holding no tally reads as zero — a fresh
+        // install, and the reinstall case with it, both of which start with
+        // three Free Matches.
+        let stored = (try? container.mainContext.fetch(FetchDescriptor<StartedMatchTally>()))?.first
+        self.freeMatches = FreeMatches(startedMatches: stored?.startedMatches ?? 0)
+        // And the same for the Unlock: no row is the honest answer for a
+        // device that has never seen a verified purchase, and for one whose
+        // cache StoreKit has not written yet.
+        let cached = (try? container.mainContext.fetch(FetchDescriptor<UnlockCache>()))?.first
+        self.hasSeenUnlock = cached?.hasSeenVerifiedUnlock ?? false
         // Stated rather than inherited from the framework's default. Every
         // mutation here saves explicitly, so autosave is only ever a backstop —
         // but it is one this store means to have, and a default is not a
@@ -196,15 +245,32 @@ final class MatchStore {
 
     func add(_ match: Match) {
         context.insert(match)
+        // A Match built with Rounds arrives Started — `Match.init` says so
+        // from the Rounds themselves — and a Match that arrives Started has
+        // consumed a Free Match as surely as one that Starts a Round at a
+        // time. Recorded here so that the tally counts Started Matches however
+        // they came to be, rather than only those that went through
+        // `addRound`. Setup's Match has no Rounds and costs nothing until one
+        // is scored on it, which is the path the app itself takes.
+        if match.started { recordStart() }
         save()
     }
 
     /// Adds `round` as the Match's latest. The Round is inserted alongside so
     /// that it is a stored object in its own right rather than reachable only
     /// through the Match that happens to hold it.
+    /// Whether this Round Starts the Match is read before it is added rather
+    /// than after: `Match.addRound` Starts the Match on the way through, so by
+    /// the time it returns every Match looks Started and the Round that did it
+    /// is indistinguishable from the ones after. Asked here, and the tally
+    /// moves inside the same `save()` as the Round, so a Free Match can never
+    /// be spent by a Round that did not reach the disk or kept by one that
+    /// did.
     func addRound(_ round: Round, to match: Match) {
+        let starting = !match.started
         context.insert(round)
         match.addRound(round)
+        if starting { recordStart() }
         save()
     }
 
@@ -281,6 +347,58 @@ final class MatchStore {
         save()
     }
 
+    /// Clears out the Matches that were set up and never scored — the app's
+    /// deliberate first act at launch, made once from the scene (`siraApp`)
+    /// rather than folded into building a store.
+    ///
+    /// Home lists Started Matches only, so an un-Started one is unreachable
+    /// the moment the player leaves it — backed out of, or lost to iOS
+    /// reclaiming the app mid-Match. There is nothing to preserve: a Match
+    /// with no Rounds has no tally, only a Variant choice and some Entrant
+    /// names. Left alone it would sit on the device forever, invisible.
+    ///
+    /// **Only ever deletes what an earlier run left behind.** A Match created
+    /// since this store was opened is the one being set up or played right
+    /// now, which is the one un-Started Match that must survive: Setup hands
+    /// Play a Match before its first Round, and `add(_:)` has already saved
+    /// it. Guarding on `openedAt` is what makes that true of every call rather
+    /// than only of a call that happens to come first — a sweep is a tidy-up,
+    /// and a tidy-up that can take the live Match with it is data loss.
+    ///
+    /// That guard is the whole of the protection, deliberately: a second call
+    /// is a no-op because everything older is already gone and everything
+    /// newer is spared, rather than because a flag counted the calls. A rule
+    /// about the data holds wherever this is called from; a rule about call
+    /// order only holds where somebody remembered it.
+    ///
+    /// A Match carrying Rounds is Started first rather than swept up with the
+    /// rest. Data written before the flag existed reads back as un-Started
+    /// whatever it holds, and deleting a played Match because a default said
+    /// so is not a trade this app gets to make on the player's behalf. The
+    /// Rounds are older than the flag, and they are believed over it.
+    func discardUnstartedMatches() {
+        let matches = (try? context.fetch(FetchDescriptor<Match>())) ?? []
+        for match in matches where !match.started {
+            if match.rounds.isEmpty {
+                // The live Match is exactly this shape — saved, un-Started, no
+                // Rounds — so age is the only thing separating it from an
+                // abandoned one. Left alone rather than deleted; the run that
+                // follows this one sweeps it if it was never scored.
+                guard match.createdAt < openedAt else { continue }
+                context.delete(match)
+            } else if match.start() {
+                // Started here rather than by a Round, and counted all the
+                // same: the Rounds are the evidence the game was played, and a
+                // tally that believed the flag over them would hand back Free
+                // Matches this player has already spent. The `if` is what
+                // keeps it to once — `start()` answers `true` only the first
+                // time — so a launch that sweeps nothing counts nothing.
+                recordStart()
+            }
+        }
+        save()
+    }
+
     func archive(_ match: Match) {
         match.archive()
         save()
@@ -291,11 +409,73 @@ final class MatchStore {
         save()
     }
 
+    /// Records what StoreKit last said about the Unlock: `true` from a
+    /// verified transaction, `false` from an explicitly revoked or refunded
+    /// one.
+    ///
+    /// Silence is not a value this takes. Nothing calls it when StoreKit
+    /// returns nothing, which is what leaves a device that has seen a purchase
+    /// unlocked offline — the rule lives in `UnlockStore`, and this is the
+    /// write it asks for once the rule has been applied.
+    ///
+    /// A no-op when nothing changes, so that the entitlement check every
+    /// launch performs does not write a row and a save for an answer the
+    /// device already had.
+    ///
+    /// Re-locking touches nothing else. Every Match, Round and Entrant is
+    /// exactly where it was, and stays readable and scorable: what a revocation
+    /// changes is what the player may *start*.
+    func recordUnlock(seen: Bool) {
+        guard seen != hasSeenUnlock else { return }
+        let cache: UnlockCache = soleRow { UnlockCache() }
+        cache.hasSeenVerifiedUnlock = seen
+        hasSeenUnlock = seen
+        save()
+    }
+
     /// Dismisses the save failure the player has been told about. The change it
     /// refers to stays in memory either way — this clears the message, not the
     /// data.
     func acknowledgeSaveFailure() {
         saveFailure = nil
+    }
+
+    /// Counts one Match Starting, against the stored tally and the count held
+    /// here, and saves neither: every caller is mid-mutation and about to
+    /// save, and going through their `save()` is what puts the Start and the
+    /// Round that caused it in one write.
+    ///
+    /// The stored row is created on first use rather than at launch, so
+    /// opening the app and not playing writes nothing, and a store that has
+    /// never seen a Start holds no tally to read back.
+    ///
+    /// A save that then fails leaves this exactly as it leaves everything else
+    /// here: the change stands in memory, the failure is surfaced, and the
+    /// next save that succeeds writes it out. A Free Match spent on screen and
+    /// not on the disk is the same window every other mutation has.
+    private func recordStart() {
+        let tally = soleRow { StartedMatchTally() }
+        tally.recordStart()
+        freeMatches = FreeMatches(startedMatches: tally.startedMatches)
+    }
+
+    /// The one row of a type the store keeps exactly one of — the tally and the
+    /// Unlock cache — created on first use.
+    ///
+    /// SwiftData has no notion of a singleton, so the discipline is this
+    /// store's and this is where it is kept: both rows are fetched, inserted
+    /// and written here and nowhere else. Created on first use rather than at
+    /// launch, so opening the app and doing nothing writes nothing, and a store
+    /// that has never been played on holds neither row to read back.
+    ///
+    /// Saving is the caller's, deliberately. Every caller is mid-mutation and
+    /// about to save, and going through their `save()` is what puts the change
+    /// and the Round or purchase that caused it in one write.
+    private func soleRow<Row: PersistentModel>(orInsert makeFresh: () -> Row) -> Row {
+        if let existing = (try? context.fetch(FetchDescriptor<Row>()))?.first { return existing }
+        let fresh = makeFresh()
+        context.insert(fresh)
+        return fresh
     }
 
     /// Writes the context out, recording rather than raising a failure.
@@ -341,6 +521,11 @@ extension MatchStore {
     /// along. Crashing here therefore means a store that could not be opened
     /// *and* could not be replaced — the device is not writable — which no
     /// amount of falling back can turn into a working app.
+    ///
+    /// Opening a store and nothing else. The launch sweep
+    /// (`discardUnstartedMatches()`) is the scene's call to make, in plain
+    /// sight beside the rest of the app's assembly: a factory that quietly
+    /// deletes is a factory whose name does not say what it does.
     static func forApp() -> MatchStore {
         do {
             return try MatchStore(recoveringAt: defaultStoreURL())

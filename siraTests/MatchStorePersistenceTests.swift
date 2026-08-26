@@ -471,6 +471,196 @@ final class MatchStorePersistenceTests: XCTestCase {
         }
     }
 
+    // MARK: - Un-Started Matches, at launch
+
+    /// A Match set up and never scored is unreachable once Home stops listing
+    /// it, so it is discarded rather than left on the device forever. Nothing
+    /// is lost: a Match with no Rounds has no tally, only a Variant choice and
+    /// some Entrant names.
+    func test_anUnStartedMatchIsGoneAfterTheNextLaunch() throws {
+        let abandoned = UUID()
+        let played = UUID()
+        let alice = UUID()
+
+        try launch { store in
+            store.add(
+                Match(id: abandoned, game: .gonga, variant: .gongaStandard, number: 101, mode: .players, entrants: [Entrant(name: "Bob")])
+            )
+            let scored = Match(
+                id: played,
+                game: .gonga,
+                variant: .gongaStandard,
+                number: 101,
+                mode: .players,
+                entrants: [Entrant(id: alice, name: "Alice")]
+            )
+            store.add(scored)
+            store.addRound(Round(deltas: [alice: 10]), to: scored)
+        }
+
+        try launch { store in
+            store.discardUnstartedMatches()
+        }
+
+        try launch { store in
+            XCTAssertEqual(try store.context.fetch(FetchDescriptor<Match>()).map(\.id), [played])
+            // The abandoned Match takes its Entrant with it rather than
+            // leaving one behind with no Match to belong to.
+            XCTAssertEqual(try store.context.fetch(FetchDescriptor<Entrant>()).map(\.id), [alice])
+        }
+    }
+
+    /// The launch path run twice over the same database — a scene re-entered,
+    /// or the sweep called from somewhere it should not have been. What an
+    /// earlier launch abandoned goes once; the played Match and the Match this
+    /// launch is setting up both survive both calls.
+    func test_sweepingTwiceOverOneStoreLeavesTheLiveMatchAlone() throws {
+        let abandoned = UUID()
+        let played = UUID()
+        let live = UUID()
+        let alice = UUID()
+
+        try launch { store in
+            store.add(
+                Match(id: abandoned, game: .gonga, variant: .gongaStandard, number: 101, mode: .players, entrants: [Entrant(name: "Bob")])
+            )
+            let scored = Match(
+                id: played,
+                game: .gonga,
+                variant: .gongaStandard,
+                number: 101,
+                mode: .players,
+                entrants: [Entrant(id: alice, name: "Alice")]
+            )
+            store.add(scored)
+            store.addRound(Round(deltas: [alice: 10]), to: scored)
+        }
+
+        try launch { store in
+            store.discardUnstartedMatches()
+            // Setup's Match, saved and not yet scored, arriving between the two
+            // sweeps exactly as it would between two evaluations of a view.
+            store.add(
+                Match(id: live, game: .gonga, variant: .gongaStandard, number: 101, mode: .players, entrants: [Entrant(name: "Cem")])
+            )
+            store.discardUnstartedMatches()
+
+            XCTAssertEqual(
+                Set(try store.context.fetch(FetchDescriptor<Match>()).map(\.id)),
+                [played, live]
+            )
+        }
+
+        // And on the disk, not only in the store that swept: the live Match is
+        // still there to be played on.
+        try launch { store in
+            XCTAssertEqual(
+                Set(try store.context.fetch(FetchDescriptor<Match>()).map(\.id)),
+                [played, live]
+            )
+        }
+    }
+
+    /// The Match whose only Round was undone is Started, and stays. This is the
+    /// case that would be swept away by a launch that discarded Matches with no
+    /// Rounds rather than Matches that were never Started.
+    func test_aStartedMatchWithNoRoundsLeftSurvivesTheNextLaunch() throws {
+        let id = UUID()
+        let alice = Entrant(name: "Alice")
+
+        try launch { store in
+            let match = Match(id: id, game: .gonga, variant: .gongaStandard, number: 101, mode: .players, entrants: [alice])
+            store.add(match)
+            store.addRound(Round(deltas: [alice.id: 10]), to: match)
+            store.undoLastRound(in: match)
+        }
+
+        try launch { store in
+            store.discardUnstartedMatches()
+        }
+
+        try launch { store in
+            let survivor = try self.match(id, in: store)
+            XCTAssertTrue(survivor.rounds.isEmpty)
+            XCTAssertTrue(survivor.started)
+        }
+    }
+
+    /// A Match written before the Started flag existed reads back as
+    /// un-Started, because that is what the default says. Its Rounds say
+    /// otherwise, and they are older than the flag — so it is Started at
+    /// launch rather than discarded as an intention.
+    func test_aMatchScoredBeforeTheFlagExistedIsStartedRatherThanDiscarded() throws {
+        let id = UUID()
+        // The Entrant's id and not the Entrant: an object belonging to the
+        // first launch's store is no use to the third's.
+        let alice = UUID()
+
+        try launch { store in
+            let match = Match(id: id, game: .gonga, variant: .gongaStandard, number: 101, mode: .players, entrants: [Entrant(id: alice, name: "Alice")])
+            store.add(match)
+            store.addRound(Round(deltas: [alice: 10]), to: match)
+            // What the store held before this release: Rounds on the Match,
+            // and no flag to have written. Written out here rather than left
+            // to autosave, which this launch does not live long enough for.
+            match.started = false
+            try store.context.save()
+        }
+
+        try launch { store in
+            store.discardUnstartedMatches()
+        }
+
+        try launch { store in
+            let survivor = try self.match(id, in: store)
+            XCTAssertTrue(survivor.started)
+            XCTAssertEqual(survivor.rounds.map { $0.deltas[alice] }, [10])
+        }
+    }
+
+    // MARK: - Free games
+
+    /// The reinstall case, and the first launch with it: a store over a
+    /// location holding nothing has three free games. Deliberate — the tally
+    /// lives in the app's own database and goes when the app goes, rather than
+    /// being hidden somewhere that survives being deleted.
+    func test_aStoreOverAFreshLocationHasThreeFreeGames() throws {
+        let remaining = try launch { $0.freeMatches.remaining }
+
+        XCTAssertEqual(remaining, 3)
+    }
+
+    func test_theFreeGamesSpentAreStillSpentAtTheNextLaunch() throws {
+        try launch { store in
+            for _ in 0..<2 {
+                let alice = Entrant(name: "Alice")
+                let match = Match(game: .gonga, variant: .gongaStandard, number: 101, mode: .players, entrants: [alice])
+                store.add(match)
+                store.addRound(Round(deltas: [alice.id: 10]), to: match)
+            }
+        }
+
+        XCTAssertEqual(try launch { $0.freeMatches.remaining }, 1)
+    }
+
+    /// The case a count taken by fetching Started Matches would get wrong.
+    /// Deleting the games does not unplay them, so the next launch opens on
+    /// an empty Home with two free games left rather than three.
+    func test_deletingAPlayedMatchDoesNotGiveItsFreeGameBackAtTheNextLaunch() throws {
+        try launch { store in
+            let alice = Entrant(name: "Alice")
+            let match = Match(game: .gonga, variant: .gongaStandard, number: 101, mode: .players, entrants: [alice])
+            store.add(match)
+            store.addRound(Round(deltas: [alice.id: 10]), to: match)
+            store.delete(match)
+        }
+
+        try launch { store in
+            XCTAssertEqual(store.freeMatches.remaining, 2)
+            XCTAssertEqual(try store.context.fetch(FetchDescriptor<Match>()).count, 0)
+        }
+    }
+
     // MARK: - When a save fails
 
     /// A full disk is the realistic case. The Round the player just entered
@@ -535,6 +725,37 @@ final class MatchStorePersistenceTests: XCTestCase {
         store.addRound(Round(deltas: [alice.id: 40]), to: match)
 
         XCTAssertNil(store.saveFailure)
+    }
+
+    /// A free game spent on screen and not on the disk is the meter's version
+    /// of the same failure, and it behaves the same way: the count stands, the
+    /// player is told, and the next save that succeeds writes it out.
+    ///
+    /// Following `test_aDeletionThatCannotBeSavedIsSurfacedAndStillStands` —
+    /// the store is built healthy so the Match can be added, and only then
+    /// made to fail, because a Round is what spends the free game and there
+    /// has to be a Match for it to land on.
+    func test_aFreeGameSpentWhenTheSaveFailsIsSurfacedAndStillStands() throws {
+        var failing = false
+        let store = MatchStore { context in
+            if failing { throw DiskFull() }
+            try context.save()
+        }
+        let alice = Entrant(name: "Alice")
+        let match = Match(game: .gonga, variant: .gongaStandard, number: 101, mode: .players, entrants: [alice])
+        store.add(match)
+
+        failing = true
+        store.addRound(Round(deltas: [alice.id: 40]), to: match)
+
+        XCTAssertNotNil(store.saveFailure)
+        XCTAssertEqual(store.freeMatches.remaining, 2)
+
+        failing = false
+        store.addRound(Round(deltas: [alice.id: 10]), to: match)
+
+        XCTAssertNil(store.saveFailure)
+        XCTAssertEqual(store.freeMatches.remaining, 2)
     }
 
     func test_acknowledgingASaveFailureLeavesTheChangeInPlace() throws {

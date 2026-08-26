@@ -485,4 +485,85 @@ extension MatchTests {
     func test_aMatchWithNoNumberHasNoPhrase() {
         XCTAssertNil(match(game: .gonga, variantId: "gonga-from-a-later-release").numberPhrase)
     }
+
+    // MARK: - Started
+
+    /// A Match nobody has scored yet is not history — it is an intention, and
+    /// Home has no business listing it.
+    func test_aMatchWithNoRoundsIsNotStarted() {
+        let match = Match(game: .gonga, variant: .gongaStandard, number: 101, mode: .players, entrants: [Entrant(name: "Alice")])
+
+        XCTAssertFalse(match.started)
+    }
+
+    func test_scoringTheFirstRoundStartsTheMatch() {
+        let alice = Entrant(name: "Alice")
+        let match = Match(game: .gonga, variant: .gongaStandard, number: 101, mode: .players, entrants: [alice])
+
+        match.addRound(Round(deltas: [alice.id: 10]))
+
+        XCTAssertTrue(match.started)
+    }
+
+    /// A Match handed its Rounds at once — a fixture, a Match read back from
+    /// the store and rebuilt — has been scored just as surely as one that took
+    /// them one at a time, and says so.
+    func test_aMatchBuiltWithRoundsIsAlreadyStarted() {
+        let alice = Entrant(name: "Alice")
+        let match = Match(
+            game: .gonga,
+            variant: .gongaStandard,
+            number: 101,
+            mode: .players,
+            entrants: [alice],
+            rounds: [Round(deltas: [alice.id: 10])]
+        )
+
+        XCTAssertTrue(match.started)
+    }
+
+    /// The case the whole flag exists for: Started is a fact about the Match,
+    /// not a reading of its Round count, so correcting a mistake does not make
+    /// the game vanish from Home.
+    func test_undoingTheOnlyRoundLeavesTheMatchStarted() {
+        let alice = Entrant(name: "Alice")
+        let match = Match(game: .gonga, variant: .gongaStandard, number: 101, mode: .players, entrants: [alice])
+        match.addRound(Round(deltas: [alice.id: 10]))
+
+        _ = match.undoLastRound()
+
+        XCTAssertTrue(match.rounds.isEmpty)
+        XCTAssertTrue(match.started)
+    }
+
+    /// Starting is once and for all. Scoring a second Round on a Match that is
+    /// already Started says nothing new — which is what lets the meter ticket
+    /// count Starts without counting Rounds.
+    func test_aMatchThatIsAlreadyStartedIsNotStartedAgain() {
+        let alice = Entrant(name: "Alice")
+        let match = Match(game: .gonga, variant: .gongaStandard, number: 101, mode: .players, entrants: [alice])
+
+        XCTAssertTrue(match.start())
+        XCTAssertFalse(match.start())
+    }
+
+    /// Archiving is about where a Match is listed; Started is about whether it
+    /// is listed at all. Neither reaches the other.
+    func test_archivingAndRestoringLeaveTheMatchStarted() {
+        let alice = Entrant(name: "Alice")
+        let match = Match(
+            game: .gonga,
+            variant: .gongaStandard,
+            number: 101,
+            mode: .players,
+            entrants: [alice],
+            rounds: [Round(deltas: [alice.id: 10])]
+        )
+
+        match.archive()
+        XCTAssertTrue(match.started)
+
+        match.restore()
+        XCTAssertTrue(match.started)
+    }
 }

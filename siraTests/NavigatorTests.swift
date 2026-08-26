@@ -100,4 +100,23 @@ final class NavigatorTests: XCTestCase {
 
         XCTAssertEqual([playable].scorableMatch(navigator.openMatchID)?.id, playable.id)
     }
+
+    /// Setup hands Play a Match that has never been scored, and Home does not
+    /// list one — so the route resolves against every stored Match rather than
+    /// against the cards Home draws. This is the check that proves hiding
+    /// un-Started Matches did not break the flow the app is used through.
+    func test_aRouteNamingAnUnStartedMatchStillResolves() {
+        let navigator = Navigator()
+        let justSetUp = Match(
+            game: .gonga,
+            variant: .gongaStandard,
+            number: 101,
+            mode: .players,
+            entrants: [Entrant(name: "Alice")]
+        )
+        navigator.openMatchID = justSetUp.id
+
+        XCTAssertFalse(justSetUp.started)
+        XCTAssertEqual([justSetUp].scorableMatch(navigator.openMatchID)?.id, justSetUp.id)
+    }
 }

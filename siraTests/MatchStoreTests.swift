@@ -3,8 +3,18 @@ import SwiftData
 @testable import sira
 
 final class MatchStoreTests: XCTestCase {
-    private func gongaMatch(entrants: [Entrant] = [Entrant(name: "Alice")]) -> Match {
-        Match(game: .gonga, variant: .gongaStandard, number: 101, mode: .players, entrants: entrants)
+    private func gongaMatch(
+        entrants: [Entrant] = [Entrant(name: "Alice")],
+        createdAt: Date = Date()
+    ) -> Match {
+        Match(
+            game: .gonga,
+            variant: .gongaStandard,
+            number: 101,
+            mode: .players,
+            entrants: entrants,
+            createdAt: createdAt
+        )
     }
 
     /// Reading is `@Query`'s job in the app, so the store's own tests read the
@@ -118,6 +128,82 @@ final class MatchStoreTests: XCTestCase {
         XCTAssertEqual(matches.map(\.entrants.count), [2, 2])
         let entrantIDs = matches.flatMap { $0.entrants.map(\.id) }
         XCTAssertEqual(Set(entrantIDs).count, entrantIDs.count)
+    }
+
+    // MARK: - Started
+
+    /// Scoring is what turns an intention into a game, so the Round that does
+    /// it Starts the Match — through the same store call that records it,
+    /// rather than as a second thing a screen has to remember.
+    func test_theFirstRoundScoredStartsTheMatch() throws {
+        let store = MatchStore()
+        let alice = Entrant(name: "Alice")
+        let match = gongaMatch(entrants: [alice])
+        store.add(match)
+        XCTAssertFalse(match.started)
+
+        store.addRound(Round(deltas: [alice.id: 10]), to: match)
+
+        XCTAssertTrue(try XCTUnwrap(try storedMatches(in: store).first).started)
+    }
+
+    /// Undo takes back the score, never the Start. A Match the player has been
+    /// scoring stays on Home while they correct it.
+    func test_undoingTheOnlyRoundLeavesTheMatchStarted() throws {
+        let store = MatchStore()
+        let alice = Entrant(name: "Alice")
+        let match = gongaMatch(entrants: [alice])
+        store.add(match)
+        store.addRound(Round(deltas: [alice.id: 10]), to: match)
+
+        store.undoLastRound(in: match)
+
+        XCTAssertTrue(match.rounds.isEmpty)
+        XCTAssertTrue(match.started)
+    }
+
+    /// Adding a Match is not scoring it: Setup hands the store a Match nobody
+    /// has played yet, and Home does not list it.
+    func test_addingAMatchDoesNotStartIt() throws {
+        let store = MatchStore()
+        let match = gongaMatch()
+
+        store.add(match)
+
+        XCTAssertFalse(try XCTUnwrap(try storedMatches(in: store).first).started)
+    }
+
+    /// The launch sweep, in one store: what an earlier run left un-scored
+    /// goes, what was scored stays.
+    ///
+    /// The abandoned Match is dated before this store was opened because that
+    /// is what it is — a leftover from a run that has ended. The sweep will not
+    /// touch one created since, which is the next test.
+    func test_discardingUnstartedMatchesLeavesTheStartedOnes() throws {
+        let store = MatchStore()
+        let alice = Entrant(name: "Alice")
+        let scored = gongaMatch(entrants: [alice])
+        store.add(scored)
+        store.addRound(Round(deltas: [alice.id: 10]), to: scored)
+        store.add(gongaMatch(createdAt: .distantPast))
+
+        store.discardUnstartedMatches()
+
+        XCTAssertEqual(try storedMatches(in: store).map(\.id), [scored.id])
+    }
+
+    /// The Match the player is on right now: saved by Setup, un-Started, no
+    /// Rounds — the exact shape the sweep deletes, and the one it must never
+    /// take. A sweep running a second time is what would find it, so the rule
+    /// is age rather than call order.
+    func test_aMatchSetUpSinceTheStoreOpenedSurvivesTheSweep() throws {
+        let store = MatchStore()
+        let live = gongaMatch()
+        store.add(live)
+
+        store.discardUnstartedMatches()
+
+        XCTAssertEqual(try storedMatches(in: store).map(\.id), [live.id])
     }
 
     // MARK: - Deleting

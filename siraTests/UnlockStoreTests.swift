@@ -1,0 +1,490 @@
+import XCTest
+@testable import sira
+
+/// The purchase, end to end, through injected fakes — none of it can touch the
+/// App Store.
+///
+/// What each test asserts is what a player would notice: whether they are
+/// unlocked, and what the sheet says to them. Nothing here inspects StoreKit or
+/// counts calls into it.
+@MainActor
+final class UnlockStoreTests: XCTestCase {
+    /// A StoreKit that answers however the test needs it to. Everything
+    /// defaults to the quietest possible answer — no price, no entitlements,
+    /// nothing arriving — so each test names only the thing it is about.
+    private func operations(
+        displayPrice: String? = nil,
+        purchase: UnlockStore.PurchaseOutcome = .cancelled,
+        restore: UnlockStore.RestoreOutcome = .finished,
+        entitlements: [UnlockStore.Entitlement] = [],
+        updates: AsyncStream<UnlockStore.Entitlement> = AsyncStream { $0.finish() },
+        presentCodeRedemption: @escaping () -> Void = {}
+    ) -> UnlockStore.Operations {
+        UnlockStore.Operations(
+            displayPrice: { displayPrice },
+            purchase: { purchase },
+            restore: { restore },
+            entitlements: { entitlements },
+            updates: { updates },
+            presentCodeRedemption: presentCodeRedemption
+        )
+    }
+
+    private func store(
+        _ operations: UnlockStore.Operations,
+        cache: UnlockStore.Cache = .inMemory()
+    ) -> UnlockStore {
+        UnlockStore(operations: operations, cache: cache)
+    }
+
+    private let held = UnlockStore.Entitlement(isRevoked: false)
+    private let revoked = UnlockStore.Entitlement(isRevoked: true)
+
+    // MARK: - Buying
+
+    func test_aSuccessfulPurchaseUnlocks() async {
+        let unlock = store(operations(purchase: .unlocked))
+
+        await unlock.purchase()
+
+        XCTAssertTrue(unlock.isUnlocked)
+        XCTAssertEqual(unlock.status, .ready)
+    }
+
+    /// The purchase is remembered on the device, so the next launch does not
+    /// have to ask Apple anything to know the answer.
+    func test_aSuccessfulPurchaseIsRememberedForTheNextLaunch() async {
+        let cache = UnlockStore.Cache.inMemory()
+
+        await store(operations(purchase: .unlocked), cache: cache).purchase()
+
+        XCTAssertTrue(store(operations(), cache: cache).isUnlocked)
+    }
+
+    /// Backing out of Apple's payment sheet is not an event. No message, no
+    /// change: exactly as they were.
+    func test_cancellingLeavesThePlayerExactlyAsTheyWere() async {
+        let unlock = store(operations(purchase: .cancelled))
+
+        await unlock.purchase()
+
+        XCTAssertFalse(unlock.isUnlocked)
+        XCTAssertEqual(unlock.status, .ready)
+    }
+
+    func test_aFailedPurchaseSurfacesAMessageAndLeavesThemLocked() async {
+        let unlock = store(operations(purchase: .failed(UnlockCopy.purchaseFailed)))
+
+        await unlock.purchase()
+
+        XCTAssertFalse(unlock.isUnlocked)
+        XCTAssertEqual(unlock.status, .purchaseFailed(UnlockCopy.purchaseFailed))
+    }
+
+    /// And says so — the thing a player is actually worried about is whether
+    /// they have been charged.
+    func test_aFailedPurchaseSaysNoMoneyMoved() async {
+        let unlock = store(operations(purchase: .failed(UnlockCopy.purchaseFailed)))
+
+        await unlock.purchase()
+
+        guard case let .purchaseFailed(message) = unlock.status else {
+            return XCTFail("Expected a message, got \(unlock.status)")
+        }
+        XCTAssertTrue(message.contains("haven't been charged"), message)
+    }
+
+    /// Ask to Buy: neither bought nor failed. It arrives later through the
+    /// updates stream, which is what the message says.
+    func test_aPurchaseNeedingApprovalIsWaitingRatherThanFailed() async {
+        let unlock = store(operations(purchase: .awaitingApproval))
+
+        await unlock.purchase()
+
+        XCTAssertFalse(unlock.isUnlocked)
+        XCTAssertEqual(unlock.status, .awaitingApproval)
+    }
+
+    /// Raising the offer again after a failure is a fresh offer, not the last
+    /// failure still on screen.
+    func test_dismissingTheOfferClearsTheLastMessage() async {
+        let unlock = store(operations(purchase: .failed(UnlockCopy.purchaseFailed)))
+        await unlock.purchase()
+
+        unlock.clearStatus()
+
+        XCTAssertEqual(unlock.status, .ready)
+    }
+
+    /// One tap, one purchase.
+    ///
+    /// The sheet disables itself while a purchase is in flight, but only once
+    /// this has run far enough to say so — and a second tap landing in the hop
+    /// before that has already been dispatched. Two taps, one trip to Apple.
+    func test_asecondTapWhileTheFirstIsWithAppleBuysNothingTwice() async {
+        let attempts = Tally()
+        var operations = operations()
+        operations.purchase = {
+            attempts.record()
+            // Stands in for Apple's sheet: the first attempt is suspended here
+            // when the second arrives, which is exactly the window the guard
+            // exists to close.
+            await Task.yield()
+            return .unlocked
+        }
+        let unlock = store(operations)
+
+        async let first: Void = unlock.purchase()
+        async let second: Void = unlock.purchase()
+        _ = await (first, second)
+
+        XCTAssertEqual(attempts.count, 1)
+        XCTAssertTrue(unlock.isUnlocked)
+        XCTAssertEqual(unlock.status, .ready)
+    }
+
+    // MARK: - The price
+
+    func test_thePriceShownIsTheOneStoreKitSupplied() async {
+        let unlock = store(operations(displayPrice: "1.234,56 TL"))
+
+        await unlock.prepare()
+
+        XCTAssertEqual(unlock.displayPrice, "1.234,56 TL")
+        XCTAssertEqual(UnlockCopy.buy(price: unlock.displayPrice), "Unlock Sıra for 1.234,56 TL")
+    }
+
+    /// Offline at launch, most likely. The button keeps its own word and stays
+    /// live: the purchase asks for the product again and has something to say
+    /// if it still cannot reach it.
+    func test_noPriceYetLeavesTheButtonWithSomethingToSay() async {
+        let unlock = store(operations(displayPrice: nil))
+
+        await unlock.prepare()
+
+        XCTAssertNil(unlock.displayPrice)
+        XCTAssertEqual(UnlockCopy.buy(price: unlock.displayPrice), "Unlock Sıra")
+    }
+
+    // MARK: - The entitlement
+
+    /// **The single most important test in this ticket.**
+    ///
+    /// StoreKit returning nothing — offline, a cache that has never synced on
+    /// this device, or the known family-sharing regressions — is not a refusal.
+    /// A device that has ever seen a verified purchase stays unlocked, because
+    /// wrongly locking hits a paying player mid-evening and wrongly staying
+    /// unlocked costs at most one purchase somebody already made.
+    func test_storeKitReturningNothingLeavesAPreviouslyUnlockedPlayerUnlocked() async {
+        let unlock = store(
+            operations(entitlements: []),
+            cache: .inMemory(hasSeenUnlock: true)
+        )
+
+        await unlock.prepare()
+
+        XCTAssertTrue(unlock.isUnlocked)
+    }
+
+    /// The other half of it: silence does not hand the app to somebody who
+    /// never bought it either. It changes nothing at all.
+    func test_storeKitReturningNothingLeavesAPlayerWhoNeverPaidLocked() async {
+        let unlock = store(operations(entitlements: []))
+
+        await unlock.prepare()
+
+        XCTAssertFalse(unlock.isUnlocked)
+    }
+
+    /// A reinstall, or a new phone, on a slow storefront: the price is a
+    /// network round trip and the entitlement is a local read. A player who
+    /// has already paid is unlocked the moment StoreKit answers, rather than
+    /// looking at the wall for as long as the products request takes.
+    func test_theEntitlementIsAppliedWithoutWaitingForASlowPrice() async {
+        let priceGate = Gate()
+        var operations = operations(entitlements: [held])
+        operations.displayPrice = {
+            await priceGate.wait()
+            return "1.234,56 TL"
+        }
+        let unlock = store(operations)
+
+        let prepared = Task { await unlock.prepare() }
+        // The price is parked at the gate for the whole of this.
+        for _ in 0..<100 where !unlock.isUnlocked { await Task.yield() }
+
+        XCTAssertTrue(unlock.isUnlocked)
+        XCTAssertNil(unlock.displayPrice)
+
+        await priceGate.open()
+        await prepared.value
+
+        XCTAssertEqual(unlock.displayPrice, "1.234,56 TL")
+    }
+
+    func test_averifiedEntitlementUnlocksADeviceThatHasNotSeenOneBefore() async {
+        let unlock = store(operations(entitlements: [held]))
+
+        await unlock.prepare()
+
+        XCTAssertTrue(unlock.isUnlocked)
+    }
+
+    /// A refund, or a Family Sharing group the player has left. This is the one
+    /// answer that re-locks — an explicit revocation, never an absence.
+    func test_anExplicitlyRevokedTransactionRelocks() async {
+        let cache = UnlockStore.Cache.inMemory(hasSeenUnlock: true)
+        let unlock = store(operations(entitlements: [revoked]), cache: cache)
+
+        await unlock.prepare()
+
+        XCTAssertFalse(unlock.isUnlocked)
+        // And the device stops claiming it, so the next launch agrees.
+        XCTAssertFalse(cache.read())
+    }
+
+    /// Two Apple Accounts on one device, one of them refunded: the purchase
+    /// that still stands is what counts.
+    func test_oneRevokedTransactionAlongsideOneHeldLeavesThePlayerUnlocked() async {
+        let unlock = store(operations(entitlements: [revoked, held]))
+
+        await unlock.prepare()
+
+        XCTAssertTrue(unlock.isUnlocked)
+    }
+
+    // MARK: - Arriving from elsewhere
+
+    /// Another device, or a Family Sharing member. The player buys nothing in
+    /// this session and the app unlocks.
+    func test_aPurchaseArrivingThroughTheUpdatesStreamUnlocks() async {
+        let unlock = store(operations(updates: stream(of: [held])))
+
+        await unlock.observeUpdates()
+
+        XCTAssertTrue(unlock.isUnlocked)
+    }
+
+    func test_aRevocationArrivingThroughTheUpdatesStreamRelocks() async {
+        let unlock = store(
+            operations(updates: stream(of: [revoked])),
+            cache: .inMemory(hasSeenUnlock: true)
+        )
+
+        await unlock.observeUpdates()
+
+        XCTAssertFalse(unlock.isUnlocked)
+    }
+
+    /// A revocation says one transaction has been taken back. It does not say
+    /// the player has nothing left.
+    ///
+    /// Someone who bought the Unlock and is also in a family group that holds
+    /// one has two of them, and a refund of theirs must not lock an app they
+    /// are still entitled to. The batch path has always got this right; this
+    /// is the same rule on the path a revocation actually arrives by.
+    func test_aRevocationArrivingAlongsideAHeldEntitlementDoesNotRelock() async {
+        let unlock = store(
+            operations(entitlements: [held], updates: stream(of: [revoked])),
+            cache: .inMemory(hasSeenUnlock: true)
+        )
+
+        await unlock.observeUpdates()
+
+        XCTAssertTrue(unlock.isUnlocked)
+    }
+
+    /// And the other half of it: StoreKit having nothing else to offer leaves
+    /// the arriving revocation as the whole picture, which re-locks. Silence
+    /// is not what re-locks here — an explicit revocation is.
+    func test_aRevocationWithNothingElseHeldStillRelocks() async {
+        let unlock = store(
+            operations(entitlements: [], updates: stream(of: [revoked])),
+            cache: .inMemory(hasSeenUnlock: true)
+        )
+
+        await unlock.observeUpdates()
+
+        XCTAssertFalse(unlock.isUnlocked)
+    }
+
+    // MARK: - Restore
+
+    func test_restoreThatFindsAPurchaseUnlocks() async {
+        let unlock = store(operations(entitlements: [held]))
+
+        await unlock.restore()
+
+        XCTAssertTrue(unlock.isUnlocked)
+        XCTAssertEqual(unlock.status, .ready)
+    }
+
+    /// Said plainly, rather than left as a screen that did nothing.
+    func test_restoreThatFindsNothingSaysSo() async {
+        let unlock = store(operations(entitlements: []))
+
+        await unlock.restore()
+
+        XCTAssertFalse(unlock.isUnlocked)
+        XCTAssertEqual(unlock.status, .nothingToRestore)
+    }
+
+    /// A Restore that finds nothing is an answer about *this* Apple Account,
+    /// and it does not take the app away from a device that already had it.
+    func test_restoreThatFindsNothingDoesNotRelockAnUnlockedDevice() async {
+        let unlock = store(operations(entitlements: []), cache: .inMemory(hasSeenUnlock: true))
+
+        await unlock.restore()
+
+        XCTAssertTrue(unlock.isUnlocked)
+        XCTAssertEqual(unlock.status, .ready)
+    }
+
+    func test_restoreThatCannotReachTheAppStoreSaysSo() async {
+        let unlock = store(operations(restore: .failed))
+
+        await unlock.restore()
+
+        XCTAssertFalse(unlock.isUnlocked)
+        XCTAssertEqual(unlock.status, .purchaseFailed(UnlockCopy.restoreFailed))
+    }
+
+    /// Dismissing Apple's password prompt is not a failed Restore.
+    ///
+    /// Telling a player who changed their mind that the App Store could not be
+    /// reached is a lie about their network, and it contradicts the purchase
+    /// path, which treats a cancellation as the non-event it is.
+    func test_restoreThePlayerBacksOutOfSaysNothingAtAll() async {
+        let unlock = store(operations(restore: .cancelled))
+
+        await unlock.restore()
+
+        XCTAssertFalse(unlock.isUnlocked)
+        XCTAssertEqual(unlock.status, .ready)
+    }
+
+    /// And it does not disturb a player who is already unlocked.
+    func test_restoreThePlayerBacksOutOfLeavesAnUnlockedDeviceAlone() async {
+        let unlock = store(operations(restore: .cancelled), cache: .inMemory(hasSeenUnlock: true))
+
+        await unlock.restore()
+
+        XCTAssertTrue(unlock.isUnlocked)
+        XCTAssertEqual(unlock.status, .ready)
+    }
+
+    // MARK: - Promo codes
+
+    /// The only thing the app does with a promo code: hand the screen to the
+    /// App Store. There is no code to read, no code to check, and nothing to
+    /// wait for — a code redeemed there comes back as a transaction, which is
+    /// the next test.
+    func test_theCodeAffordanceHandsOverToTheAppStore() {
+        var presented = 0
+        let unlock = store(operations(presentCodeRedemption: { presented += 1 }))
+
+        unlock.redeemCode()
+
+        XCTAssertEqual(presented, 1)
+    }
+
+    /// The sheet stays live behind Apple's.
+    ///
+    /// Presenting the redemption sheet hands back nothing at all — not a
+    /// result, not even a dismissal — so a status set on the way in would have
+    /// nothing to clear it. A player who opens it, thinks better of it and
+    /// swipes it away lands back on an offer they can still act on.
+    func test_theCodeAffordanceLeavesTheSheetUsable() {
+        let unlock = store(operations())
+
+        unlock.redeemCode()
+
+        XCTAssertEqual(unlock.status, .ready)
+        XCTAssertFalse(unlock.isUnlocked)
+    }
+
+    /// What redeeming one actually does. The code is redeemed in the App
+    /// Store, and Apple delivers the result as a transaction on the updates
+    /// stream — the same path a purchase made on another device takes — so the
+    /// app unlocks without the player coming back and tapping anything.
+    func test_aRedeemedCodeUnlocksThroughTheUpdatesStream() async {
+        let unlock = store(operations(updates: AsyncStream { continuation in
+            continuation.yield(held)
+            continuation.finish()
+        }))
+
+        await unlock.observeUpdates()
+
+        XCTAssertTrue(unlock.isUnlocked)
+    }
+
+    // MARK: - The local cache
+
+    /// The flag is written where the meter lives, and read back the way
+    /// `MatchStorePersistenceTests` proves everything else: a second store over
+    /// the same file.
+    func test_theUnlockSurvivesARelaunch() throws {
+        let directory = URL.temporaryDirectory.appending(path: "UnlockStoreTests-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appending(path: "Sira.store")
+
+        try MatchStore(storedAt: url).recordUnlock(seen: true)
+
+        XCTAssertTrue(try MatchStore(storedAt: url).hasSeenUnlock)
+    }
+
+    /// Re-locking changes what the player can start and nothing else. Their
+    /// history is where they left it, complete and readable.
+    func test_reLockingTouchesNoMatchRoundOrEntrant() {
+        let matchStore = MatchStore()
+        let alice = Entrant(name: "Alice")
+        let match = Match(game: .gonga, variant: .gongaStandard, number: 101, mode: .players, entrants: [alice])
+        matchStore.add(match)
+        matchStore.addRound(Round(deltas: [alice.id: 20]), to: match)
+        matchStore.recordUnlock(seen: true)
+
+        matchStore.recordUnlock(seen: false)
+
+        XCTAssertFalse(matchStore.hasSeenUnlock)
+        XCTAssertEqual(match.rounds.count, 1)
+        XCTAssertEqual(match.entrants.count, 1)
+        XCTAssertEqual(match.rounds.first?.deltas[alice.id], 20)
+        // And the meter is exactly where it was: a revocation returns the
+        // player to it rather than resetting it.
+        XCTAssertEqual(matchStore.freeMatches.remaining, 2)
+    }
+
+    // MARK: -
+
+    private func stream(of entitlements: [UnlockStore.Entitlement]) -> AsyncStream<UnlockStore.Entitlement> {
+        AsyncStream { continuation in
+            for entitlement in entitlements { continuation.yield(entitlement) }
+            continuation.finish()
+        }
+    }
+
+    /// A closure held open until the test lets it through — what a storefront
+    /// that has not answered yet looks like from in here.
+    private actor Gate {
+        private var waiting: [CheckedContinuation<Void, Never>] = []
+        private var isOpen = false
+
+        func wait() async {
+            guard !isOpen else { return }
+            await withCheckedContinuation { waiting.append($0) }
+        }
+
+        func open() {
+            isOpen = true
+            for continuation in waiting { continuation.resume() }
+            waiting = []
+        }
+    }
+
+    /// A call counter that an `Operations` closure can safely close over.
+    private final class Tally: @unchecked Sendable {
+        private(set) var count = 0
+        func record() { count += 1 }
+    }
+}

@@ -213,7 +213,8 @@ A good test here asserts what a player would notice: how many Matches they can s
 - iCloud or CloudKit sync of the meter or the entitlement. Storage stays local, as the persistence spec settled.
 - Turkish localisation and Turkish-storefront pricing. Turkey is a deliberate later launch behind localisation; nothing here should make per-storefront pricing harder, and nothing here should attempt it.
 - Analytics, conversion tracking, experiments, or any measurement of the paywall.
-- Promotional offers, introductory pricing, promo codes, refund handling in-app, and App Store promoted purchases.
+- Promotional offers, introductory pricing, refund handling in-app, and App Store promoted purchases.
+- ~~Promo codes~~ — brought into scope by ticket 05, and only in the one shape that does not breach 3.1.1: a link to the App Store's own redemption sheet. Sıra still has no code of its own, reads none, and validates none.
 - Raising or lowering the price after launch, which is an App Store Connect operation and not a code change.
 - The App Store listing copy, screenshots and metadata. Required before submission, tracked on the release ticket.
 

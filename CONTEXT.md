@@ -58,6 +58,32 @@ _Avoid_: "add a player" in domain prose (that is the button's label, not the con
 How much an Entrant can still take before passing their Match's limit and going Out — the limit minus their total. Only Survival Variants have one; an Entrant already Out has none. Standings shows it per Entrant beside their bar, and the Entrants with the least of it are the Match's **Closest to out** — every one of them, plural where they tie, since a **Rejoin** and a **Join** both land an Entrant on the highest total still in and so produce ties as a matter of course.
 _Avoid_: "headroom," "remaining," using it for Okey's countdown (that total *is* the distance to 0).
 
+**Started**:
+A Match that has had at least one **Round** scored on it. Permanent: **Undo** removes the Round but never the Start, so a Match whose only Round has been undone is still Started, and scoring the next one does not Start it again. Home lists Started Matches — under every filter, since the chips are views of that list — and an un-Started Match is not history yet: it is discarded at the next launch rather than kept, taking nothing with it but a Variant choice and some Entrant names. Carried as a flag on the Match rather than read off its Round count, which is exactly what the undo case turns on.
+Defined against **Archived**, which hides a Started Match, and **Delete**, which removes one.
+_Avoid_: "created" — every Match is created, so it no longer distinguishes anything Home acts on; "in progress", which is about whether a Match has finished rather than whether it has begun.
+
+**Free Match**:
+One of the three Matches that can be **Started** before the app has to be paid for. Consumed the moment a Match Starts — the first Round scored on it — and never returned: **Undo**, **Delete** and **Archived** all leave the count exactly where it was, because what was spent was the playing of a game and none of those unplays it. Counted by a tally stored beside the Matches, so the Start and the Round that caused it are written together. The tally goes with the app if it is deleted, and a reinstalling player gets three again — a deliberate choice, not an oversight.
+Defined against **Started**, which is the event that consumes one, and against a Match, of which there may be any number: the limit is on starting them, never on keeping or reading them.
+_Avoid_: "trial", which suggests a period that expires; "credit", which suggests something that can be topped up or spent back. To the player these are "free games" — Home's own word — never "free Matches".
+
+**Unlock**:
+The one-off purchase that removes the **Free Match** limit for good. A StoreKit 2 non-consumable, tied to an Apple Account rather than to a device, shared through Family Sharing, and permanent unless Apple revokes it — a refund, or somebody leaving a family group.
+
+Verified on the device against Apple's signature, with no server and no receipt endpoint anywhere (`docs/adr/0010`), which is what lets an app that is otherwise wholly offline sell something. What the device keeps is a *cache* of Apple's answer and never a source of truth: silence from StoreKit leaves a device that has ever seen a verified purchase Unlocked, and only an explicit revocation re-locks it (`docs/adr/0011`).
+
+Bought from the offer sheet the wall raises, which is also the app's only Restore affordance. It changes exactly one thing — how many Matches may be **Started** — and no Variant, mode or feature is behind it.
+_Avoid_: "subscription" or "pro" (there is one payment and no tier above it), "premium", "licence"; "purchase" as the noun for the state a player is in — that is **Unlocked**, the opposite of **Locked**.
+
+**Locked**:
+The state in which the **Free Matches** are used up and no **Unlock** is held. The only thing it stops is *starting* a Match: tapping Gonga or Okey raises the offer instead of opening the Variant picker, and that is the whole of the wall.
+
+Everything else is untouched, and deliberately so. Every Match already Started stays fully scorable — Rounds, Undo, Rejoin, Join, renames — and every Match ever played stays readable, archivable and deletable. Scoring a Round is never refused, in any state, by anything.
+
+Asked once rather than counted at each call site: `GameAccess` answers Unlocked, free with a remainder, or Locked, and it is the only thing Home and the offer sheet read.
+_Avoid_: using "locked" for an **Archived** Match (Archived is a visibility flag and an Archived Match takes Rounds exactly as any other does) or for an **Entrant** who is **Out** (that is a Match's own rule, and has nothing to do with what has been paid for); "expired," which suggests the Free Matches ran out on a clock rather than on being played.
+
 **Archived**:
 A Match hidden from the default "Active" view. Purely a visibility flag, and **orthogonal to whether a Match is live**: an Archived Match is not locked, and takes Rounds, Rejoins, renames and Joins exactly as an unarchived one does. What closes a roster to edits is the Win Condition deciding the Match (`Standings.acceptsRosterEdits`), never its filter.
 _Avoid_: using "Archived" and "Deleted" for each other. Archiving hides a Match and is reversible; deleting destroys it and is not.
