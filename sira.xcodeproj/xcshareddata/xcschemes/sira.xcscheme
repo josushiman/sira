@@ -61,7 +61,7 @@
          </BuildableReference>
       </BuildableProductRunnable>
       <StoreKitConfigurationFileReference
-         identifier = "../../../Sira.storekit">
+         identifier = "../../Sira.storekit">
       </StoreKitConfigurationFileReference>
    </LaunchAction>
    <ProfileAction

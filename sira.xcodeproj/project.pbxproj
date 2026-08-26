@@ -25,6 +25,7 @@
 		12AD9D5B98205F2B4A50855F /* siraTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = siraTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		9A0839C1DDAE91B5EA858333 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		B318B223303478DC002BEDC5 /* sira.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = sira.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B3D33D76303EF86700FC356F /* Sira.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = Sira.storekit; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -92,6 +93,7 @@
 		B318B21A303478DC002BEDC5 = {
 			isa = PBXGroup;
 			children = (
+				B3D33D76303EF86700FC356F /* Sira.storekit */,
 				B318B225303478DC002BEDC5 /* sira */,
 				B318B224303478DC002BEDC5 /* Products */,
 				27E0925EA80CDDEB5F03B78A /* Frameworks */,
