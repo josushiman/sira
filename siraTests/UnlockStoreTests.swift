@@ -15,7 +15,7 @@ final class UnlockStoreTests: XCTestCase {
     private func operations(
         displayPrice: String? = nil,
         purchase: UnlockStore.PurchaseOutcome = .cancelled,
-        restore: @escaping () async throws -> Void = {},
+        restore: UnlockStore.RestoreOutcome = .finished,
         entitlements: [UnlockStore.Entitlement] = [],
         updates: AsyncStream<UnlockStore.Entitlement> = AsyncStream { $0.finish() },
         presentCodeRedemption: @escaping () -> Void = {}
@@ -23,7 +23,7 @@ final class UnlockStoreTests: XCTestCase {
         UnlockStore.Operations(
             displayPrice: { displayPrice },
             purchase: { purchase },
-            restore: restore,
+            restore: { restore },
             entitlements: { entitlements },
             updates: { updates },
             presentCodeRedemption: presentCodeRedemption
@@ -113,6 +113,33 @@ final class UnlockStoreTests: XCTestCase {
 
         unlock.clearStatus()
 
+        XCTAssertEqual(unlock.status, .ready)
+    }
+
+    /// One tap, one purchase.
+    ///
+    /// The sheet disables itself while a purchase is in flight, but only once
+    /// this has run far enough to say so — and a second tap landing in the hop
+    /// before that has already been dispatched. Two taps, one trip to Apple.
+    func test_asecondTapWhileTheFirstIsWithAppleBuysNothingTwice() async {
+        let attempts = Tally()
+        var operations = operations()
+        operations.purchase = {
+            attempts.record()
+            // Stands in for Apple's sheet: the first attempt is suspended here
+            // when the second arrives, which is exactly the window the guard
+            // exists to close.
+            await Task.yield()
+            return .unlocked
+        }
+        let unlock = store(operations)
+
+        async let first: Void = unlock.purchase()
+        async let second: Void = unlock.purchase()
+        _ = await (first, second)
+
+        XCTAssertEqual(attempts.count, 1)
+        XCTAssertTrue(unlock.isUnlocked)
         XCTAssertEqual(unlock.status, .ready)
     }
 
@@ -223,6 +250,38 @@ final class UnlockStoreTests: XCTestCase {
         XCTAssertFalse(unlock.isUnlocked)
     }
 
+    /// A revocation says one transaction has been taken back. It does not say
+    /// the player has nothing left.
+    ///
+    /// Someone who bought the Unlock and is also in a family group that holds
+    /// one has two of them, and a refund of theirs must not lock an app they
+    /// are still entitled to. The batch path has always got this right; this
+    /// is the same rule on the path a revocation actually arrives by.
+    func test_aRevocationArrivingAlongsideAHeldEntitlementDoesNotRelock() async {
+        let unlock = store(
+            operations(entitlements: [held], updates: stream(of: [revoked])),
+            cache: .inMemory(hasSeenUnlock: true)
+        )
+
+        await unlock.observeUpdates()
+
+        XCTAssertTrue(unlock.isUnlocked)
+    }
+
+    /// And the other half of it: StoreKit having nothing else to offer leaves
+    /// the arriving revocation as the whole picture, which re-locks. Silence
+    /// is not what re-locks here — an explicit revocation is.
+    func test_aRevocationWithNothingElseHeldStillRelocks() async {
+        let unlock = store(
+            operations(entitlements: [], updates: stream(of: [revoked])),
+            cache: .inMemory(hasSeenUnlock: true)
+        )
+
+        await unlock.observeUpdates()
+
+        XCTAssertFalse(unlock.isUnlocked)
+    }
+
     // MARK: - Restore
 
     func test_restoreThatFindsAPurchaseUnlocks() async {
@@ -256,12 +315,36 @@ final class UnlockStoreTests: XCTestCase {
     }
 
     func test_restoreThatCannotReachTheAppStoreSaysSo() async {
-        let unlock = store(operations(restore: { throw StubError() }))
+        let unlock = store(operations(restore: .failed))
 
         await unlock.restore()
 
         XCTAssertFalse(unlock.isUnlocked)
         XCTAssertEqual(unlock.status, .purchaseFailed(UnlockCopy.restoreFailed))
+    }
+
+    /// Dismissing Apple's password prompt is not a failed Restore.
+    ///
+    /// Telling a player who changed their mind that the App Store could not be
+    /// reached is a lie about their network, and it contradicts the purchase
+    /// path, which treats a cancellation as the non-event it is.
+    func test_restoreThePlayerBacksOutOfSaysNothingAtAll() async {
+        let unlock = store(operations(restore: .cancelled))
+
+        await unlock.restore()
+
+        XCTAssertFalse(unlock.isUnlocked)
+        XCTAssertEqual(unlock.status, .ready)
+    }
+
+    /// And it does not disturb a player who is already unlocked.
+    func test_restoreThePlayerBacksOutOfLeavesAnUnlockedDeviceAlone() async {
+        let unlock = store(operations(restore: .cancelled), cache: .inMemory(hasSeenUnlock: true))
+
+        await unlock.restore()
+
+        XCTAssertTrue(unlock.isUnlocked)
+        XCTAssertEqual(unlock.status, .ready)
     }
 
     // MARK: - Promo codes
@@ -355,5 +438,9 @@ final class UnlockStoreTests: XCTestCase {
         }
     }
 
-    private struct StubError: Error {}
+    /// A call counter that an `Operations` closure can safely close over.
+    private final class Tally: @unchecked Sendable {
+        private(set) var count = 0
+        func record() { count += 1 }
+    }
 }

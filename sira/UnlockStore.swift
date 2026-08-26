@@ -77,6 +77,19 @@ final class UnlockStore {
         let isRevoked: Bool
     }
 
+    /// What a tap on Restore came back as.
+    enum RestoreOutcome: Equatable {
+        /// Apple re-delivered whatever this Apple Account holds. Whether that
+        /// was anything is the entitlements' answer, not this one.
+        case finished
+        /// The player dismissed Apple's password prompt. Not an error, and
+        /// nothing to say about it — the same non-event that backing out of
+        /// the payment sheet is.
+        case cancelled
+        /// It could not be done. Offline, most likely.
+        case failed
+    }
+
     /// What a tap on Buy came back as.
     enum PurchaseOutcome: Equatable {
         case unlocked
@@ -97,7 +110,12 @@ final class UnlockStore {
         var purchase: () async -> PurchaseOutcome
         /// Asks Apple to re-deliver this Apple Account's purchases. Prompts for
         /// a password, which is why nothing calls it at launch.
-        var restore: () async throws -> Void
+        ///
+        /// Hands back an outcome rather than throwing, so that telling a
+        /// cancellation apart from a failure stays in the one file that
+        /// imports StoreKit. `UnlockStore` would otherwise have to read
+        /// StoreKit's own error taxonomy to know which of the two it had.
+        var restore: () async -> RestoreOutcome
         /// What StoreKit currently says this device is entitled to. An empty
         /// answer is silence, not a refusal — see `apply(_:)`.
         var entitlements: () async -> [Entitlement]
@@ -157,7 +175,24 @@ final class UnlockStore {
     /// caller holds rather than something started and forgotten in here.
     func observeUpdates() async {
         for await entitlement in operations.updates() {
-            apply([entitlement])
+            // A revocation is the one kind of update that cannot be read on
+            // its own. It says one transaction has been taken back; it does
+            // not say the player has nothing left. A player who bought the
+            // Unlock and is also in a family group that holds one has two, and
+            // a refund of theirs would otherwise lock an app they are still
+            // entitled to — mid-evening, at a table, which `apply(_:)` spells
+            // out as the expensive direction to be wrong in.
+            //
+            // So a revocation is applied against the whole picture rather than
+            // alone. The arriving transaction goes in with it, which is what
+            // keeps a genuine last-one-revoked re-locking: StoreKit answering
+            // nothing would otherwise be silence, and silence leaves the
+            // device as it was.
+            if entitlement.isRevoked {
+                apply(await operations.entitlements() + [entitlement])
+            } else {
+                apply([entitlement])
+            }
         }
     }
 
@@ -167,6 +202,13 @@ final class UnlockStore {
     }
 
     func purchase() async {
+        // Two taps landing before Apple's sheet is up are two purchases
+        // started. The sheet disables itself while a purchase is in flight,
+        // but only once this method has run far enough to say so — and a
+        // second tap in the hop before that has already been dispatched. The
+        // guard belongs here, where the state actually changes, rather than in
+        // the view that reads it.
+        guard status != .inFlight else { return }
         status = .inFlight
         switch await operations.purchase() {
         case .unlocked:
@@ -187,9 +229,17 @@ final class UnlockStore {
     /// plainly when there was nothing to find.
     func restore() async {
         status = .inFlight
-        do {
-            try await operations.restore()
-        } catch {
+        switch await operations.restore() {
+        case .finished:
+            break
+        case .cancelled:
+            // Dismissing Apple's password prompt is not a failed Restore, and
+            // saying "Sıra couldn't reach the App Store" to a player who
+            // simply changed their mind is a lie about their network. The same
+            // non-event a cancelled purchase is, treated the same way.
+            status = .ready
+            return
+        case .failed:
             status = .purchaseFailed(UnlockCopy.restoreFailed)
             return
         }
@@ -275,7 +325,7 @@ extension UnlockStore.Operations {
     static let silent = UnlockStore.Operations(
         displayPrice: { nil },
         purchase: { .failed(UnlockCopy.purchaseFailed) },
-        restore: {},
+        restore: { .finished },
         entitlements: { [] },
         updates: { AsyncStream { $0.finish() } },
         presentCodeRedemption: {}

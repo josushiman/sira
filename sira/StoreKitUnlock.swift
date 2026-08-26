@@ -24,11 +24,30 @@ extension UnlockStore.Operations {
     static let storeKit = UnlockStore.Operations(
         displayPrice: { await unlockProduct()?.displayPrice },
         purchase: purchaseUnlock,
-        restore: { try await AppStore.sync() },
+        restore: restore,
         entitlements: currentEntitlements,
         updates: transactionUpdates,
         presentCodeRedemption: presentCodeRedemption
     )
+
+    /// Asks Apple to re-deliver this Apple Account's purchases.
+    ///
+    /// The cancellation is told apart from the failure here, in the one file
+    /// that imports StoreKit, rather than by handing `UnlockStore` an error to
+    /// interpret. `AppStore.sync()` prompts for an Apple Account password, and
+    /// a player who dismisses that prompt has not failed to restore anything —
+    /// they have changed their mind, which is the same non-event that backing
+    /// out of the payment sheet is.
+    private static func restore() async -> UnlockStore.RestoreOutcome {
+        do {
+            try await AppStore.sync()
+            return .finished
+        } catch StoreKitError.userCancelled {
+            return .cancelled
+        } catch {
+            return .failed
+        }
+    }
 
     /// The App Store's own "Redeem Gift Card or Code" sheet.
     ///

@@ -112,7 +112,7 @@ final class TheWallTests: XCTestCase {
             operations: UnlockStore.Operations(
                 displayPrice: { nil },
                 purchase: { .unlocked },
-                restore: {},
+                restore: { .finished },
                 entitlements: { [] },
                 updates: { AsyncStream { $0.finish() } },
                 presentCodeRedemption: {}
