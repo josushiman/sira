@@ -17,14 +17,16 @@ final class UnlockStoreTests: XCTestCase {
         purchase: UnlockStore.PurchaseOutcome = .cancelled,
         restore: @escaping () async throws -> Void = {},
         entitlements: [UnlockStore.Entitlement] = [],
-        updates: AsyncStream<UnlockStore.Entitlement> = AsyncStream { $0.finish() }
+        updates: AsyncStream<UnlockStore.Entitlement> = AsyncStream { $0.finish() },
+        presentCodeRedemption: @escaping () -> Void = {}
     ) -> UnlockStore.Operations {
         UnlockStore.Operations(
             displayPrice: { displayPrice },
             purchase: { purchase },
             restore: restore,
             entitlements: { entitlements },
-            updates: { updates }
+            updates: { updates },
+            presentCodeRedemption: presentCodeRedemption
         )
     }
 
@@ -260,6 +262,51 @@ final class UnlockStoreTests: XCTestCase {
 
         XCTAssertFalse(unlock.isUnlocked)
         XCTAssertEqual(unlock.status, .purchaseFailed(UnlockCopy.restoreFailed))
+    }
+
+    // MARK: - Promo codes
+
+    /// The only thing the app does with a promo code: hand the screen to the
+    /// App Store. There is no code to read, no code to check, and nothing to
+    /// wait for — a code redeemed there comes back as a transaction, which is
+    /// the next test.
+    func test_theCodeAffordanceHandsOverToTheAppStore() {
+        var presented = 0
+        let unlock = store(operations(presentCodeRedemption: { presented += 1 }))
+
+        unlock.redeemCode()
+
+        XCTAssertEqual(presented, 1)
+    }
+
+    /// The sheet stays live behind Apple's.
+    ///
+    /// Presenting the redemption sheet hands back nothing at all — not a
+    /// result, not even a dismissal — so a status set on the way in would have
+    /// nothing to clear it. A player who opens it, thinks better of it and
+    /// swipes it away lands back on an offer they can still act on.
+    func test_theCodeAffordanceLeavesTheSheetUsable() {
+        let unlock = store(operations())
+
+        unlock.redeemCode()
+
+        XCTAssertEqual(unlock.status, .ready)
+        XCTAssertFalse(unlock.isUnlocked)
+    }
+
+    /// What redeeming one actually does. The code is redeemed in the App
+    /// Store, and Apple delivers the result as a transaction on the updates
+    /// stream — the same path a purchase made on another device takes — so the
+    /// app unlocks without the player coming back and tapping anything.
+    func test_aRedeemedCodeUnlocksThroughTheUpdatesStream() async {
+        let unlock = store(operations(updates: AsyncStream { continuation in
+            continuation.yield(held)
+            continuation.finish()
+        }))
+
+        await unlock.observeUpdates()
+
+        XCTAssertTrue(unlock.isUnlocked)
     }
 
     // MARK: - The local cache

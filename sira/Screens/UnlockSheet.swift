@@ -18,6 +18,9 @@ struct UnlockSheet: View {
     let status: UnlockStore.Status
     let onBuy: () -> Void
     let onRestore: () -> Void
+    /// Hands the player to the App Store to type a promo code. Nothing comes
+    /// back through it — see `UnlockStore.redeemCode`.
+    let onRedeemCode: () -> Void
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.theme) private var theme
@@ -56,6 +59,7 @@ struct UnlockSheet: View {
                 SheetButton(title: UnlockCopy.dismiss, emphasis: .outlined) { dismiss() }
                 SheetButton(title: UnlockCopy.restore, emphasis: .outlined, action: onRestore)
             }
+            redeemCodeLink
         }
         // While Apple has the purchase, the app's own controls come out of
         // reach — Apple draws the payment sheet over this one, and a live Buy
@@ -63,6 +67,28 @@ struct UnlockSheet: View {
         // sheet stays up and stays readable; it just stops taking taps.
         .disabled(isInFlight)
         .opacity(isInFlight ? 0.6 : 1)
+    }
+
+    /// The promo code, under everything else and quieter than any of it.
+    ///
+    /// A link rather than a fourth `SheetButton`: a code is something a player
+    /// either has in their hand or has never heard of, and for everyone in the
+    /// second group a full-width control is a fourth thing to read before
+    /// deciding. Underlined and inked so that the first group can still find
+    /// it at a glance, and the whole line is the tap target rather than the
+    /// words alone.
+    private var redeemCodeLink: some View {
+        Button(action: onRedeemCode) {
+            Text(UnlockCopy.redeemCode)
+                .siraStyle(.caption)
+                .underline()
+                .foregroundStyle(theme.ink.opacity(0.7))
+                .frame(maxWidth: .infinity)
+                .frame(height: 34)
+                .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .padding(.top, 2)
     }
 
     private var isInFlight: Bool { status == .inFlight }
@@ -139,7 +165,13 @@ struct UnlockSheet: View {
     let samplePrice = "1.234,56 TL"
     return VStack(spacing: 0) {
         ForEach([Theme.paper, Theme.felt], id: \.name) { theme in
-            UnlockSheet(displayPrice: samplePrice, status: .ready, onBuy: {}, onRestore: {})
+            UnlockSheet(
+                displayPrice: samplePrice,
+                status: .ready,
+                onBuy: {},
+                onRestore: {},
+                onRedeemCode: {}
+            )
                 .environment(\.theme, theme)
         }
     }

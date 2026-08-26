@@ -114,7 +114,8 @@ final class TheWallTests: XCTestCase {
                 purchase: { .unlocked },
                 restore: {},
                 entitlements: { [] },
-                updates: { AsyncStream { $0.finish() } }
+                updates: { AsyncStream { $0.finish() } },
+                presentCodeRedemption: {}
             ),
             cache: .stored(in: store)
         )

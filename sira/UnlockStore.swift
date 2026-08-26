@@ -104,6 +104,9 @@ final class UnlockStore {
         /// Transactions arriving from elsewhere: another device, a Family
         /// Sharing member, an approved Ask to Buy, or a revocation.
         var updates: () -> AsyncStream<Entitlement>
+        /// Hands the screen to the App Store so the player can type a promo
+        /// code. Returns nothing, and cannot: see `redeemCode()`.
+        var presentCodeRedemption: () -> Void
     }
 
     /// Where the local unlocked flag is kept between launches — read at init,
@@ -194,6 +197,30 @@ final class UnlockStore {
         status = isUnlocked ? .ready : .nothingToRestore
     }
 
+    /// The sheet's promo code: hands the player to the App Store to type one.
+    ///
+    /// The code itself is Apple's — issued in App Store Connect against the
+    /// Unlock, typed into Apple's own redemption sheet, and redeemed as a
+    /// purchase of the product at no charge. The app never sees it, never
+    /// validates one, and has no code of its own: unlocking paid functionality
+    /// on a string the app checked itself is a purchase made outside In-App
+    /// Purchase, which is not something Sıra is allowed to do.
+    ///
+    /// **Not `async`, and deliberately not `.inFlight`.** Presenting that sheet
+    /// hands back nothing at all — no result, no completion, no notice that it
+    /// was dismissed. A status set here would be a status with nothing to clear
+    /// it, and a player who opened the sheet and changed their mind would come
+    /// back to this one disabled for good.
+    ///
+    /// So nothing here waits for an answer, because the answer does not come
+    /// back this way. A redeemed code reaches the app as a transaction on
+    /// `updates` — the same path a purchase made on another device takes — and
+    /// `observeUpdates` unlocks on it. A code the player never typed arrives as
+    /// nothing, which is exactly right.
+    func redeemCode() {
+        operations.presentCodeRedemption()
+    }
+
     /// Puts the sheet back to its default — what dismissing it does, so that
     /// raising it again is a fresh offer rather than the last failure still on
     /// screen.
@@ -250,6 +277,7 @@ extension UnlockStore.Operations {
         purchase: { .failed(UnlockCopy.purchaseFailed) },
         restore: {},
         entitlements: { [] },
-        updates: { AsyncStream { $0.finish() } }
+        updates: { AsyncStream { $0.finish() } },
+        presentCodeRedemption: {}
     )
 }

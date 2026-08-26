@@ -26,8 +26,33 @@ extension UnlockStore.Operations {
         purchase: purchaseUnlock,
         restore: { try await AppStore.sync() },
         entitlements: currentEntitlements,
-        updates: transactionUpdates
+        updates: transactionUpdates,
+        presentCodeRedemption: presentCodeRedemption
     )
+
+    /// The App Store's own "Redeem Gift Card or Code" sheet.
+    ///
+    /// `SKPaymentQueue` rather than StoreKit 2, and not an oversight. StoreKit
+    /// 2's `AppStore.presentOfferCodeRedeemSheet(in:)` redeems *subscription*
+    /// offer codes and nothing else; the Unlock is a non-consumable, and the
+    /// codes App Store Connect issues against it are promo codes, which this
+    /// sheet is the only in-app way to redeem. The rest of this file stays
+    /// StoreKit 2 — the two live alongside each other, and this is a
+    /// presentation call rather than a second purchase path.
+    ///
+    /// Hands back nothing: no result, no completion, no notice of dismissal.
+    /// What a redeemed code becomes is a transaction on `transactionUpdates`,
+    /// arriving exactly as a purchase made on another device does — which is
+    /// why nothing above this waits on it (`UnlockStore.redeemCode`).
+    ///
+    /// `nonisolated` for the reason `transactionUpdates()` is: a synchronous
+    /// member of this main-actor-inheriting type, referenced as a function
+    /// value from `storeKit` above, is a main-actor call from a nonisolated
+    /// context. The queue is safe from anywhere, and the sheet it presents is
+    /// UIKit's to raise.
+    nonisolated private static func presentCodeRedemption() {
+        SKPaymentQueue.default().presentCodeRedemptionSheet()
+    }
 
     private static func unlockProduct() async -> Product? {
         try? await Product.products(for: [productID]).first

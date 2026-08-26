@@ -154,7 +154,12 @@ struct HomeView: View {
                 displayPrice: unlockStore.displayPrice,
                 status: unlockStore.status,
                 onBuy: { Task { await unlockStore.purchase() } },
-                onRestore: { Task { await unlockStore.restore() } }
+                onRestore: { Task { await unlockStore.restore() } },
+                // Not a `Task`: presenting Apple's redemption sheet hands back
+                // nothing to await. A code that is redeemed arrives on the
+                // updates stream and lifts the wall from there, which is the
+                // same path a purchase made on another device takes.
+                onRedeemCode: { unlockStore.redeemCode() }
             )
         }
         // Buying is the one thing that lifts the wall while it is on screen,

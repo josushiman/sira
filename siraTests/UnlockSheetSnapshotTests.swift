@@ -30,7 +30,8 @@ final class UnlockSheetSnapshotTests: XCTestCase {
             displayPrice: displayPrice,
             status: status,
             onBuy: {},
-            onRestore: {}
+            onRestore: {},
+            onRedeemCode: {}
         )
         .environment(\.theme, theme)
         // Pinned rather than left to the simulator's own setting. The sheet

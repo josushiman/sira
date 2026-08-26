@@ -17,6 +17,7 @@ final class UnlockCopyTests: XCTestCase {
             UnlockCopy.buy(price: nil),
             UnlockCopy.buyInFlight,
             UnlockCopy.restore,
+            UnlockCopy.redeemCode,
             UnlockCopy.dismiss,
             UnlockCopy.purchaseFailed,
             UnlockCopy.nothingToRestore,

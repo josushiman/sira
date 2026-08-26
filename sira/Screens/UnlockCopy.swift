@@ -58,6 +58,17 @@ enum UnlockCopy {
     /// that is guaranteed to be reachable.
     static let restore = "Restore purchase"
 
+    /// The promo code affordance. A question rather than a label, because it
+    /// is addressed only to the player who already has one — anybody else
+    /// reads it, finds it is not about them, and moves on.
+    ///
+    /// It does not say "enter" or "redeem" anything, because nothing is
+    /// entered here: the tap hands over to the App Store's own redemption
+    /// sheet, which is the only place a promo code for the Unlock can be
+    /// typed. Sıra never sees a code and never checks one (`UnlockStore
+    /// .redeemCode`).
+    static let redeemCode = "Have a promo code?"
+
     /// The way out. One tap, and Home is where it was.
     static let dismiss = "Not now"
 

@@ -25,14 +25,23 @@ final class UnlockSheetContrastTests: XCTestCase {
             // The title, and the sentence under it.
             assertContrast(theme.ink, on: theme.background, atLeast: largeMinimum, theme, "title")
             assertContrast(theme.ink.opacity(0.7), on: theme.background, atLeast: bodyMinimum, theme, "explanation")
-            // The benefit lines.
-            assertContrast(theme.ink.opacity(0.75), on: theme.background, atLeast: bodyMinimum, theme, "benefit")
+            // The benefit lines, which sit on a card rather than on the sheet.
+            // Measured against the card's own fill, composited: `track` is ink
+            // at 0.06, which darkens Paper's background and lightens Felt's,
+            // and a ratio taken against the sheet behind it would be a ratio
+            // for a surface the words are not on.
+            let card = composite(theme.track, over: theme.background)
+            assertContrast(theme.ink.opacity(0.75), on: card, atLeast: bodyMinimum, theme, "benefit")
             // The inline message — a failure, or Restore finding nothing.
             assertContrast(theme.ink.opacity(0.9), on: theme.background, atLeast: bodyMinimum, theme, "message")
             // The Buy button, which is the accent filled with its own on-colour.
             assertContrast(theme.onAccent, on: theme.accent, atLeast: largeMinimum, theme, "buy button")
             // Restore and Not now, which are outlined rather than filled.
             assertContrast(theme.ink.opacity(0.75), on: theme.background, atLeast: bodyMinimum, theme, "outlined button")
+            // The promo code link. Caption-sized, so it is held to the body
+            // threshold rather than the large one — the quietest line on the
+            // sheet is still one a player has to be able to read.
+            assertContrast(theme.ink.opacity(0.7), on: theme.background, atLeast: bodyMinimum, theme, "promo code link")
         }
     }
 
@@ -42,7 +51,13 @@ final class UnlockSheetContrastTests: XCTestCase {
     /// record rather than an omission.
     func test_theSheetsNonTextMarkersClearTheNonTextThreshold() {
         for theme in [Theme.paper, Theme.felt] {
-            assertContrast(theme.accent, on: theme.background, atLeast: 3.0, theme, "benefit bullet")
+            assertContrast(
+                theme.accent,
+                on: composite(theme.track, over: theme.background),
+                atLeast: 3.0,
+                theme,
+                "benefit bullet"
+            )
             // The bar beside the inline message, which is where the warning
             // colour went once it turned out not to be legible as text on
             // Paper — see `UnlockSheet.noteLine(_:)`.
@@ -80,6 +95,16 @@ final class UnlockSheetContrastTests: XCTestCase {
         let lighter = max(luminance(composited), luminance(back.rgb))
         let darker = min(luminance(composited), luminance(back.rgb))
         return (lighter + 0.05) / (darker + 0.05)
+    }
+
+    /// A translucent colour laid over an opaque one, as an opaque colour —
+    /// what the eye is actually given where a card sits on the sheet, and the
+    /// background the words on that card have to be legible against.
+    private func composite(_ overlay: Color, over base: Color) -> Color {
+        let back = components(of: base)
+        let front = components(of: overlay)
+        let mixed = (0..<3).map { front.rgb[$0] * front.alpha + back.rgb[$0] * (1 - front.alpha) }
+        return Color(red: mixed[0], green: mixed[1], blue: mixed[2])
     }
 
     private func components(of color: Color) -> (rgb: [Double], alpha: Double) {
