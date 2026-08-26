@@ -556,10 +556,7 @@ private struct HomePreview: View {
         }
         .environment(store)
         .environment(Navigator())
-        .environment(UnlockStore(
-            operations: .silent,
-            cache: .inMemory(hasSeenUnlock: unlocked)
-        ))
+        .environment(UnlockStore.silent(unlocked: unlocked))
         .modelContainer(store.container)
         .themed()
     }

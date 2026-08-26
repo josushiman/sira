@@ -22,12 +22,12 @@ struct ContentView: View {
     /// Built here rather than in `MatchStore.forApp()` so that the one object
     /// that talks to StoreKit is created where the app is assembled, in plain
     /// sight, rather than folded into the store that talks to the disk.
-    @State private var unlock: UnlockStore
+    @State private var unlockStore: UnlockStore
 
     init() {
         let store = MatchStore.forApp()
         _store = State(initialValue: store)
-        _unlock = State(initialValue: UnlockStore(
+        _unlockStore = State(initialValue: UnlockStore(
             operations: .storeKit,
             cache: .stored(in: store)
         ))
@@ -39,7 +39,7 @@ struct ContentView: View {
         }
         .environment(store)
         .environment(navigator)
-        .environment(unlock)
+        .environment(unlockStore)
         // Home reads Matches with `@Query`, which needs the container the store
         // is writing to — the same one, so a Round added in Play shows up in
         // Home's summary without anything being told to refresh.
@@ -72,12 +72,12 @@ struct ContentView: View {
         // storefront, and what this device is already entitled to. Not a
         // Restore — that prompts for an Apple Account password, and it lives on
         // the offer sheet where the player asked for it.
-        .task { await unlock.prepare() }
+        .task { await unlockStore.prepare() }
         // And for as long as the app is up, transactions arriving from anywhere
         // else: another device, a Family Sharing member, an approved Ask to
         // Buy, or a revocation. A purchase reaching this stream lifts the wall
         // without the player buying anything in this session.
-        .task { await unlock.observeUpdates() }
+        .task { await unlockStore.observeUpdates() }
         .themed()
     }
 }

@@ -81,7 +81,7 @@ The state in which the **Free Matches** are used up and no **Unlock** is held. T
 
 Everything else is untouched, and deliberately so. Every Match already Started stays fully scorable — Rounds, Undo, Rejoin, Join, renames — and every Match ever played stays readable, archivable and deletable. Scoring a Round is never refused, in any state, by anything.
 
-Asked as a **Game Access** question rather than counted at each call site: `GameAccess` answers Unlocked, free with a remainder, or Locked, and it is the only thing Home and the offer sheet read.
+Asked once rather than counted at each call site: `GameAccess` answers Unlocked, free with a remainder, or Locked, and it is the only thing Home and the offer sheet read.
 _Avoid_: using "locked" for an **Archived** Match (Archived is a visibility flag and an Archived Match takes Rounds exactly as any other does) or for an **Entrant** who is **Out** (that is a Match's own rule, and has nothing to do with what has been paid for); "expired," which suggests the Free Matches ran out on a clock rather than on being played.
 
 **Archived**:

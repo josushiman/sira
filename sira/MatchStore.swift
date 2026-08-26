@@ -401,11 +401,7 @@ final class MatchStore {
     /// changes is what the player may *start*.
     func recordUnlock(seen: Bool) {
         guard seen != hasSeenUnlock else { return }
-        let cache = (try? context.fetch(FetchDescriptor<UnlockCache>()))?.first ?? {
-            let fresh = UnlockCache()
-            context.insert(fresh)
-            return fresh
-        }()
+        let cache: UnlockCache = soleRow { UnlockCache() }
         cache.hasSeenVerifiedUnlock = seen
         hasSeenUnlock = seen
         save()
@@ -432,13 +428,28 @@ final class MatchStore {
     /// next save that succeeds writes it out. A Free Match spent on screen and
     /// not on the disk is the same window every other mutation has.
     private func recordStart() {
-        let tally = (try? context.fetch(FetchDescriptor<StartedMatchTally>()))?.first ?? {
-            let fresh = StartedMatchTally()
-            context.insert(fresh)
-            return fresh
-        }()
+        let tally = soleRow { StartedMatchTally() }
         tally.recordStart()
         freeMatches = FreeMatches(startedMatches: tally.startedMatches)
+    }
+
+    /// The one row of a type the store keeps exactly one of — the tally and the
+    /// Unlock cache — created on first use.
+    ///
+    /// SwiftData has no notion of a singleton, so the discipline is this
+    /// store's and this is where it is kept: both rows are fetched, inserted
+    /// and written here and nowhere else. Created on first use rather than at
+    /// launch, so opening the app and doing nothing writes nothing, and a store
+    /// that has never been played on holds neither row to read back.
+    ///
+    /// Saving is the caller's, deliberately. Every caller is mid-mutation and
+    /// about to save, and going through their `save()` is what puts the change
+    /// and the Round or purchase that caused it in one write.
+    private func soleRow<Row: PersistentModel>(orInsert makeFresh: () -> Row) -> Row {
+        if let existing = (try? context.fetch(FetchDescriptor<Row>()))?.first { return existing }
+        let fresh = makeFresh()
+        context.insert(fresh)
+        return fresh
     }
 
     /// Writes the context out, recording rather than raising a failure.

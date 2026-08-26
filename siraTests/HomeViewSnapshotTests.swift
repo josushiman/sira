@@ -23,10 +23,7 @@ final class HomeViewSnapshotTests: XCTestCase {
         // meter or nothing at all. `.silent` operations, because no test here
         // is buying anything: the cache is what decides, exactly as it does on
         // a device with no network.
-        .environment(UnlockStore(
-            operations: .silent,
-            cache: .inMemory(hasSeenUnlock: unlocked)
-        ))
+        .environment(UnlockStore.silent(unlocked: unlocked))
         // Home reads its Matches with `@Query`, which reads the container
         // rather than the store object — without this it renders an empty list
         // whatever the store holds.

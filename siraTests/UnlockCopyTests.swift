@@ -40,8 +40,12 @@ final class UnlockCopyTests: XCTestCase {
         }
     }
 
+    /// Deliberately not the price Sıra charges, in either currency. The literal
+    /// this ticket bans should not be greppable anywhere in the repo, test
+    /// fixtures included — and what is being asserted is that whatever StoreKit
+    /// hands over comes out the other side, which any two strings prove.
     func test_theBuyButtonCarriesTheSuppliedPriceAndNothingElse() {
-        XCTAssertEqual(UnlockCopy.buy(price: "£2.99"), "Unlock Sıra for £2.99")
+        XCTAssertEqual(UnlockCopy.buy(price: "£7.49"), "Unlock Sıra for £7.49")
         XCTAssertEqual(UnlockCopy.buy(price: "¥480"), "Unlock Sıra for ¥480")
     }
 

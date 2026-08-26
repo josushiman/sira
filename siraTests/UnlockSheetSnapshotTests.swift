@@ -3,7 +3,7 @@ import SwiftUI
 import SnapshotTesting
 @testable import sira
 
-/// The offer, in each state it has, in both themes (`docs/adr/0004`).
+/// The offer, in every state it has, in both themes (`docs/adr/0004`).
 ///
 /// Both themes because `accent` is gold in Felt and dark green in Paper, with
 /// `onAccent` flipping to match: a sheet that leaned on the gold would be
@@ -86,10 +86,28 @@ final class UnlockSheetSnapshotTests: XCTestCase {
         assertSheet(.nothingToRestore, theme: .felt, displayPrice: price)
     }
 
+    // MARK: - Waiting for approval
+
+    /// Ask to Buy. Neither bought nor failed — the request is with somebody
+    /// else, and the app unlocks by itself when they approve it. A fifth state
+    /// beyond the four the ticket names, and one that ships on screen, so it is
+    /// snapshot like the rest.
+    func test_awaitingApproval_paper() {
+        assertSheet(.awaitingApproval, theme: .paper, displayPrice: price)
+    }
+
+    func test_awaitingApproval_felt() {
+        assertSheet(.awaitingApproval, theme: .felt, displayPrice: price)
+    }
+
     // MARK: - No price yet
 
     /// StoreKit has not answered — offline at launch. The button keeps a word
     /// of its own rather than a gap where a price should be.
+    func test_offerWithNoPriceYet_paper() {
+        assertSheet(.ready, theme: .paper, displayPrice: nil)
+    }
+
     func test_offerWithNoPriceYet_felt() {
         assertSheet(.ready, theme: .felt, displayPrice: nil)
     }

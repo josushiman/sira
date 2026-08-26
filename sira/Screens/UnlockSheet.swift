@@ -9,8 +9,8 @@ import SwiftUI
 /// has never used.
 ///
 /// Takes values and hands back taps, exactly as `RejoinSheet` does. Nothing in
-/// here knows what a `UnlockStore` is, which is what lets all four of its states
-/// be snapshot without a purchase anywhere near them.
+/// here knows what a `UnlockStore` is, which is what lets every one of its
+/// states be snapshot without a purchase anywhere near them.
 struct UnlockSheet: View {
     /// StoreKit's price for this player's storefront, or `nil` if it has not
     /// answered yet. The app has no price of its own to fall back on.

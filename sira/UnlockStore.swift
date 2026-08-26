@@ -225,6 +225,18 @@ final class UnlockStore {
     }
 }
 
+extension UnlockStore {
+    /// A store over a StoreKit that says nothing at all, unlocked or not as the
+    /// caller needs — previews and view tests, which draw Home and the sheet
+    /// but buy nothing.
+    ///
+    /// The counterpart to `MatchStore.seeded()`: the fake every view needs,
+    /// built in one place rather than assembled at each call site.
+    static func silent(unlocked: Bool = false) -> UnlockStore {
+        UnlockStore(operations: .silent, cache: .inMemory(hasSeenUnlock: unlocked))
+    }
+}
+
 extension UnlockStore.Operations {
     /// A StoreKit that says nothing at all: no price, no entitlements, no
     /// updates, and a purchase that cannot be made.

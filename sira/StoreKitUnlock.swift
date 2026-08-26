@@ -60,15 +60,31 @@ extension UnlockStore.Operations {
     ///
     /// Empty is the answer offline, and on a device whose cache has never
     /// synced — which is exactly the silence `UnlockStore` refuses to read as a
-    /// refusal. It is also, notably, the answer for a revoked purchase:
-    /// `currentEntitlements` simply stops listing one. That is why a revocation
-    /// re-locks through `updates` below, where the revoked transaction is
-    /// delivered explicitly, rather than through a gap in this list.
+    /// refusal (`docs/adr/0011`).
+    ///
+    /// Two sources, because neither alone answers both halves of the rule.
+    /// `currentEntitlements` is what the player holds — a purchase of their
+    /// own, or a Family Sharing member's — but it says nothing about a
+    /// revocation: it simply stops listing a refunded purchase, which under the
+    /// fail-open rule reads as silence and would leave the app unlocked for
+    /// good. `Transaction.latest(for:)` still carries that transaction,
+    /// `revocationDate` and all, so a refund taken while the app was closed
+    /// re-locks at the next launch rather than waiting on an update that has
+    /// already been delivered and finished once.
+    ///
+    /// Both go into one list, and `UnlockStore` applies its rule to the whole
+    /// of it: any transaction still standing unlocks. A player whose own
+    /// purchase was refunded but who is in a family group that still holds one
+    /// is therefore unlocked, which is the truth about what they may play.
     private static func currentEntitlements() async -> [UnlockStore.Entitlement] {
         var found: [UnlockStore.Entitlement] = []
         for await result in Transaction.currentEntitlements {
             guard case let .verified(transaction) = result,
                   transaction.productID == productID else { continue }
+            found.append(UnlockStore.Entitlement(isRevoked: transaction.revocationDate != nil))
+        }
+        if let latest = await Transaction.latest(for: productID),
+           case let .verified(transaction) = latest {
             found.append(UnlockStore.Entitlement(isRevoked: transaction.revocationDate != nil))
         }
         return found
