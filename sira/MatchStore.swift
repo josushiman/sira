@@ -64,6 +64,15 @@ final class MatchStore {
     /// here.
     private let saveContext: (ModelContext) throws -> Void
 
+    /// When this store was opened — the line between the Matches an earlier
+    /// run left behind and the Match the player is setting up right now.
+    ///
+    /// `discardUnstartedMatches()` deletes only from the first group. That is
+    /// what stops the sweep from being able to take the live Match with it,
+    /// whenever and however often it is called: a Match created in this run is
+    /// one somebody may still be looking at.
+    private let openedAt: Date
+
     /// The context every mutation runs against — the container's own main
     /// context, which is also the one `@Query` reads from, so a Round added in
     /// Play is visible in Home's summary line without anything being told to
@@ -76,6 +85,7 @@ final class MatchStore {
     ) {
         self.container = container
         self.saveContext = saveContext
+        self.openedAt = Date()
         // Read once, here, rather than fetched wherever it is asked for. A
         // store over a database holding no tally reads as zero — a fresh
         // install, and the reinstall case with it, both of which start with
@@ -337,8 +347,9 @@ final class MatchStore {
         save()
     }
 
-    /// Clears out the Matches that were set up and never scored, and is the
-    /// app's first act at launch (`forApp()`).
+    /// Clears out the Matches that were set up and never scored — the app's
+    /// deliberate first act at launch, made once from the scene (`siraApp`)
+    /// rather than folded into building a store.
     ///
     /// Home lists Started Matches only, so an un-Started one is unreachable
     /// the moment the player leaves it — backed out of, or lost to iOS
@@ -346,9 +357,19 @@ final class MatchStore {
     /// with no Rounds has no tally, only a Variant choice and some Entrant
     /// names. Left alone it would sit on the device forever, invisible.
     ///
-    /// Run at launch and nowhere else, because the one un-Started Match that
-    /// must survive is the one being played right now — Setup hands Play a
-    /// Match before its first Round, and at launch there is no such Match.
+    /// **Only ever deletes what an earlier run left behind.** A Match created
+    /// since this store was opened is the one being set up or played right
+    /// now, which is the one un-Started Match that must survive: Setup hands
+    /// Play a Match before its first Round, and `add(_:)` has already saved
+    /// it. Guarding on `openedAt` is what makes that true of every call rather
+    /// than only of a call that happens to come first — a sweep is a tidy-up,
+    /// and a tidy-up that can take the live Match with it is data loss.
+    ///
+    /// That guard is the whole of the protection, deliberately: a second call
+    /// is a no-op because everything older is already gone and everything
+    /// newer is spared, rather than because a flag counted the calls. A rule
+    /// about the data holds wherever this is called from; a rule about call
+    /// order only holds where somebody remembered it.
     ///
     /// A Match carrying Rounds is Started first rather than swept up with the
     /// rest. Data written before the flag existed reads back as un-Started
@@ -359,6 +380,11 @@ final class MatchStore {
         let matches = (try? context.fetch(FetchDescriptor<Match>())) ?? []
         for match in matches where !match.started {
             if match.rounds.isEmpty {
+                // The live Match is exactly this shape — saved, un-Started, no
+                // Rounds — so age is the only thing separating it from an
+                // abandoned one. Left alone rather than deleted; the run that
+                // follows this one sweeps it if it was never scored.
+                guard match.createdAt < openedAt else { continue }
                 context.delete(match)
             } else if match.start() {
                 // Started here rather than by a Round, and counted all the
@@ -495,15 +521,14 @@ extension MatchStore {
     /// along. Crashing here therefore means a store that could not be opened
     /// *and* could not be replaced — the device is not writable — which no
     /// amount of falling back can turn into a working app.
+    ///
+    /// Opening a store and nothing else. The launch sweep
+    /// (`discardUnstartedMatches()`) is the scene's call to make, in plain
+    /// sight beside the rest of the app's assembly: a factory that quietly
+    /// deletes is a factory whose name does not say what it does.
     static func forApp() -> MatchStore {
         do {
-            let store = try MatchStore(recoveringAt: defaultStoreURL())
-            // Before anything reads them: a Match set up and never scored is
-            // unreachable now that Home lists Started Matches only, and the
-            // launch it did not survive is the last moment it could be tidied
-            // away on the player's behalf.
-            store.discardUnstartedMatches()
-            return store
+            return try MatchStore(recoveringAt: defaultStoreURL())
         } catch {
             fatalError("Could not open or replace the Match store: \(error)")
         }

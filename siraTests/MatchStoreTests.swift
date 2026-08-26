@@ -3,8 +3,18 @@ import SwiftData
 @testable import sira
 
 final class MatchStoreTests: XCTestCase {
-    private func gongaMatch(entrants: [Entrant] = [Entrant(name: "Alice")]) -> Match {
-        Match(game: .gonga, variant: .gongaStandard, number: 101, mode: .players, entrants: entrants)
+    private func gongaMatch(
+        entrants: [Entrant] = [Entrant(name: "Alice")],
+        createdAt: Date = Date()
+    ) -> Match {
+        Match(
+            game: .gonga,
+            variant: .gongaStandard,
+            number: 101,
+            mode: .players,
+            entrants: entrants,
+            createdAt: createdAt
+        )
     }
 
     /// Reading is `@Query`'s job in the app, so the store's own tests read the
@@ -163,19 +173,37 @@ final class MatchStoreTests: XCTestCase {
         XCTAssertFalse(try XCTUnwrap(try storedMatches(in: store).first).started)
     }
 
-    /// The launch sweep, in one store: what was never scored goes, what was
-    /// stays.
+    /// The launch sweep, in one store: what an earlier run left un-scored
+    /// goes, what was scored stays.
+    ///
+    /// The abandoned Match is dated before this store was opened because that
+    /// is what it is — a leftover from a run that has ended. The sweep will not
+    /// touch one created since, which is the next test.
     func test_discardingUnstartedMatchesLeavesTheStartedOnes() throws {
         let store = MatchStore()
         let alice = Entrant(name: "Alice")
         let scored = gongaMatch(entrants: [alice])
         store.add(scored)
         store.addRound(Round(deltas: [alice.id: 10]), to: scored)
-        store.add(gongaMatch())
+        store.add(gongaMatch(createdAt: .distantPast))
 
         store.discardUnstartedMatches()
 
         XCTAssertEqual(try storedMatches(in: store).map(\.id), [scored.id])
+    }
+
+    /// The Match the player is on right now: saved by Setup, un-Started, no
+    /// Rounds — the exact shape the sweep deletes, and the one it must never
+    /// take. A sweep running a second time is what would find it, so the rule
+    /// is age rather than call order.
+    func test_aMatchSetUpSinceTheStoreOpenedSurvivesTheSweep() throws {
+        let store = MatchStore()
+        let live = gongaMatch()
+        store.add(live)
+
+        store.discardUnstartedMatches()
+
+        XCTAssertEqual(try storedMatches(in: store).map(\.id), [live.id])
     }
 
     // MARK: - Deleting

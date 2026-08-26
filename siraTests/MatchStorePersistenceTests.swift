@@ -510,6 +510,57 @@ final class MatchStorePersistenceTests: XCTestCase {
         }
     }
 
+    /// The launch path run twice over the same database — a scene re-entered,
+    /// or the sweep called from somewhere it should not have been. What an
+    /// earlier launch abandoned goes once; the played Match and the Match this
+    /// launch is setting up both survive both calls.
+    func test_sweepingTwiceOverOneStoreLeavesTheLiveMatchAlone() throws {
+        let abandoned = UUID()
+        let played = UUID()
+        let live = UUID()
+        let alice = UUID()
+
+        try launch { store in
+            store.add(
+                Match(id: abandoned, game: .gonga, variant: .gongaStandard, number: 101, mode: .players, entrants: [Entrant(name: "Bob")])
+            )
+            let scored = Match(
+                id: played,
+                game: .gonga,
+                variant: .gongaStandard,
+                number: 101,
+                mode: .players,
+                entrants: [Entrant(id: alice, name: "Alice")]
+            )
+            store.add(scored)
+            store.addRound(Round(deltas: [alice: 10]), to: scored)
+        }
+
+        try launch { store in
+            store.discardUnstartedMatches()
+            // Setup's Match, saved and not yet scored, arriving between the two
+            // sweeps exactly as it would between two evaluations of a view.
+            store.add(
+                Match(id: live, game: .gonga, variant: .gongaStandard, number: 101, mode: .players, entrants: [Entrant(name: "Cem")])
+            )
+            store.discardUnstartedMatches()
+
+            XCTAssertEqual(
+                Set(try store.context.fetch(FetchDescriptor<Match>()).map(\.id)),
+                [played, live]
+            )
+        }
+
+        // And on the disk, not only in the store that swept: the live Match is
+        // still there to be played on.
+        try launch { store in
+            XCTAssertEqual(
+                Set(try store.context.fetch(FetchDescriptor<Match>()).map(\.id)),
+                [played, live]
+            )
+        }
+    }
+
     /// The Match whose only Round was undone is Started, and stays. This is the
     /// case that would be swept away by a launch that discarded Matches with no
     /// Rounds rather than Matches that were never Started.

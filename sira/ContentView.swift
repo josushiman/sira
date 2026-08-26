@@ -9,28 +9,22 @@ import SwiftUI
 import SwiftData
 
 struct ContentView: View {
-    /// The app's own store, over the database on the device: whatever the
-    /// player entered last time is what Home shows now, and a first launch
-    /// shows nothing at all. The Alice/Bob fixtures live in previews and view
-    /// tests (`MatchStore.seeded()`), which is where they were always meant to
-    /// be.
+    /// The store this app is running on, handed in by the scene that opened it
+    /// (`siraApp`) rather than opened here. Nothing about a store belongs in a
+    /// view's initialiser: opening one is launch work, it happens once, and a
+    /// view cannot promise that. The Alice/Bob fixtures live in previews and
+    /// view tests (`MatchStore.seeded()`), which is where they were always
+    /// meant to be — and which is what makes opening this file's preview
+    /// harmless to the player's real database.
     @State private var store: MatchStore
     @State private var navigator = Navigator()
-    /// The Unlock, over the real App Store. Built from the same store, because
-    /// the local flag it caches lives beside the meter — see `UnlockCache`.
-    ///
-    /// Built here rather than in `MatchStore.forApp()` so that the one object
-    /// that talks to StoreKit is created where the app is assembled, in plain
-    /// sight, rather than folded into the store that talks to the disk.
+    /// The Unlock, likewise handed in. The one object that talks to StoreKit is
+    /// created where the app is assembled, in plain sight.
     @State private var unlockStore: UnlockStore
 
-    init() {
-        let store = MatchStore.forApp()
+    init(store: MatchStore, unlockStore: UnlockStore) {
         _store = State(initialValue: store)
-        _unlockStore = State(initialValue: UnlockStore(
-            operations: .storeKit,
-            cache: .stored(in: store)
-        ))
+        _unlockStore = State(initialValue: unlockStore)
     }
 
     var body: some View {
@@ -82,6 +76,16 @@ struct ContentView: View {
     }
 }
 
+// `#Preview` bodies are compiled in every configuration, not only Debug, so a
+// preview drawing the Alice/Bob fixtures has to say where those fixtures exist
+// — `MatchStore.seeded()` is `#if DEBUG` precisely so it cannot ship.
+#if DEBUG
+
 #Preview {
-    ContentView()
+    // In memory and against a StoreKit that says nothing: a preview draws the
+    // app, it does not open the player's database, and it certainly does not
+    // sweep it.
+    ContentView(store: .seeded(), unlockStore: .silent())
 }
+
+#endif
