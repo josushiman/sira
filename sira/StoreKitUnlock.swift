@@ -1,5 +1,6 @@
 import Foundation
 import StoreKit
+import UIKit
 
 /// The app's one conversation with the App Store: a single non-consumable,
 /// bought and verified on the device (`docs/adr/0010`).
@@ -49,15 +50,11 @@ extension UnlockStore.Operations {
         }
     }
 
-    /// The App Store's own "Redeem Gift Card or Code" sheet.
+    /// The App Store's own offer-code redemption sheet.
     ///
-    /// `SKPaymentQueue` rather than StoreKit 2, and not an oversight. StoreKit
-    /// 2's `AppStore.presentOfferCodeRedeemSheet(in:)` redeems *subscription*
-    /// offer codes and nothing else; the Unlock is a non-consumable, and the
-    /// codes App Store Connect issues against it are promo codes, which this
-    /// sheet is the only in-app way to redeem. The rest of this file stays
-    /// StoreKit 2 — the two live alongside each other, and this is a
-    /// presentation call rather than a second purchase path.
+    /// App Store Connect offer codes apply to the Unlock even though it is a
+    /// non-consumable. StoreKit owns the entry and validation UI; the app only
+    /// supplies the foreground scene that the sheet should cover.
     ///
     /// Hands back nothing: no result, no completion, no notice of dismissal.
     /// What a redeemed code becomes is a transaction on `transactionUpdates`,
@@ -67,10 +64,15 @@ extension UnlockStore.Operations {
     /// `nonisolated` for the reason `transactionUpdates()` is: a synchronous
     /// member of this main-actor-inheriting type, referenced as a function
     /// value from `storeKit` above, is a main-actor call from a nonisolated
-    /// context. The queue is safe from anywhere, and the sheet it presents is
-    /// UIKit's to raise.
+    /// context. The task crosses to the main actor before reading UIKit state
+    /// and presenting StoreKit's sheet.
     nonisolated private static func presentCodeRedemption() {
-        SKPaymentQueue.default().presentCodeRedemptionSheet()
+        Task { @MainActor in
+            guard let scene = UIApplication.shared.connectedScenes
+                .compactMap({ $0 as? UIWindowScene })
+                .first(where: { $0.activationState == .foregroundActive }) else { return }
+            try? await AppStore.presentOfferCodeRedeemSheet(in: scene)
+        }
     }
 
     private static func unlockProduct() async -> Product? {
