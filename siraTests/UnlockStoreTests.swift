@@ -196,6 +196,32 @@ final class UnlockStoreTests: XCTestCase {
         XCTAssertFalse(unlock.isUnlocked)
     }
 
+    /// A reinstall, or a new phone, on a slow storefront: the price is a
+    /// network round trip and the entitlement is a local read. A player who
+    /// has already paid is unlocked the moment StoreKit answers, rather than
+    /// looking at the wall for as long as the products request takes.
+    func test_theEntitlementIsAppliedWithoutWaitingForASlowPrice() async {
+        let priceGate = Gate()
+        var operations = operations(entitlements: [held])
+        operations.displayPrice = {
+            await priceGate.wait()
+            return "1.234,56 TL"
+        }
+        let unlock = store(operations)
+
+        let prepared = Task { await unlock.prepare() }
+        // The price is parked at the gate for the whole of this.
+        for _ in 0..<100 where !unlock.isUnlocked { await Task.yield() }
+
+        XCTAssertTrue(unlock.isUnlocked)
+        XCTAssertNil(unlock.displayPrice)
+
+        await priceGate.open()
+        await prepared.value
+
+        XCTAssertEqual(unlock.displayPrice, "1.234,56 TL")
+    }
+
     func test_averifiedEntitlementUnlocksADeviceThatHasNotSeenOneBefore() async {
         let unlock = store(operations(entitlements: [held]))
 
@@ -435,6 +461,24 @@ final class UnlockStoreTests: XCTestCase {
         AsyncStream { continuation in
             for entitlement in entitlements { continuation.yield(entitlement) }
             continuation.finish()
+        }
+    }
+
+    /// A closure held open until the test lets it through — what a storefront
+    /// that has not answered yet looks like from in here.
+    private actor Gate {
+        private var waiting: [CheckedContinuation<Void, Never>] = []
+        private var isOpen = false
+
+        func wait() async {
+            guard !isOpen else { return }
+            await withCheckedContinuation { waiting.append($0) }
+        }
+
+        func open() {
+            isOpen = true
+            for continuation in waiting { continuation.resume() }
+            waiting = []
         }
     }
 

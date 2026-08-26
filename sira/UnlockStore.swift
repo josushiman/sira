@@ -162,9 +162,21 @@ final class UnlockStore {
     /// password, and an app that asks for one before the player has done
     /// anything is an app that gets deleted — so Restore is a control on the
     /// sheet, and nothing else ever calls it.
+    ///
+    /// The two are asked at once and the entitlement is applied the moment it
+    /// answers, because they are not the same kind of question. The price is a
+    /// network round trip to the storefront; the entitlement is usually a read
+    /// of StoreKit's local cache. Waiting for the first before asking the
+    /// second means that on a reinstall or a new phone — the only launches
+    /// where the local flag is `false` — a player who has already paid is shown
+    /// the wall for as long as a slow storefront takes to name its price.
+    /// Nothing about the entitlement needed the price.
     func prepare() async {
-        displayPrice = await operations.displayPrice()
-        await refreshEntitlements()
+        async let entitlements = operations.entitlements()
+        async let price = operations.displayPrice()
+
+        apply(await entitlements)
+        displayPrice = await price
     }
 
     /// Watches for transactions arriving from anywhere but this session — a
