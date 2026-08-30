@@ -18,7 +18,7 @@ enum FontFamily {
 /// values (`docs/adr/0003-native-navigation-and-type-scaling-over-literal-port.md`).
 enum SiraTextRole {
     // Bricolage Grotesque (display)
-    /// Home's "Keep the score honest." hero headline.
+    /// Home's "Keep the game moving." hero headline.
     case displayHero
     /// Screen titles: "Which variant?", "Who's playing?".
     case displayTitle

@@ -3,16 +3,9 @@ import XCTest
 
 /// Home's catalogue copy counts the catalogue rather than quoting it. The
 /// literal readings are pinned alongside the counts they came from, so a
-/// Variant added or retired fails here — one file, next to the reason — rather
-/// than leaving Home quietly advertising a catalogue that has moved on, which
-/// is exactly what "101 / 151" did.
 final class HomeCopyTests: XCTestCase {
-    func test_theHeroLineCountsTheGamesAndVariantsThatExist() {
-        let variants = Game.allCases.reduce(0) { $0 + Variant.all(for: $1).count }
-
-        XCTAssertEqual(HomeCopy.heroLine, "Two games, three variants, one running tally that nobody can argue with.")
-        XCTAssertEqual(Game.allCases.count, 2)
-        XCTAssertEqual(variants, 3)
+    func test_theHeroLineExplainsTheValueOfTrackingScoresHere() {
+        XCTAssertEqual(HomeCopy.heroLine, "Track every round in one place — no pen and paper needed.")
     }
 
     func test_aGameCardSaysHowManyVariantsItLeadsTo() {

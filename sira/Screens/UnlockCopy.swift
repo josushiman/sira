@@ -11,30 +11,25 @@ import Foundation
 /// for the player's storefront, handed in — so the price is right in every
 /// currency, and a tier change in App Store Connect is not a code change.
 ///
-/// **No benefit claims a feature.** Every Variant, team play, Çifte, Gösterge,
-/// Rejoin, Undo, the Scoresheet and Standings are all in the free games and
-/// stay there. Only the number of games that can be *started* is gated, and a
-/// sheet that suggested otherwise would be inaccurate App Store metadata as
-/// well as untrue.
+/// **No benefit claims an existing feature is gated.** Every Variant, team
+/// play, Çifte, Gösterge, Rejoin, Undo, the Scoresheet and Standings are all
+/// in the free games and stay there. Only the number of games that can be
+/// *started* is gated.
 ///
 /// "Games", never "Matches" — Home's own word for them (`CONTEXT.md`).
 enum UnlockCopy {
-    /// What has happened, said as a fact rather than as a warning — and short,
-    /// because `displayTitle` is 28pt heavy and a sentence set in it is a wall
-    /// rather than a heading.
-    static let title = "Your three free games are up"
+    /// The offer's promise, kept short because `displayTitle` is 28pt heavy.
+    static let title = "Keep the game moving."
 
-    /// What the purchase is, in a sentence — and, because this is the sentence
-    /// a player decides on, that it is not a subscription.
+    /// What the purchase gives a player, in a sentence.
     static let explanation =
-        "Sıra is free for three games. One payment keeps it open for good — "
-        + "no subscription, nothing to renew."
+        "One payment gives your game nights a permanent home for every score to come."
 
-    /// What the payment actually changes. Three lines, each of them true.
+    /// What the payment gives. Three lines, each of them true.
     static let benefits = [
-        "Start as many games as you like, forever",
-        "One payment, not a subscription",
-        "Covers your other devices and your family"
+        "Start as many games as you like",
+        "Pay once, keep it for good",
+        "Receive any new features for free"
     ]
 
     /// The primary action. Carries StoreKit's own price string, which is why
