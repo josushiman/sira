@@ -71,9 +71,10 @@ final class UnlockCopyTests: XCTestCase {
 
     /// One payment, said in as many words: what the player is agreeing to is
     /// the thing they most need to know before agreeing to it.
-    func test_theOfferSaysItIsNotASubscription() {
+    func test_theOfferSaysThePurchaseIsPermanent() {
         let stated = UnlockCopy.explanation + UnlockCopy.benefits.joined(separator: " ")
-        XCTAssertTrue(stated.contains("subscription"))
+        XCTAssertTrue(stated.contains("Pay once"))
+        XCTAssertTrue(stated.contains("keep it for good"))
     }
 
     /// A failure the player can act on: no money moved, and try again.

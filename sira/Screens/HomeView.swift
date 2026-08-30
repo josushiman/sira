@@ -239,7 +239,7 @@ struct HomeView: View {
 
     private var heroSection: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("Keep the\nscore honest.")
+            Text("Keep the game\nmoving.")
                 .siraStyle(.displayHero)
             Text(HomeCopy.heroLine)
                 .siraStyle(.body)
