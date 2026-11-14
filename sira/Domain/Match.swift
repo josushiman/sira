@@ -46,6 +46,10 @@ final class Match {
     @Relationship(deleteRule: .cascade, inverse: \Round.match)
     private(set) var storedRounds: [Round]
     var archived: Bool
+    /// The persisted Okey 101 ending, independent of archive visibility and
+    /// whether this Match has Started. V2 captures old count-based results
+    /// here before the target-free lifecycle replaces that rule.
+    var ended: Bool = false
     /// Whether a Round has ever been scored on this Match — see **Started** in
     /// `CONTEXT.md`. Home lists Started Matches only: a Match nobody has
     /// scored is an intention rather than history.
@@ -333,6 +337,16 @@ final class Match {
         guard let latest = rounds.last else { return nil }
         storedRounds.removeAll { $0.id == latest.id }
         return latest
+    }
+
+    /// Compatibility for the count-driven experience until Okey 101 cuts over
+    /// to explicit End/Resume. Run only during V1 migration and score changes,
+    /// never on ordinary launches: persisted endings must survive the cutover.
+    func prepareCountBasedEnding() {
+        // Frozen identity rather than the live Win Condition: the migration
+        // must still recognize V1 results after Okey 101 changes its rules.
+        guard game == .okey, variantId == "okey-101" else { return }
+        ended = roundCount.map { storedRounds.count >= $0 } ?? false
     }
 
     /// Hides this Match from the Active filter without locking it — Rounds can

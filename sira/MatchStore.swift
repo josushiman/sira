@@ -237,7 +237,7 @@ final class MatchStore {
 
     private static func container(for configuration: ModelConfiguration) throws -> ModelContainer {
         try ModelContainer(
-            for: Schema(SiraSchema.models),
+            for: Schema(versionedSchema: SiraSchema.self),
             migrationPlan: SiraMigrationPlan.self,
             configurations: configuration
         )
@@ -245,6 +245,7 @@ final class MatchStore {
 
     func add(_ match: Match) {
         context.insert(match)
+        match.prepareCountBasedEnding()
         // A Match built with Rounds arrives Started — `Match.init` says so
         // from the Rounds themselves — and a Match that arrives Started has
         // consumed a Free Match as surely as one that Starts a Round at a
@@ -270,6 +271,7 @@ final class MatchStore {
         let starting = !match.started
         context.insert(round)
         match.addRound(round)
+        match.prepareCountBasedEnding()
         if starting { recordStart() }
         save()
     }
@@ -323,6 +325,7 @@ final class MatchStore {
     func undoLastRound(in match: Match) {
         guard let undone = match.undoLastRound() else { return }
         context.delete(undone)
+        match.prepareCountBasedEnding()
         save()
     }
 
