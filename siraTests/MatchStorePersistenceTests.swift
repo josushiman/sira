@@ -46,6 +46,184 @@ final class MatchStorePersistenceTests: XCTestCase {
         try XCTUnwrap(match.entrants.first { $0.name == name })
     }
 
+    func test_104RoundScoresheetSurvivesReopeningEndResumeFurtherScoringAndUndoToZero() throws {
+        let facts = try launch { store in
+            let alice = Entrant(name: "Alice"), bob = Entrant(name: "Bob")
+            let match = Match(game: .okey, variant: .okey101, mode: .players, entrants: [alice, bob])
+            store.add(match)
+            for _ in 0..<104 {
+                store.addRound(Round(deltas: [alice.id: 0, bob.id: 10], cifteCallers: [bob.id],
+                                     okeyAtanID: alice.id), to: match)
+            }
+            let sheet = Scoresheet(match: match, engine: LowestTotalEngine())
+            XCTAssertEqual(sheet.rows.count, 104)
+            XCTAssertEqual(sheet.totals.ranked.map(\.total), [0, 4160])
+            return (match.id, alice.id, bob.id, sheet.rows.map(\.id))
+        }
+        try launch { store in
+            let stored = try match(facts.0, in: store)
+            let sheet = Scoresheet(match: stored, engine: LowestTotalEngine())
+            XCTAssertEqual(stored.entrants.map(\.id), [facts.1, facts.2])
+            XCTAssertEqual(stored.entrants.map(\.sequence), [0, 1])
+            XCTAssertEqual(stored.rounds.map(\.sequence), Array(0..<104))
+            XCTAssertEqual(sheet.rows.map(\.id), facts.3)
+            XCTAssertEqual(sheet.rows.map(\.roundNumber), Array(1...104))
+            XCTAssertTrue(sheet.rows.allSatisfy { $0.deltas == [facts.1: 0, facts.2: 40] })
+            XCTAssertTrue(stored.rounds.allSatisfy {
+                $0.deltas == [facts.1: 0, facts.2: 10] && $0.cifteCallers == [facts.2]
+                    && $0.okeyAtanID == facts.1 && $0.joins.isEmpty && $0.rejoins.isEmpty
+            })
+            XCTAssertEqual(sheet.totals, LowestTotalEngine().standings(for: stored))
+            XCTAssertEqual(sheet.totals.ranked.map(\.total), [0, 4160])
+            XCTAssertTrue(store.end(stored))
+            XCTAssertTrue(stored.isReadOnly)
+        }
+        try launch { store in
+            let stored = try match(facts.0, in: store)
+            XCTAssertTrue(stored.isReadOnly)
+            XCTAssertEqual(Scoresheet(match: stored, engine: LowestTotalEngine()).rows.map(\.id), facts.3)
+            XCTAssertEqual(LowestTotalEngine().standings(for: stored).result, "Alice wins!")
+            XCTAssertTrue(store.resume(stored))
+            store.addRound(Round(deltas: [facts.1: 15, facts.2: 0]), to: stored)
+            let continued = Scoresheet(match: stored, engine: LowestTotalEngine())
+            XCTAssertEqual(continued.rows.last?.roundNumber, 105)
+            XCTAssertEqual(continued.totals.ranked.map(\.total), [15, 4160])
+            store.undoLastRound(in: stored)
+            XCTAssertEqual(Scoresheet(match: stored, engine: LowestTotalEngine()).rows.map(\.id), facts.3)
+            for _ in 0..<104 { store.undoLastRound(in: stored) }
+            XCTAssertTrue(Scoresheet(match: stored, engine: LowestTotalEngine()).rows.isEmpty)
+            XCTAssertEqual(LowestTotalEngine().standings(for: stored).ranked.map(\.total), [0, 0])
+            XCTAssertFalse(stored.canEnd)
+            store.addRound(Round(deltas: [facts.1: 0, facts.2: 5]), to: stored)
+            XCTAssertEqual(Scoresheet(match: stored, engine: LowestTotalEngine()).rows.map(\.roundNumber), [1])
+            XCTAssertEqual(store.freeMatches.startedMatches, 1)
+        }
+        try launch { store in
+            let stored = try match(facts.0, in: store)
+            XCTAssertFalse(stored.isReadOnly)
+            XCTAssertEqual(Scoresheet(match: stored, engine: LowestTotalEngine()).totals.ranked.map(\.total), [0, 5])
+            XCTAssertEqual(store.freeMatches.startedMatches, 1)
+        }
+    }
+
+    func test_resumedHistoryAndFurtherScoresSurviveRelaunchAndCanEndAgain() throws {
+        let facts = try launch { store in
+            let alice = Entrant(name: "Alice")
+            let bob = Entrant(name: "Bob")
+            let match = Match(game: .okey, variant: .okey101, mode: .players, entrants: [alice, bob],
+                              createdAt: Date(timeIntervalSince1970: 1_700_000_000))
+            let round = Round(deltas: [alice.id: 10, bob.id: 20], cifteCallers: [bob.id], okeyAtanID: alice.id)
+            store.add(match)
+            store.addRound(round, to: match)
+            store.end(match)
+            store.resume(match)
+            store.rename(alice, to: "Alicia")
+            store.addRound(Round(deltas: [alice.id: 70, bob.id: 0]), to: match)
+            return (match.id, round.id, alice.id, bob.id)
+        }
+        try launch { store in
+            let stored = try match(facts.0, in: store)
+            XCTAssertFalse(stored.isReadOnly)
+            XCTAssertFalse(stored.archived)
+            XCTAssertTrue(stored.started)
+            XCTAssertEqual(stored.createdAt, Date(timeIntervalSince1970: 1_700_000_000))
+            XCTAssertEqual(stored.entrants.map(\.id), [facts.2, facts.3])
+            XCTAssertEqual(stored.entrants.map(\.name), ["Alicia", "Bob"])
+            XCTAssertEqual(stored.entrants.map(\.sequence), [0, 1])
+            XCTAssertEqual(stored.rounds.map(\.sequence), [0, 1])
+            XCTAssertEqual(stored.rounds[0].id, facts.1)
+            XCTAssertEqual(stored.rounds[0].deltas, [facts.2: 10, facts.3: 20])
+            XCTAssertEqual(stored.rounds[0].cifteCallers, [facts.3])
+            XCTAssertEqual(stored.rounds[0].okeyAtanID, facts.2)
+            XCTAssertEqual(LowestTotalEngine().standings(for: stored).ranked.map(\.total), [80, 90])
+            XCTAssertTrue(store.end(stored))
+            XCTAssertEqual(LowestTotalEngine().standings(for: stored).result, "Bob wins!")
+            XCTAssertEqual(store.freeMatches.startedMatches, 1)
+        }
+        try launch { store in
+            let stored = try match(facts.0, in: store)
+            XCTAssertTrue(stored.isReadOnly)
+            XCTAssertTrue(stored.archived)
+            XCTAssertEqual(LowestTotalEngine().standings(for: stored).result, "Bob wins!")
+            XCTAssertEqual(store.freeMatches.startedMatches, 1)
+        }
+    }
+
+    func test_failedResumeSaveKeepsBothVisibleStatesAndSurfacesTheExistingFailure() {
+        var failing = false
+        let store = MatchStore { context in
+            if failing { throw DiskFull() }
+            try context.save()
+        }
+        let match = Match(game: .okey, variant: .okey101, mode: .players,
+                          entrants: [Entrant(name: "Alice")], rounds: [Round()])
+        store.add(match)
+        store.end(match)
+        failing = true
+
+        XCTAssertTrue(store.resume(match))
+
+        XCTAssertNotNil(store.saveFailure)
+        XCTAssertFalse(match.ended)
+        XCTAssertFalse(match.archived)
+        XCTAssertTrue(match.started)
+        XCTAssertEqual(store.freeMatches.startedMatches, 1)
+    }
+
+    func test_endedArchivedResultAndReadOnlyHistorySurviveTwoReopens() throws {
+        let id = try launch { store -> Match.ID in
+            let alice = Entrant(name: "Alice")
+            let bob = Entrant(name: "Bob")
+            let match = Match(game: .okey, variant: .okey101, mode: .players, entrants: [alice, bob],
+                              createdAt: Date(timeIntervalSince1970: 1_700_000_000))
+            store.add(match)
+            store.addRound(Round(deltas: [alice.id: 20, bob.id: 10], okeyAtanID: bob.id), to: match)
+            XCTAssertTrue(store.end(match))
+            return match.id
+        }
+        for _ in 0..<2 {
+            try launch { store in
+                let stored = try match(id, in: store)
+                let alice = try entrant("Alice", in: stored)
+                XCTAssertTrue([stored].scorableMatch(id) === stored)
+                XCTAssertTrue(stored.ended)
+                XCTAssertTrue(stored.archived)
+                XCTAssertTrue(stored.started)
+                XCTAssertEqual(stored.createdAt, Date(timeIntervalSince1970: 1_700_000_000))
+                XCTAssertEqual(stored.entrants.map(\.sequence), [0, 1])
+                XCTAssertEqual(stored.rounds.map(\.sequence), [0])
+                XCTAssertEqual(LowestTotalEngine().standings(for: stored).ranked.map(\.total), [20, 40])
+                XCTAssertEqual(HomeCard(match: stored, variant: .okey101).summaryText, "Bob wins!")
+                store.addRound(Round(deltas: [alice.id: 200]), to: stored)
+                store.undoLastRound(in: stored)
+                store.rename(alice, to: "Changed")
+                store.restore(stored)
+                XCTAssertEqual(stored.entrants.map(\.name), ["Alice", "Bob"])
+                XCTAssertEqual(stored.rounds.count, 1)
+                XCTAssertTrue(stored.archived)
+                XCTAssertEqual(store.freeMatches.startedMatches, 1)
+            }
+        }
+    }
+
+    func test_failedEndSaveKeepsBothVisibleStatesAndSurfacesTheExistingFailure() throws {
+        var failing = false
+        let store = MatchStore { context in
+            if failing { throw DiskFull() }
+            try context.save()
+        }
+        let match = Match(game: .okey, variant: .okey101, mode: .players,
+                          entrants: [Entrant(name: "Alice")], rounds: [Round()])
+        store.add(match)
+        failing = true
+        XCTAssertTrue(store.end(match))
+        XCTAssertNotNil(store.saveFailure)
+        XCTAssertTrue(match.ended)
+        XCTAssertTrue(match.archived)
+        XCTAssertTrue(match.isReadOnly)
+        XCTAssertEqual(store.freeMatches.startedMatches, 1)
+    }
+
     // MARK: - First launch
 
     /// The first thing a new player sees. Until Matches were stored, the app
@@ -165,7 +343,7 @@ final class MatchStorePersistenceTests: XCTestCase {
         let matchID = try launch { store -> Match.ID in
             let alice = Entrant(name: "Alice")
             let bob = Entrant(name: "Bob")
-            let match = Match(game: .okey, variant: .okey101, number: 8, mode: .players, entrants: [alice, bob])
+            let match = Match(game: .okey, variant: .okey101, mode: .players, entrants: [alice, bob])
             store.add(match)
             store.addRound(
                 Round(
@@ -319,12 +497,12 @@ final class MatchStorePersistenceTests: XCTestCase {
         }
     }
 
-    func test_fixedRoundsStandingsAreUnchangedByAReload() throws {
+    func test_lowestTotalStandingsAreUnchangedByAReload() throws {
         let (matchID, before) = try launch { store -> (Match.ID, Standings) in
             let alice = Entrant(name: "Alice")
             let bob = Entrant(name: "Bob")
             let carol = Entrant(name: "Carol")
-            let match = Match(game: .okey, variant: .okey101, number: 8, mode: .players, entrants: [alice, bob, carol])
+            let match = Match(game: .okey, variant: .okey101, mode: .players, entrants: [alice, bob, carol])
             store.add(match)
             store.addRound(
                 Round(deltas: [alice.id: 30, bob.id: 0, carol.id: 45], cifteCallers: [carol.id]),
@@ -334,33 +512,23 @@ final class MatchStorePersistenceTests: XCTestCase {
                 Round(deltas: [alice.id: 12, bob.id: 20, carol.id: 0], okeyAtanID: carol.id),
                 to: match
             )
-            return (match.id, WinCondition.fixedRounds.engine.standings(for: match))
+            return (match.id, WinCondition.lowestTotal.engine.standings(for: match))
         }
 
         try launch { store in
-            let after = WinCondition.fixedRounds.engine.standings(for: try match(matchID, in: store))
+            let after = WinCondition.lowestTotal.engine.standings(for: try match(matchID, in: store))
 
             XCTAssertEqual(after, before)
         }
     }
 
-    /// Okey 101's Round count is chosen at Setup rather than by the Variant, so
-    /// it is the one part of the rules stored per Match. Lose it and a 12-Round
-    /// Match resolves the Variant's own 8 and declares itself over four Rounds
-    /// early.
-    func test_okey101sSetupChosenRoundCountSurvives() throws {
+    func test_targetFreeOkey101ScoresAndRoutesAfterAReload() throws {
         let matchID = try launch { store -> Match.ID in
             let alice = Entrant(name: "Alice")
             let bob = Entrant(name: "Bob")
-            let match = Match(
-                game: .okey,
-                variantId: Variant.okey101.id,
-                roundCount: 12,
-                mode: .players,
-                entrants: [alice, bob]
-            )
+            let match = Match(game: .okey, variant: .okey101, mode: .players, entrants: [alice, bob])
             store.add(match)
-            for _ in 0..<8 {
+            for _ in 0..<51 {
                 store.addRound(Round(deltas: [alice.id: 10, bob.id: 0]), to: match)
             }
             return match.id
@@ -368,9 +536,16 @@ final class MatchStorePersistenceTests: XCTestCase {
 
         try launch { store in
             let reloaded = try match(matchID, in: store)
-
-            XCTAssertEqual(reloaded.variantNumber, 12)
-            XCTAssertFalse(WinCondition.fixedRounds.engine.standings(for: reloaded).isOver)
+            XCTAssertNil(reloaded.variantNumber)
+            XCTAssertNil(reloaded.numberPhrase)
+            XCTAssertTrue([reloaded].scorableMatch(matchID) === reloaded)
+            XCTAssertEqual(reloaded.rounds.count, 51)
+            let standings = WinCondition.lowestTotal.engine.standings(for: reloaded)
+            XCTAssertEqual(standings.ranked.map(\.total), [0, 510])
+            XCTAssertFalse(standings.isOver)
+            XCTAssertNil(standings.result)
+            XCTAssertTrue(reloaded.started)
+            XCTAssertEqual(store.freeMatches.startedMatches, 1)
         }
     }
 

@@ -12,10 +12,11 @@ final class HomeViewSnapshotTests: XCTestCase {
         _ store: MatchStore,
         theme: Theme,
         unlocked: Bool = false,
+        filter: MatchFilter = .active,
         testName: String = #function
     ) {
         let view = NavigationStack {
-            HomeView()
+            HomeView(initialFilter: filter)
         }
         .environment(store)
         .environment(Navigator())
@@ -40,6 +41,64 @@ final class HomeViewSnapshotTests: XCTestCase {
 
     func test_populatedMatchListAndInlineGameCards_felt() {
         assertHome(.seeded(), theme: .felt)
+    }
+
+    /// Both old targets are deliberately retained in the fixture. Live and
+    /// migrated final cards omit them and read their persisted result state.
+    private func storeWithOkey101History() -> MatchStore {
+        let store = MatchStore()
+        for (index, ended) in [false, true].enumerated() {
+            let alice = Entrant(name: "Alice")
+            let bob = Entrant(name: "Bob")
+            let match = Match(
+                game: .okey, variantId: "okey-101", roundCount: 1, mode: .players,
+                entrants: [alice, bob], rounds: [Round(deltas: [alice.id: 20, bob.id: 15])],
+                createdAt: .fixture(year: 2026, month: 3, day: 14 - index, hour: 21)
+            )
+            match.ended = ended
+            store.add(match)
+        }
+        return store
+    }
+
+    private func endedTiedHistory() -> MatchStore {
+        let store = MatchStore()
+        let entrants = ["Alexandra", "Benedict", "Cemalettin", "Dilara"].map { Entrant(name: $0) }
+        let match = Match(game: .okey, variant: .okey101, mode: .players, entrants: entrants,
+                          rounds: [Round(deltas: Dictionary(uniqueKeysWithValues: entrants.map { ($0.id, 70) }))],
+                          createdAt: .fixture(year: 2026, month: 3, day: 14, hour: 21))
+        store.add(match)
+        store.end(match)
+        return store
+    }
+
+    func test_okey101ArchivedTiedHistory_paper() {
+        assertHome(endedTiedHistory(), theme: .paper, filter: .archived)
+    }
+    func test_okey101ArchivedTiedHistory_felt() {
+        assertHome(endedTiedHistory(), theme: .felt, filter: .archived)
+    }
+
+    private func resumedHistory() throws -> MatchStore {
+        let store = storeWithOkey101History()
+        let matches = try store.context.fetch(FetchDescriptor<Match>())
+        for match in matches where match.isReadOnly { store.resume(match) }
+        return store
+    }
+
+    func test_okey101ResumedHistoryKeepsOriginalOrder_paper() throws {
+        assertHome(try resumedHistory(), theme: .paper)
+    }
+    func test_okey101ResumedHistoryKeepsOriginalOrder_felt() throws {
+        assertHome(try resumedHistory(), theme: .felt)
+    }
+
+    func test_okey101HistoryOmitsTargets_paper() {
+        assertHome(storeWithOkey101History(), theme: .paper)
+    }
+
+    func test_okey101HistoryOmitsTargets_felt() {
+        assertHome(storeWithOkey101History(), theme: .felt)
     }
 
     /// Two Gonga Matches, one to 101 and one to 201. They carry the same

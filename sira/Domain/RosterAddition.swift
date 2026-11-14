@@ -20,7 +20,7 @@ import Foundation
 ///   second one stated here.
 /// - **The Match cannot say what a newcomer would start on.** Only a Survival
 ///   Match is played to a running total someone can be brought in on; a Match
-///   counting down, or one racing a fixed number of Rounds, has no highest
+///   counting down, or one decided by Lowest Total, has no highest
 ///   total still in to inherit. This is what keeps both Okey Variants out
 ///   without either being named — and, just as deliberately, without Gonga
 ///   being named either.

@@ -100,19 +100,16 @@ final class HomeCardTests: XCTestCase {
 
     // MARK: - The number the Match is played at
 
-    /// The card names the Match by what it is played at as well as who is
-    /// playing it, so two Matches of the same Variant over different lengths
-    /// are told apart on the list rather than only once one is opened.
-    func test_theMetadataLineCarriesTheNumberAsAPhrase() {
+    /// Target-free Matches name the Entrants without implying a length.
+    func test_okey101MetadataOmitsAnyTarget() {
         let okey101 = Match(
             game: .okey,
             variant: .okey101,
-            number: 12,
             mode: .players,
             entrants: [Entrant(name: "Alice"), Entrant(name: "Bob")]
         )
 
-        XCTAssertEqual(HomeCard(match: okey101, variant: .okey101).entrantsText, "2 players · 12 rounds")
+        XCTAssertEqual(HomeCard(match: okey101, variant: .okey101).entrantsText, "2 players")
     }
 
     /// Two Gonga Matches at different limits are one Variant, told apart on
@@ -180,27 +177,24 @@ final class HomeCardTests: XCTestCase {
         XCTAssertFalse(card.variantLabel.contains("201"))
     }
 
-    /// The phrase reads off the Match's own number, not the Variant's, which is
-    /// the whole point of asking for one at Setup.
-    func test_theMetadataLineFollowsTheNumberThisMatchChose() {
+    /// Old stored targets no longer appear as live metadata.
+    func test_okey101MetadataIgnoresAMigratedTarget() {
         let shortMatch = Match(
             game: .okey,
-            variant: .okey101,
-            number: 5,
+            variantId: Variant.okey101.id,
+            roundCount: 5,
             mode: .players,
             entrants: [Entrant(name: "Alice"), Entrant(name: "Bob")]
         )
 
-        XCTAssertEqual(HomeCard(match: shortMatch, variant: .okey101).entrantsText, "2 players · 5 rounds")
+        XCTAssertEqual(HomeCard(match: shortMatch, variant: .okey101).entrantsText, "2 players")
     }
 
-    /// The label never absorbs the number: "Okey 101" is the Variant, and the
-    /// 12 Rounds it is being played over sit in the metadata line beside it.
+    /// Okey 101 retains its Variant label without adding any target.
     func test_theLabelIsNeverFusedWithTheNumber() {
         let match = Match(
             game: .okey,
             variant: .okey101,
-            number: 12,
             mode: .players,
             entrants: [Entrant(name: "Alice")]
         )

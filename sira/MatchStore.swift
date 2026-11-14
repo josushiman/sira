@@ -237,7 +237,7 @@ final class MatchStore {
 
     private static func container(for configuration: ModelConfiguration) throws -> ModelContainer {
         try ModelContainer(
-            for: Schema(SiraSchema.models),
+            for: Schema(versionedSchema: SiraSchema.self),
             migrationPlan: SiraMigrationPlan.self,
             configurations: configuration
         )
@@ -267,6 +267,7 @@ final class MatchStore {
     /// be spent by a Round that did not reach the disk or kept by one that
     /// did.
     func addRound(_ round: Round, to match: Match) {
+        guard !match.isReadOnly else { return }
         let starting = !match.started
         context.insert(round)
         match.addRound(round)
@@ -279,6 +280,7 @@ final class MatchStore {
     /// saved as it was entered, and staying Out is what that Round already
     /// says.
     func recordRejoin(_ rejoin: RejoinEvent, in match: Match) {
+        guard !match.isReadOnly else { return }
         match.recordRejoin(rejoin)
         save()
     }
@@ -295,6 +297,7 @@ final class MatchStore {
     /// the name by `EntrantName`, the total by `RosterAddition`. This records
     /// the arrival rather than judging it, exactly as `recordRejoin` does.
     func addEntrant(_ entrant: Entrant, to match: Match, joiningOn total: Int) {
+        guard !match.isReadOnly else { return }
         context.insert(entrant)
         match.addEntrant(entrant, joiningOn: total)
         save()
@@ -311,6 +314,7 @@ final class MatchStore {
     /// records a decision rather than making one, exactly as `recordRejoin`
     /// does with a target.
     func rename(_ entrant: Entrant, to name: String) {
+        guard entrant.match?.isReadOnly != true else { return }
         entrant.name = name
         save()
     }
@@ -399,12 +403,32 @@ final class MatchStore {
         save()
     }
 
+    /// Ending and archiving share one save, just as a Round and its Start do.
+    /// As with every mutation, a save failure leaves the visible change in
+    /// memory and surfaces the existing save-failure notice.
+    @discardableResult
+    func end(_ match: Match) -> Bool {
+        guard match.end() else { return false }
+        save()
+        return true
+    }
+
+    /// Reopening and unarchiving are persisted together, retaining the Start
+    /// and its already-spent Free Match just as Undo does.
+    @discardableResult
+    func resume(_ match: Match) -> Bool {
+        guard match.resume() else { return false }
+        save()
+        return true
+    }
+
     func archive(_ match: Match) {
         match.archive()
         save()
     }
 
     func restore(_ match: Match) {
+        guard !match.isReadOnly else { return }
         match.restore()
         save()
     }

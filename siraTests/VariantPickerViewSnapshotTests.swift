@@ -5,9 +5,12 @@ import SnapshotTesting
 
 final class VariantPickerViewSnapshotTests: XCTestCase {
     private func assertVariantPicker(_ game: Game, theme: Theme, testName: String = #function) {
-        let view = NavigationStack {
+        // NavigationLinks need a navigation environment. The legacy stack host
+        // avoids iOS 27 NavigationStack inset feedback between image renders.
+        let view = NavigationView {
             VariantPickerView(game: game)
         }
+        .navigationViewStyle(.stack)
         .environment(\.theme, theme)
         .frame(width: 402, height: 874)
 

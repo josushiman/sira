@@ -11,12 +11,8 @@ enum RoundEntryStyle: Hashable {
 /// The shape a Match is scored in, and nothing about how far it runs.
 ///
 /// A Variant says which Win Condition applies, who may sit down, and how a
-/// Round is entered. The number it is played at — a limit, a starting score or
-/// a Round count, whichever its Win Condition takes — is the table's choice:
-/// made at Setup, stored on the Match, and read back through
-/// `Match.variantNumber`. There is deliberately no `limit`, `startingScore` or
-/// `roundCount` here to reach for instead, so a caller after the number gets a
-/// compile error pointing at the Match rather than a plausible `nil`.
+/// Round is entered. Gonga and Okey require a score chosen at Setup and stored
+/// on the Match. Lowest Total needs no Setup number.
 struct Variant: Identifiable, Hashable {
     /// Stable identity for this Variant, and a persistence contract once the
     /// app ships: a Match stores this string and resolves its rules from it,
@@ -28,6 +24,8 @@ struct Variant: Identifiable, Hashable {
     let label: String
     let ruleText: String
     let winCondition: WinCondition
+    /// The Setup number this Variant requires, or none for Lowest Total.
+    var parameterKind: VariantParameter.Kind? { VariantParameter.Kind(winCondition) }
     /// The single Entrant mode this Variant is played in. Every Variant is
     /// fixed to one — only Okey is played in Teams of 2; Gonga and Okey 101
     /// are individuals only — so Setup records this rather than offering
@@ -39,15 +37,8 @@ struct Variant: Identifiable, Hashable {
     /// Whether Round entry offers the Çifte doubling toggle. Okey only —
     /// Gonga has no Çifte concept.
     let supportsCifte: Bool
-    /// The rules as Setup reads them back once a number has been chosen, with
-    /// `{n}` standing where that number goes and `{s}` for the plural ending
-    /// that number governs — `1` is a legal Round count, so "over {n} Round{s}"
-    /// has to read "over 1 Round". Separate from `ruleText`, which the Variant
-    /// Picker shows before anything has been chosen and so cannot quote a
-    /// number at all.
-    ///
-    /// Every Variant has one: all three take a number at Setup, so all three
-    /// have rules to read back at whatever was chosen.
+    /// Setup's rule explanation. Parameterized Variants substitute `{n}`
+    /// with the chosen score; Lowest Total reads this unchanged.
     let ruleTextTemplate: String
     var entryStyle: RoundEntryStyle = .keypad
     /// Keypad entry's "never laid down" quick-entry shortcut value (Okey 101: 101).
@@ -60,7 +51,6 @@ struct Variant: Identifiable, Hashable {
     func ruleText(at number: Int) -> String {
         ruleTextTemplate
             .replacingOccurrences(of: "{n}", with: "\(number)")
-            .replacingOccurrences(of: "{s}", with: number == 1 ? "" : "s")
     }
 }
 
@@ -113,12 +103,12 @@ extension Variant {
         id: "okey-101",
         game: .okey,
         label: "Okey 101",
-        ruleText: "Individuals only. Accumulate points each Round over a fixed number of Rounds, chosen at Setup. Lowest total when the Rounds run out wins.",
-        winCondition: .fixedRounds,
+        ruleText: "Keep score for every round. End when your table decides. Lowest total wins.",
+        winCondition: .lowestTotal,
         entrantMode: .players,
         maxEntrants: 4,
         supportsCifte: true,
-        ruleTextTemplate: "Individuals only. Accumulate points each Round over {n} Round{s}. Lowest total when the Rounds run out wins.",
+        ruleTextTemplate: "Keep playing until your table decides to end. Lowest score wins.",
         entryStyle: .keypad,
         neverLaidDownValue: 101
     )

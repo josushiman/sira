@@ -28,6 +28,7 @@ struct HomeCard: Identifiable {
     let variantLabel: String
     /// The leader/result line under the card's divider.
     let summaryText: String
+    let isReadOnly: Bool
     let archived: Bool
     /// What the delete confirmation counts when it says what goes.
     let roundCount: Int
@@ -40,6 +41,7 @@ struct HomeCard: Identifiable {
         id = match.id
         game = match.game
         title = MatchDateTitle.text(for: match.createdAt)
+        isReadOnly = match.isReadOnly
         archived = match.archived
         roundCount = match.rounds.count
         variantLabel = variant.label
@@ -62,10 +64,8 @@ struct HomeCard: Identifiable {
             entrantsPhrase = "\(entrantCount) \(entrantCount == 1 ? "team" : "teams")"
         }
 
-        // The number the Match is played at rides beside the count rather than
-        // inside the label: two Okey 101 Matches over 8 and 12 Rounds are the
-        // same Variant, and a card that fused the number into the name would
-        // read as two different games.
+        // Only parameterized Variants include a score phrase. Lowest Total
+        // omits obsolete targets even on migrated Matches.
         entrantsText = [entrantsPhrase, match.numberPhrase].compactMap { $0 }.joined(separator: " · ")
     }
 }

@@ -2,6 +2,18 @@ import XCTest
 @testable import sira
 
 final class PlayStatsTests: XCTestCase {
+    func test_freshLowestTotalMatchShowsZeroRoundsAndNoLeader() {
+        let match = Match(game: .okey, variant: .okey101, mode: .players,
+                          entrants: [Entrant(name: "Alice"), Entrant(name: "Bob")])
+
+        let stats = PlayStats(variant: .okey101, match: match, engine: LowestTotalEngine())
+
+        XCTAssertEqual(stats.leadLabel, "Leader")
+        XCTAssertEqual(stats.leadValue, "—")
+        XCTAssertEqual(stats.secondaryLabel, "Rounds played")
+        XCTAssertEqual(stats.secondaryValue, "0")
+    }
+
     func test_survivalInProgress_showsLeaderAndClosestToOut() {
         let a = Entrant(name: "Alice")
         let b = Entrant(name: "Bob")
@@ -188,43 +200,41 @@ final class PlayStatsTests: XCTestCase {
         XCTAssertEqual(stats.secondaryValue, "81")
     }
 
-    func test_fixedRounds_showsRoundsLeft() {
+    func test_lowestTotal_showsRoundsPlayed() {
         let a = Entrant(name: "Alice")
         let b = Entrant(name: "Bob")
         let match = Match(
             game: .okey,
             variant: .okey101,
-            number: 8,
             mode: .players,
             entrants: [a, b],
             rounds: [Round(deltas: [a.id: 10, b.id: 5]), Round(deltas: [a.id: 10, b.id: 5])]
         )
 
-        let stats = PlayStats(variant: .okey101, match: match, engine: FixedRoundsEngine())
+        let stats = PlayStats(variant: .okey101, match: match, engine: LowestTotalEngine())
 
-        XCTAssertEqual(stats.secondaryLabel, "Rounds left")
-        XCTAssertEqual(stats.secondaryValue, "6")
+        XCTAssertEqual(stats.secondaryLabel, "Rounds played")
+        XCTAssertEqual(stats.secondaryValue, "2")
     }
 
-    /// Rounds left counts against the number this table chose, not the number
-    /// the Variant ships with — a five-Round Match is three Rounds from the end
-    /// after two, and would read as six if the Variant's 8 still stood.
-    func test_fixedRounds_countsRoundsLeftAgainstTheChosenNumber() {
+    /// Migrated Matches may retain an old stored target, but it is no longer
+    /// metadata or the denominator of any live statistic.
+    func test_lowestTotal_ignoresAnObsoleteTarget() {
         let a = Entrant(name: "Alice")
         let b = Entrant(name: "Bob")
         let match = Match(
             game: .okey,
-            variant: .okey101,
-            number: 5,
+            variantId: Variant.okey101.id,
+            roundCount: 5,
             mode: .players,
             entrants: [a, b],
             rounds: [Round(deltas: [a.id: 10, b.id: 5]), Round(deltas: [a.id: 10, b.id: 5])]
         )
 
-        let stats = PlayStats(variant: .okey101, match: match, engine: FixedRoundsEngine())
+        let stats = PlayStats(variant: .okey101, match: match, engine: LowestTotalEngine())
 
-        XCTAssertEqual(stats.secondaryLabel, "Rounds left")
-        XCTAssertEqual(stats.secondaryValue, "3")
+        XCTAssertEqual(stats.secondaryLabel, "Rounds played")
+        XCTAssertEqual(stats.secondaryValue, "2")
     }
 
     func test_elimination_showsGapBetweenBestAndWorst() {

@@ -11,7 +11,7 @@ struct SetupView: View {
     /// the player is allowed to choose. Setup holds it and taps at it; every
     /// judgement about it — startable, why not, how it reads — belongs to the
     /// parameter rather than to this screen.
-    @State private var parameter: VariantParameter
+    @State private var parameter: VariantParameter?
     /// The Match this screen started, held directly rather than by id: it is a
     /// model class, so there is nothing to look it back up from.
     @State private var startedMatch: Match?
@@ -23,7 +23,7 @@ struct SetupView: View {
     init(variant: Variant, initialParameter: VariantParameter? = nil) {
         self.variant = variant
         _entrantNames = State(initialValue: Array(repeating: "", count: 2))
-        _parameter = State(initialValue: initialParameter ?? VariantParameter(for: variant))
+        _parameter = State(initialValue: variant.parameterKind == nil ? nil : initialParameter ?? VariantParameter(for: variant))
     }
 
     /// Every Variant is fixed to one Entrant mode, so Setup records the
@@ -40,15 +40,15 @@ struct SetupView: View {
 
     private var selection: Binding<VariantParameter.Selection> {
         Binding(
-            get: { parameter.selection },
-            set: { parameter.choose($0) }
+            get: { parameter?.selection ?? .custom },
+            set: { parameter?.choose($0) }
         )
     }
 
     private var customText: Binding<String> {
         Binding(
-            get: { parameter.customText },
-            set: { parameter.enterCustom($0) }
+            get: { parameter?.customText ?? "" },
+            set: { parameter?.enterCustom($0) }
         )
     }
 
@@ -79,8 +79,14 @@ struct SetupView: View {
                     }
                 }
 
-                labeledSection(parameter.kind.noun) {
-                    numberControl
+                if let parameter {
+                    labeledSection(parameter.kind.noun) {
+                        numberControl(parameter)
+                    }
+                } else {
+                    Text(variant.ruleTextTemplate)
+                        .siraStyle(.body)
+                        .foregroundStyle(theme.ink.opacity(0.7))
                 }
             }
             .padding(22)
@@ -108,7 +114,7 @@ struct SetupView: View {
     /// The chips, the field they reveal, and the rules read back with whatever
     /// is currently chosen in them.
     @ViewBuilder
-    private var numberControl: some View {
+    private func numberControl(_ parameter: VariantParameter) -> some View {
         VStack(alignment: .leading, spacing: 11) {
             ChipSelector(
                 options: parameter.presets.map { VariantParameter.Selection.preset($0) } + [.custom],
@@ -118,7 +124,7 @@ struct SetupView: View {
 
             if parameter.isCustom {
                 CardSurface(cornerRadius: 16, padding: 12) {
-                    TextField(customPlaceholder, text: customText)
+                    TextField("\(parameter.kind.range.lowerBound)–\(parameter.kind.range.upperBound)", text: customText)
                         .font(.sira(.monoValue))
                         .keyboardType(.numberPad)
                         .textFieldStyle(.plain)
@@ -141,11 +147,6 @@ struct SetupView: View {
         case .preset(let preset): return "\(preset)"
         case .custom: return "Custom"
         }
-    }
-
-    private var customPlaceholder: String {
-        let range = parameter.kind.range
-        return "\(range.lowerBound)–\(range.upperBound)"
     }
 
     private func setEntrantCount(_ newValue: Int) {
@@ -182,7 +183,7 @@ struct SetupView: View {
     /// this game can be played at.
     private var startButton: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if let reason = parameter.unstartableReason {
+            if let reason = parameter?.unstartableReason {
                 Text(reason)
                     .siraStyle(.caption)
                     .foregroundStyle(theme.ink.opacity(0.6))
@@ -200,19 +201,19 @@ struct SetupView: View {
             }
             .foregroundStyle(theme.background)
             .background(
-                theme.ink.opacity(parameter.isStartable ? 1 : 0.3),
+                theme.ink.opacity(isStartable ? 1 : 0.3),
                 in: RoundedRectangle(cornerRadius: 18, style: .continuous)
             )
             .buttonStyle(.plain)
-            .disabled(!parameter.isStartable)
+            .disabled(!isStartable)
         }
     }
 
+    private var isStartable: Bool { parameter?.isStartable ?? (variant.parameterKind == nil) }
+
     private func startMatch() {
-        // The button is disabled without a startable number, so this is the
-        // second lock rather than the first — but a Match started at a number
-        // nobody agreed to is not something to leave a view layout in charge of.
-        guard parameter.isStartable, let number = parameter.value else { return }
+        // Required Setup scores must be startable; Lowest Total needs none.
+        guard isStartable else { return }
 
         // Named through `EntrantName` rather than here, so that a blank field
         // produces the same `Player 3` at Setup as a blank field does in the
@@ -227,14 +228,11 @@ struct SetupView: View {
         let entrants = entrantNames.enumerated().map { index, name in
             Entrant(name: EntrantName(name, seat: index, mode: mode).materialised)
         }
-        // The Match names its Variant rather than copying it, so all Setup
-        // records is the id plus the one number the Variant's Win Condition is
-        // played at — including where that number came straight off the chips
-        // untouched, so that every Match says what it was played at.
+        // Store the Variant identity and its required Setup score, if any.
         let match = Match(
             game: variant.game,
             variant: variant,
-            number: number,
+            number: parameter?.value,
             mode: mode,
             entrants: entrants
         )

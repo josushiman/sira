@@ -8,6 +8,7 @@ struct PillTrack<Option: Hashable>: View {
     let label: (Option) -> String
     @Binding var selection: Option
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.theme) private var theme
 
     var body: some View {
@@ -37,7 +38,7 @@ struct PillTrack<Option: Hashable>: View {
         .padding(4)
         .background(theme.track, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .buttonStyle(.plain)
-        .animation(.easeOut(duration: 0.15), value: selection)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: selection)
     }
 }
 

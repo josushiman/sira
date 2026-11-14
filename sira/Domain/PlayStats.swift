@@ -2,8 +2,8 @@ import Foundation
 
 /// The Play screen's two stat tiles, derived purely from a Match's Engine
 /// Standings — Leader/Result plus a second tile whose label and value depend
-/// on the Variant's Win Condition (Survival: Closest to out, Fixed Rounds:
-/// Rounds left, Elimination: Gap between the best and worst Standing).
+/// on the Variant's Win Condition (Survival: Closest to out, Lowest Total:
+/// Rounds played, Elimination: Gap between the best and worst Standing).
 struct PlayStats {
     let leadLabel: String
     let leadValue: String
@@ -17,10 +17,14 @@ struct PlayStats {
     /// The Variant comes in already resolved: Play has one in hand before it
     /// renders, so the tiles never have to describe a Match without rules.
     init(variant: Variant, match: Match, standings: Standings) {
-        let leader = standings.ranked.first
+        let leader = variant.winCondition == .lowestTotal && match.rounds.isEmpty ? nil : standings.ranked.first
 
         leadLabel = standings.isOver ? "Result" : "Leader"
-        leadValue = leader.map { "\($0.name) · \($0.total)" } ?? "—"
+        if variant.winCondition == .lowestTotal, standings.isOver {
+            leadValue = LowestTotalResult(ranked: standings.ranked)?.summary ?? "—"
+        } else {
+            leadValue = leader.map { "\($0.name) · \($0.total)" } ?? "—"
+        }
 
         switch variant.winCondition {
         case .survival:
@@ -53,9 +57,9 @@ struct PlayStats {
                     roomLeft.map { "\(names) · \($0) left" }
                 } ?? "—"
             }
-        case .fixedRounds:
-            secondaryLabel = "Rounds left"
-            secondaryValue = match.variantNumber.map { "\(max(0, $0 - match.rounds.count))" } ?? "—"
+        case .lowestTotal:
+            secondaryLabel = "Rounds played"
+            secondaryValue = "\(match.rounds.count)"
         case .elimination:
             secondaryLabel = "Gap"
             let best = standings.ranked.first?.total ?? 0

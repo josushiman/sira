@@ -1,15 +1,10 @@
 import XCTest
 @testable import sira
 
-final class FixedRoundsEngineTests: XCTestCase {
+final class LowestTotalEngineTests: XCTestCase {
     private let variant = Variant.okey101
-    /// The Round count these Matches run for unless a test says otherwise.
-    /// Stated here because the Variant no longer carries one: Okey 101 runs
-    /// for as many Rounds as its table chose.
-    private let roundCount = 8
-
     private func makeMatch(entrants: [Entrant], rounds: [Round]) -> Match {
-        Match(game: .okey, variant: variant, number: roundCount, mode: .players, entrants: entrants, rounds: rounds)
+        Match(game: .okey, variant: variant, mode: .players, entrants: entrants, rounds: rounds)
     }
 
     func test_accumulatesDeltasAcrossRounds() {
@@ -23,39 +18,13 @@ final class FixedRoundsEngineTests: XCTestCase {
             ]
         )
 
-        let standings = FixedRoundsEngine().standings(for: match)
+        let standings = LowestTotalEngine().standings(for: match)
 
         let aliceTotal = standings.ranked.first { $0.entrantID == a.id }!.total
         let bobTotal = standings.ranked.first { $0.entrantID == b.id }!.total
         XCTAssertEqual(aliceTotal, 30)
         XCTAssertEqual(bobTotal, 20)
         XCTAssertFalse(standings.isOver)
-    }
-
-    // MARK: - The Round count this table chose
-
-    /// A Match set to five Rounds ends on the fifth, whatever another table
-    /// at another number would have done.
-    func test_theMatchEndsOnTheChosenRound() {
-        let a = Entrant(name: "Alice")
-        let b = Entrant(name: "Bob")
-        let round = { Round(deltas: [a.id: 10, b.id: 5]) }
-        let match = Match(
-            game: .okey,
-            variant: variant,
-            number: 5,
-            mode: .players,
-            entrants: [a, b],
-            rounds: [round(), round(), round(), round()]
-        )
-
-        XCTAssertFalse(FixedRoundsEngine().standings(for: match).isOver, "Four of five Rounds is not over")
-
-        match.addRound(round())
-
-        let standings = FixedRoundsEngine().standings(for: match)
-        XCTAssertTrue(standings.isOver)
-        XCTAssertEqual(standings.result, "Bob wins!")
     }
 
     // MARK: - Çifte
@@ -71,7 +40,7 @@ final class FixedRoundsEngineTests: XCTestCase {
             rounds: [Round(deltas: [a.id: 0, b.id: 5, c.id: 10], cifteCallers: [a.id])]
         )
 
-        let standings = FixedRoundsEngine().standings(for: match)
+        let standings = LowestTotalEngine().standings(for: match)
 
         XCTAssertEqual(standings.ranked.first { $0.entrantID == a.id }!.total, 0)
         XCTAssertEqual(standings.ranked.first { $0.entrantID == b.id }!.total, 10)
@@ -88,7 +57,7 @@ final class FixedRoundsEngineTests: XCTestCase {
             rounds: [Round(deltas: [a.id: 20, b.id: 5, c.id: 0], cifteCallers: [a.id])]
         )
 
-        let standings = FixedRoundsEngine().standings(for: match)
+        let standings = LowestTotalEngine().standings(for: match)
 
         XCTAssertEqual(standings.ranked.first { $0.entrantID == a.id }!.total, 40)
         XCTAssertEqual(standings.ranked.first { $0.entrantID == b.id }!.total, 5)
@@ -106,7 +75,7 @@ final class FixedRoundsEngineTests: XCTestCase {
             rounds: [Round(deltas: [a.id: 0, b.id: 20, c.id: 10], cifteCallers: [a.id, b.id])]
         )
 
-        let standings = FixedRoundsEngine().standings(for: match)
+        let standings = LowestTotalEngine().standings(for: match)
 
         XCTAssertEqual(standings.ranked.first { $0.entrantID == a.id }!.total, 0)
         XCTAssertEqual(standings.ranked.first { $0.entrantID == b.id }!.total, 40)
@@ -124,7 +93,7 @@ final class FixedRoundsEngineTests: XCTestCase {
             rounds: [Round(deltas: [a.id: 10, b.id: 5, c.id: 0], okeyAtanID: c.id)]
         )
 
-        let standings = FixedRoundsEngine().standings(for: match)
+        let standings = LowestTotalEngine().standings(for: match)
 
         let alice = standings.ranked.first { $0.entrantID == a.id }!
         XCTAssertEqual(alice.total, 20)
@@ -143,7 +112,7 @@ final class FixedRoundsEngineTests: XCTestCase {
             rounds: [Round(deltas: [a.id: 20, b.id: 5, c.id: 0], cifteCallers: [a.id], okeyAtanID: c.id)]
         )
 
-        let standings = FixedRoundsEngine().standings(for: match)
+        let standings = LowestTotalEngine().standings(for: match)
 
         XCTAssertEqual(standings.ranked.first { $0.entrantID == a.id }!.total, 80)
         XCTAssertEqual(standings.ranked.first { $0.entrantID == b.id }!.total, 10)
@@ -160,7 +129,7 @@ final class FixedRoundsEngineTests: XCTestCase {
             rounds: [Round(deltas: [a.id: 0, b.id: 5], cifteCallers: [a.id], okeyAtanID: a.id)]
         )
 
-        let standings = FixedRoundsEngine().standings(for: match)
+        let standings = LowestTotalEngine().standings(for: match)
 
         XCTAssertEqual(standings.ranked.first { $0.entrantID == a.id }!.total, 0)
         XCTAssertEqual(standings.ranked.first { $0.entrantID == b.id }!.total, 20)
@@ -190,7 +159,7 @@ final class FixedRoundsEngineTests: XCTestCase {
                 okeyAtanID: entry.okeyAtanID
             )]
         )
-        let standings = FixedRoundsEngine().standings(for: match)
+        let standings = LowestTotalEngine().standings(for: match)
 
         let alice = standings.ranked.first { $0.entrantID == a.id }!
         let bob = standings.ranked.first { $0.entrantID == b.id }!
@@ -219,7 +188,7 @@ final class FixedRoundsEngineTests: XCTestCase {
                 okeyAtanID: entry.okeyAtanID
             )]
         )
-        let standings = FixedRoundsEngine().standings(for: match)
+        let standings = LowestTotalEngine().standings(for: match)
 
         XCTAssertEqual(entry.previews()[a.id], .init(multiplier: 4, value: 80))
         XCTAssertEqual(standings.ranked.first { $0.entrantID == a.id }!.total, 80)
@@ -234,26 +203,25 @@ final class FixedRoundsEngineTests: XCTestCase {
             rounds: [Round(deltas: [a.id: 500, b.id: 5])]
         )
 
-        let standings = FixedRoundsEngine().standings(for: match)
+        let standings = LowestTotalEngine().standings(for: match)
 
         XCTAssertTrue(standings.ranked.allSatisfy { !$0.isOut })
     }
 
-    func test_matchDoesNotEndBeforeTheConfiguredRoundCount() {
+    func test_liveStandingsAreProvisional() {
         let a = Entrant(name: "Alice")
         let b = Entrant(name: "Bob")
         let rounds = (0..<7).map { _ in Round(deltas: [a.id: 5, b.id: 10]) }
         let match = makeMatch(entrants: [a, b], rounds: rounds)
 
-        let standings = FixedRoundsEngine().standings(for: match)
+        let standings = LowestTotalEngine().standings(for: match)
 
         XCTAssertFalse(standings.isOver)
         XCTAssertNil(standings.result)
     }
 
-    /// The Match runs for the Round count stored on it — a 12-Round Okey 101
-    /// Match is still going after 8 Rounds.
-    func test_matchRunsForTheRoundCountItStores() {
+    /// A retained legacy target is inert even when play reaches it.
+    func test_anObsoleteTargetCannotEndTheMatch() {
         let a = Entrant(name: "Alice")
         let b = Entrant(name: "Bob")
         let rounds = (0..<8).map { _ in Round(deltas: [a.id: 5, b.id: 10]) }
@@ -266,7 +234,7 @@ final class FixedRoundsEngineTests: XCTestCase {
             rounds: rounds
         )
 
-        XCTAssertFalse(FixedRoundsEngine().standings(for: match).isOver)
+        XCTAssertFalse(LowestTotalEngine().standings(for: match).isOver)
 
         // Grown to twelve in place: a Match is a reference type, so a second
         // name for it would be the same Match rather than an eight-Round copy.
@@ -274,16 +242,17 @@ final class FixedRoundsEngineTests: XCTestCase {
             match.addRound(Round(deltas: [a.id: 5, b.id: 10]))
         }
 
-        XCTAssertTrue(FixedRoundsEngine().standings(for: match).isOver)
+        XCTAssertFalse(LowestTotalEngine().standings(for: match).isOver)
     }
 
-    func test_lowestTotalWinsOnceTheConfiguredRoundCountIsReached() {
+    func test_persistedEndingDeclaresTheLowestTotalTheWinner() {
         let a = Entrant(name: "Alice")
         let b = Entrant(name: "Bob")
         let rounds = (0..<8).map { _ in Round(deltas: [a.id: 5, b.id: 10]) }
         let match = makeMatch(entrants: [a, b], rounds: rounds)
 
-        let standings = FixedRoundsEngine().standings(for: match)
+        match.ended = true
+        let standings = LowestTotalEngine().standings(for: match)
 
         XCTAssertTrue(standings.isOver)
         XCTAssertEqual(standings.result, "Alice wins!")
@@ -296,7 +265,8 @@ final class FixedRoundsEngineTests: XCTestCase {
         let rounds = (0..<8).map { _ in Round(deltas: [a.id: 5, b.id: 5]) }
         let match = makeMatch(entrants: [a, b], rounds: rounds)
 
-        let standings = FixedRoundsEngine().standings(for: match)
+        match.ended = true
+        let standings = LowestTotalEngine().standings(for: match)
 
         XCTAssertTrue(standings.isOver)
         XCTAssertEqual(standings.result, "Tie between Alice and Bob!")
@@ -312,12 +282,12 @@ final class FixedRoundsEngineTests: XCTestCase {
             rounds: [Round(deltas: [a.id: 20, b.id: 5])]
         )
 
-        let before = FixedRoundsEngine().standings(for: match)
+        let before = LowestTotalEngine().standings(for: match)
 
         match.addRound(Round(deltas: [a.id: 10, b.id: 15], cifteCallers: [a.id, b.id]))
         _ = match.undoLastRound()
 
-        let after = FixedRoundsEngine().standings(for: match)
+        let after = LowestTotalEngine().standings(for: match)
 
         XCTAssertEqual(before, after)
     }
@@ -333,8 +303,8 @@ final class FixedRoundsEngineTests: XCTestCase {
             Round(deltas: [a.id: 5, b.id: 30]),
         ])
 
-        let expected = FixedRoundsEngine().standings(for: inOrder)
-        let actual = FixedRoundsEngine().standings(for: inOrder.withEntrantsAndRoundsStoredOutOfOrder())
+        let expected = LowestTotalEngine().standings(for: inOrder)
+        let actual = LowestTotalEngine().standings(for: inOrder.withEntrantsAndRoundsStoredOutOfOrder())
 
         XCTAssertEqual(actual, expected)
         XCTAssertEqual(actual.ranked.first { $0.entrantID == b.id }?.deltaFromLastRound, 30)
@@ -342,6 +312,6 @@ final class FixedRoundsEngineTests: XCTestCase {
         // And the fixture really is order-sensitive, so the equality above
         // isn't passing because both arrangements happen to score alike.
         let reversed = makeMatch(entrants: [a, b], rounds: inOrder.rounds.reversed())
-        XCTAssertNotEqual(FixedRoundsEngine().standings(for: reversed), expected)
+        XCTAssertNotEqual(LowestTotalEngine().standings(for: reversed), expected)
     }
 }

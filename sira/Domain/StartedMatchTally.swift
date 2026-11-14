@@ -25,9 +25,9 @@ import SwiftData
 /// creates it, and it creates one only when there is a Start to record.
 @Model
 final class StartedMatchTally {
-    /// The count itself. Write it through `recordStart()`, never directly:
-    /// this number is monotonic, and the only thing that may happen to it is
-    /// going up by one.
+    /// The count itself. Ordinary play writes through `recordStart()` only.
+    /// V2 migration also raises it to account for V1 history predating this
+    /// tally. Neither path may lower it or refund a Start.
     var startedMatches: Int
 
     /// Always starts at nothing, and takes no initial count: a tally exists

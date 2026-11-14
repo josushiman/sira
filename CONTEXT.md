@@ -5,19 +5,19 @@ A score tracker for Turkish card and tile games — currently Gonga and Okey —
 ## Language
 
 **Game**:
-An abstract ruleset family: Gonga or Okey. Games and the Variants under them are a fixed, small set — adding one means adding code, not data. The number a Variant is played at is the exception: that is data, chosen per Match.
+An abstract ruleset family: Gonga or Okey. Games and their Variants are a fixed, small set; where a Variant takes a score parameter, its value belongs to each Match.
 _Avoid_: using "game" for a played session — see Match.
 
 **Match**:
-One played instance of a Game — has its own Entrants, Rounds, and running totals. What the home screen lists as "Your games."
+One played instance of a Game — has its own Entrants, Rounds, and running totals. In Okey 101 the table decides when to end it, without a Round target, and may later Resume it; Gonga and Okey retain their automatic endings.
 _Avoid_: "game" (ambiguous with the Game type above), "session."
 
 **Variant**:
-A specific ruleset within a Game. Three exist: Gonga, Okey, Okey 101. Determines the shape of a Match — its Win Condition, which VariantParameter it takes, whether Çifte applies, and the Entrant mode and table size it is played at — but not the value of that number, which the Match carries.
+A specific ruleset within a Game: Gonga, Okey, or Okey 101. Determines the Win Condition, whether a VariantParameter is needed, the applicable modifiers, Entrant mode and table size; any parameter value belongs to the Match.
 
 **VariantParameter**:
-The single number a Variant is played at — a Survival limit, an Elimination starting score, a Fixed Rounds Round count. The Variant says which of the three it takes; the table chooses the value at Setup and the Match carries it for good, so two Matches of the same Variant played at different numbers are still the same Variant.
-_Avoid_: "Target" (wrong for Okey, where the number is where the count starts and 0 is what it ends at), "Distance" (honest for all three, but Room left is already a distance measured against exactly this number, and two "distances" one entry apart is how a vocabulary rots).
+The score parameter chosen at Setup and held for the life of a Match: a Survival limit for Gonga or an Elimination starting score for Okey. Okey 101 takes no VariantParameter and has no Round target or milestone.
+_Avoid_: "Target" (wrong for Okey, where the number is where the count starts and 0 is what it ends at), "Distance" (Room left already names the distance from a total to its Survival limit).
 
 **Entrant**:
 A player or a team of two, scored uniformly regardless of which. A Match is either all-player or all-team Entrants (`mode`), never mixed — and the mode is fixed by the Variant, not chosen at Setup. Okey is the only Teams Variant, and is always exactly two teams; Gonga and Okey 101 are individuals only, seating up to 8 and 4 players respectively.
@@ -79,14 +79,22 @@ _Avoid_: "subscription" or "pro" (there is one payment and no tier above it), "p
 **Locked**:
 The state in which the **Free Matches** are used up and no **Unlock** is held. The only thing it stops is *starting* a Match: tapping Gonga or Okey raises the offer instead of opening the Variant picker, and that is the whole of the wall.
 
-Everything else is untouched, and deliberately so. Every Match already Started stays fully scorable — Rounds, Undo, Rejoin, Join, renames — and every Match ever played stays readable, archivable and deletable. Scoring a Round is never refused, in any state, by anything.
+Every Match already Started remains available under its ordinary lifecycle rules, and an Ended Okey 101 Match can Resume even while Locked. Reading history, archiving, deleting and permitted scoring or corrections never require an Unlock.
 
 Asked once rather than counted at each call site: `GameAccess` answers Unlocked, free with a remainder, or Locked, and it is the only thing Home and the offer sheet read.
-_Avoid_: using "locked" for an **Archived** Match (Archived is a visibility flag and an Archived Match takes Rounds exactly as any other does) or for an **Entrant** who is **Out** (that is a Match's own rule, and has nothing to do with what has been paid for); "expired," which suggests the Free Matches ran out on a clock rather than on being played.
+_Avoid_: using "locked" for an **Archived** Match (archiving alone does not prevent scoring) or an **Ended** Match (Resume reopens play without an Unlock), or for an **Entrant** who is **Out** (that is a Match's own rule, and has nothing to do with what has been paid for); "expired," which suggests the Free Matches ran out on a clock rather than on being played.
 
 **Archived**:
-A Match hidden from the default "Active" view. Purely a visibility flag, and **orthogonal to whether a Match is live**: an Archived Match is not locked, and takes Rounds, Rejoins, renames and Joins exactly as an unarchived one does. What closes a roster to edits is the Win Condition deciding the Match (`Standings.acceptsRosterEdits`), never its filter.
+A Match hidden from the default "Active" view; archiving alone does not end a Match. Ending an Okey 101 Match also archives it, so an Archived Match may be either live or Ended.
 _Avoid_: using "Archived" and "Deleted" for each other. Archiving hides a Match and is reversible; deleting destroys it and is not.
+
+**Ended**:
+An Okey 101 Match with a declared final result, read-only until Resume. The table explicitly ends it after at least one currently scored Round, also archiving it, with no Round target or milestone deciding when it happens.
+_Avoid_: "Archived" as a synonym — a live Match can also be Archived.
+
+**Resume**:
+Returning an Ended Okey 101 Match to play with its existing Rounds and totals, also unarchiving it. Further Rounds and corrections are allowed before the table ends it again.
+_Avoid_: "restart," which suggests clearing the scores or creating another Match.
 
 **Delete**:
 Removing a Match and everything it owns — its Entrants and every Round — from the device for good. Offered from the Match's Home card, behind a confirmation, in both the Active and Archived filters; a Match does not have to be Archived first. There is no undo and no restorable state: a deleted Match is gone, where an Archived one is only out of sight.
@@ -97,10 +105,10 @@ An Okey-only find — Okey 101 has no Gösterge. There is one Gösterge per Roun
 _Avoid_: "indicator tile."
 
 **Win Condition**:
-The mechanic by which a Match ends, determined by its Variant. Three exist:
+The rule by which a Match's result is decided, determined by its Variant. Three exist:
 - **Survival** (Gonga) — Entrants accumulate score; passing the limit sends you Out; last Entrant not Out wins.
 - **Elimination** (Okey) — Entrants count down from a starting score; first to hit 0 ends the Match, the other team wins.
-- **Fixed Rounds** (Okey 101) — Match runs a set number of Rounds; lowest total when they're up wins.
+- **Lowest Total** (Okey 101) — the lowest cumulative total wins when the table explicitly ends the Match; tied lowest totals share the result.
 _Avoid_: "end condition," "game over logic."
 
 **Çifte**:

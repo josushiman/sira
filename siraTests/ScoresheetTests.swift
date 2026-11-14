@@ -2,6 +2,55 @@ import XCTest
 @testable import sira
 
 final class ScoresheetTests: XCTestCase {
+    func test_longLowestTotalHistoryKeepsOrderedRowsModifiersAndMissingEntryZeros() {
+        let entrants = ["Alice", "Bob", "Cem", "Dila"].map { Entrant(name: $0) }
+        let a = entrants[0].id, b = entrants[1].id, c = entrants[2].id, d = entrants[3].id
+        let rounds = (0..<26).flatMap { _ in [
+            Round(deltas: [a: 0, b: 10, c: 20, d: 30]),
+            Round(deltas: [a: 10, b: 0, c: 20, d: 30], cifteCallers: [b]),
+            Round(deltas: [a: 10, b: 20, c: 0, d: 30], cifteCallers: [a], okeyAtanID: c),
+            Round(deltas: [a: 10, b: 20, c: 30]),
+        ] }
+        let match = Match(game: .okey, variant: .okey101, mode: .players, entrants: entrants, rounds: rounds)
+            .withEntrantsAndRoundsStoredOutOfOrder()
+
+        let sheet = Scoresheet(match: match, engine: LowestTotalEngine())
+
+        XCTAssertEqual(sheet.rows.map(\.id), rounds.map(\.id))
+        XCTAssertEqual(sheet.rows.map(\.roundNumber), Array(1...104))
+        for block in 0..<26 {
+            XCTAssertEqual(sheet.rows[block * 4].deltas, [a: 0, b: 10, c: 20, d: 30])
+            XCTAssertEqual(sheet.rows[block * 4 + 1].deltas, [a: 20, b: 0, c: 40, d: 60])
+            XCTAssertEqual(sheet.rows[block * 4 + 2].deltas, [a: 40, b: 40, c: 0, d: 60])
+            XCTAssertEqual(sheet.rows[block * 4 + 3].deltas, [a: 10, b: 20, c: 30, d: 0])
+            XCTAssertEqual(sheet.rows[block * 4 + 1].cifteCallers, [b])
+            XCTAssertEqual(sheet.rows[block * 4 + 2].cifteCallers, [a])
+            XCTAssertEqual(sheet.rows[block * 4 + 2].okeyAtanID, c)
+        }
+        XCTAssertEqual(Dictionary(uniqueKeysWithValues: sheet.totals.ranked.map { ($0.entrantID, $0.total) }),
+                       [a: 1820, b: 1820, c: 2340, d: 3900])
+        XCTAssertEqual(sheet.totals, LowestTotalEngine().standings(for: match))
+        XCTAssertEqual(match.rounds[2].deltas, [a: 10, b: 20, c: 0, d: 30])
+    }
+
+    func test_scoresheetHonorsTheSuppliedEngineEvenForALowestTotalMatch() {
+        let entrant = Entrant(name: "Alice")
+        let match = Match(game: .okey, variant: .okey101, mode: .players, entrants: [entrant],
+                          rounds: [Round(deltas: [entrant.id: 20]), Round(deltas: [entrant.id: 30])])
+        let sheet = Scoresheet(match: match, engine: SevenPerRoundEngine())
+        XCTAssertEqual(sheet.rows.map { $0.deltas[entrant.id] }, [7, 7])
+        XCTAssertEqual(sheet.totals.ranked.map(\.total), [14])
+    }
+
+    private struct SevenPerRoundEngine: MatchEngine {
+        func standings(for match: Match, rounds: [Round]) -> Standings {
+            Standings(ranked: match.entrants.map {
+                EntrantStanding(entrantID: $0.id, name: $0.name, total: rounds.count * 7,
+                                isOut: false, deltaFromLastRound: rounds.isEmpty ? 0 : 7)
+            }, isOver: false, result: nil)
+        }
+    }
+
     private let variant = Variant.gongaStandard
     private let engine = SurvivalEngine()
 

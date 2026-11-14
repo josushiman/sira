@@ -5,21 +5,125 @@ import SnapshotTesting
 @testable import sira
 
 final class PlayViewSnapshotTests: XCTestCase {
+    /// The same native scroll composition as Play, starting at the bottom so
+    /// the reference covers three-digit Rounds, the retained header and totals.
+    private func assertLongScoresheet(theme: Theme, names: [String], width: CGFloat = 320,
+                                      size: DynamicTypeSize = .large, testName: String = #function) {
+        let entrants = names.map { Entrant(name: $0) }
+        let rounds = (0..<104).map { index in
+            let winner = entrants[index % 4].id
+            let deltas = Dictionary(uniqueKeysWithValues: zip(entrants, [20, 30, 40, 50]).map {
+                ($0.id, $0.id == winner ? 0 : $1)
+            })
+            return Round(deltas: deltas, cifteCallers: index % 4 == 1 ? [entrants[0].id] : [],
+                         okeyAtanID: index % 4 == 2 ? winner : nil)
+        }
+        let match = Match(game: .okey, variant: .okey101, mode: .players, entrants: entrants, rounds: rounds)
+        let view = ScrollView {
+            LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
+                ScoresheetView(match: match, engine: LowestTotalEngine())
+            }
+            .padding(.horizontal, 22)
+        }
+        .defaultScrollAnchor(.bottom)
+        .background(theme.background)
+        .foregroundStyle(theme.ink)
+        .environment(\.theme, theme)
+        .dynamicTypeSize(size)
+        .frame(width: width, height: 520)
+        assertSnapshot(of: view, as: .image(layout: .fixed(width: width, height: 520)), testName: testName)
+    }
+
+    func test_okey101LongScoresheetCompact_paper() {
+        assertLongScoresheet(theme: .paper, names: ["Alice", "Bob", "Cem", "Dila"])
+    }
+
+    func test_okey101LongScoresheetCompact_felt() {
+        assertLongScoresheet(theme: .felt, names: ["Alice", "Bob", "Cem", "Dila"])
+    }
+
+    func test_okey101LongScoresheetDefaultNames_paper() {
+        assertLongScoresheet(theme: .paper, names: ["Player 1", "Player 2", "Player 3", "Player 4"])
+    }
+
+    func test_okey101LongScoresheetLongNamesLargerType_felt() {
+        assertLongScoresheet(theme: .felt, names: ["Alexandra", "Benedict", "Cemalettin", "Dilara"],
+                            width: 375, size: .xxxLarge)
+    }
+
     private func assertPlay(_ match: Match, tab: PlayTab, theme: Theme, testName: String = #function) {
         // Play mutates only through the store, so it needs one even to render a
         // Match it never changes — the alternative was an optional store, which
         // would have left the buttons looking live while dropping every Round.
         let store = MatchStore()
         store.add(match)
-        let view = NavigationStack {
-            PlayView(match: match, initialTab: tab)
-        }
+        // Snapshot screen content directly. Navigation is covered separately;
+        // nested NavigationStack hosts leak toolbar insets between iOS 27 renders.
+        let view = PlayView(match: match, initialTab: tab)
         .environment(store)
         .modelContainer(store.container)
         .environment(\.theme, theme)
         .frame(width: 402, height: 874)
 
         assertSnapshot(of: view, as: .image(layout: .fixed(width: 402, height: 874)), testName: testName)
+    }
+
+    private func endableMatch(tied: Bool = false, allTied: Bool = false) -> Match {
+        let entrants = ["Alice", "Bob", "Cem", "Dila"].map { Entrant(name: $0) }
+        let scores = allTied ? [70, 70, 70, 70] : (tied ? [70, 105, 70, 165] : [70, 105, 100, 165])
+        return Match(game: .okey, variant: .okey101, mode: .players, entrants: entrants,
+                     rounds: [Round(deltas: Dictionary(uniqueKeysWithValues: zip(entrants.map(\.id), scores)))])
+    }
+
+    private func assertEndConfirmation(theme: Theme, tied: Bool = false, testName: String = #function) {
+        let view = EndMatchSheet(match: endableMatch(tied: tied), onEnd: {})
+            .environment(\.theme, theme)
+            .frame(width: 402, height: 650)
+        assertSnapshot(of: view, as: .image(layout: .fixed(width: 402, height: 650)), testName: testName)
+    }
+
+    func test_okey101EndConfirmation_paper() { assertEndConfirmation(theme: .paper) }
+    func test_okey101EndConfirmation_felt() { assertEndConfirmation(theme: .felt) }
+    func test_okey101TiedEndConfirmation_paper() { assertEndConfirmation(theme: .paper, tied: true) }
+    func test_okey101TiedEndConfirmation_felt() { assertEndConfirmation(theme: .felt, tied: true) }
+
+    func test_okey101TiedEndConfirmationLargeType_paper() {
+        let view = EndMatchSheet(match: endableMatch(allTied: true), onEnd: {})
+            .environment(\.theme, .paper)
+            .dynamicTypeSize(.accessibility3)
+            .frame(width: 402, height: 874)
+        assertSnapshot(of: view, as: .image(layout: .fixed(width: 402, height: 874)))
+    }
+
+    private func assertEnded(tab: PlayTab = .standings, theme: Theme, tied: Bool = false, testName: String = #function) {
+        let match = endableMatch(tied: tied)
+        match.end()
+        assertPlay(match, tab: tab, theme: theme, testName: testName)
+    }
+
+    func test_okey101EndedStandings_paper() { assertEnded(theme: .paper) }
+    func test_okey101EndedStandings_felt() { assertEnded(theme: .felt) }
+    func test_okey101TiedEndedStandings_paper() { assertEnded(theme: .paper, tied: true) }
+    func test_okey101TiedEndedStandings_felt() { assertEnded(theme: .felt, tied: true) }
+    func test_okey101ReadOnlyScoresheet_paper() { assertEnded(tab: .scoresheet, theme: .paper) }
+    func test_okey101ReadOnlyScoresheet_felt() { assertEnded(tab: .scoresheet, theme: .felt) }
+    private func assertResumed(tab: PlayTab = .standings, theme: Theme, testName: String = #function) {
+        let match = endableMatch(tied: true)
+        match.end()
+        match.resume()
+        assertPlay(match, tab: tab, theme: theme, testName: testName)
+    }
+    func test_okey101ResumedStandings_paper() { assertResumed(theme: .paper) }
+    func test_okey101ResumedStandings_felt() { assertResumed(theme: .felt) }
+    func test_okey101ResumedScoresheet_paper() { assertResumed(tab: .scoresheet, theme: .paper) }
+    func test_okey101ResumedScoresheet_felt() { assertResumed(tab: .scoresheet, theme: .felt) }
+    func test_okey101AllTiedLongNamesRemainReadable_felt() {
+        let match = endableMatch(allTied: true)
+        for (entrant, name) in zip(match.entrants, ["Alexandra", "Benedict", "Cemalettin", "Dilara"]) {
+            entrant.name = name
+        }
+        match.end()
+        assertPlay(match, tab: .standings, theme: .felt)
     }
 
     private var midMatch: Match {
@@ -61,7 +165,6 @@ final class PlayViewSnapshotTests: XCTestCase {
         return Match(
             game: .okey,
             variant: .okey101,
-            number: 8,
             mode: .players,
             entrants: [a, b, c],
             rounds: [
@@ -158,7 +261,6 @@ final class PlayViewSnapshotTests: XCTestCase {
         return Match(
             game: .okey,
             variant: .okey101,
-            number: 8,
             mode: .players,
             entrants: [a, b],
             rounds: [Round(deltas: [a.id: 20, b.id: 0])]
@@ -200,6 +302,27 @@ final class PlayViewSnapshotTests: XCTestCase {
 
     func test_standingsNoAddRowOnAnOkeyMatch_paper() {
         assertPlay(okey101RoomToSpareMatch, tab: .standings, theme: .paper)
+    }
+
+    func test_okey101LiveStandings_paper() {
+        assertPlay(doubledMatch, tab: .standings, theme: .paper)
+    }
+
+    func test_okey101LiveStandings_felt() {
+        assertPlay(doubledMatch, tab: .standings, theme: .felt)
+    }
+
+    private var freshOkey101: Match {
+        Match(game: .okey, variant: .okey101, mode: .players,
+              entrants: [Entrant(name: "Alice"), Entrant(name: "Bob"), Entrant(name: "Cem"), Entrant(name: "Dila")])
+    }
+
+    func test_okey101ZeroRounds_paper() {
+        assertPlay(freshOkey101, tab: .standings, theme: .paper)
+    }
+
+    func test_okey101ZeroRounds_felt() {
+        assertPlay(freshOkey101, tab: .standings, theme: .felt)
     }
 
     func test_standingsNoAddRowOnADecidedMatch_paper() {

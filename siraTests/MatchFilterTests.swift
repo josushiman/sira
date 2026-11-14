@@ -2,6 +2,26 @@ import XCTest
 @testable import sira
 
 final class MatchFilterTests: XCTestCase {
+    func test_resumingAnOlderResultRestoresItsOriginalPositionAcrossRepeatedCycles() {
+        let store = MatchStore()
+        let old = Match(game: .okey, variant: .okey101, mode: .players,
+                        entrants: [Entrant(name: "Alice")], rounds: [Round()],
+                        createdAt: .fixture(year: 2026, month: 1, day: 1))
+        let recent = makeMatch(createdAt: .fixture(year: 2026, month: 6, day: 1))
+        store.add(old)
+        store.add(recent)
+        for _ in 0..<3 {
+            store.end(old)
+            XCTAssertEqual(MatchFilter.active.apply(to: [old, recent]).map(\.id), [recent.id])
+            XCTAssertEqual(MatchFilter.archived.apply(to: [old, recent]).map(\.id), [old.id])
+            XCTAssertEqual(MatchFilter.all.apply(to: [old, recent]).map(\.id), [recent.id, old.id])
+            store.resume(old)
+            XCTAssertEqual(MatchFilter.active.apply(to: [old, recent]).map(\.id), [recent.id, old.id])
+            XCTAssertTrue(MatchFilter.archived.apply(to: [old, recent]).isEmpty)
+            XCTAssertEqual(MatchFilter.all.apply(to: [old, recent]).map(\.id), [recent.id, old.id])
+        }
+    }
+
     /// A Match Home lists: Started, because it has been scored. Every filter
     /// is a view of the Started Matches, so this is the baseline the Active /
     /// All / Archived rules are read against.
