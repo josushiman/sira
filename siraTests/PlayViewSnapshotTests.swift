@@ -5,6 +5,52 @@ import SnapshotTesting
 @testable import sira
 
 final class PlayViewSnapshotTests: XCTestCase {
+    /// The same native scroll composition as Play, starting at the bottom so
+    /// the reference covers three-digit Rounds, the retained header and totals.
+    private func assertLongScoresheet(theme: Theme, names: [String], width: CGFloat = 320,
+                                      size: DynamicTypeSize = .large, testName: String = #function) {
+        let entrants = names.map { Entrant(name: $0) }
+        let rounds = (0..<104).map { index in
+            let winner = entrants[index % 4].id
+            let deltas = Dictionary(uniqueKeysWithValues: zip(entrants, [20, 30, 40, 50]).map {
+                ($0.id, $0.id == winner ? 0 : $1)
+            })
+            return Round(deltas: deltas, cifteCallers: index % 4 == 1 ? [entrants[0].id] : [],
+                         okeyAtanID: index % 4 == 2 ? winner : nil)
+        }
+        let match = Match(game: .okey, variant: .okey101, mode: .players, entrants: entrants, rounds: rounds)
+        let view = ScrollView {
+            LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
+                ScoresheetView(match: match, engine: LowestTotalEngine())
+            }
+            .padding(.horizontal, 22)
+        }
+        .defaultScrollAnchor(.bottom)
+        .background(theme.background)
+        .foregroundStyle(theme.ink)
+        .environment(\.theme, theme)
+        .dynamicTypeSize(size)
+        .frame(width: width, height: 520)
+        assertSnapshot(of: view, as: .image(layout: .fixed(width: width, height: 520)), testName: testName)
+    }
+
+    func test_okey101LongScoresheetCompact_paper() {
+        assertLongScoresheet(theme: .paper, names: ["Alice", "Bob", "Cem", "Dila"])
+    }
+
+    func test_okey101LongScoresheetCompact_felt() {
+        assertLongScoresheet(theme: .felt, names: ["Alice", "Bob", "Cem", "Dila"])
+    }
+
+    func test_okey101LongScoresheetDefaultNames_paper() {
+        assertLongScoresheet(theme: .paper, names: ["Player 1", "Player 2", "Player 3", "Player 4"])
+    }
+
+    func test_okey101LongScoresheetLongNamesLargerType_felt() {
+        assertLongScoresheet(theme: .felt, names: ["Alexandra", "Benedict", "Cemalettin", "Dilara"],
+                            width: 375, size: .xxxLarge)
+    }
+
     private func assertPlay(_ match: Match, tab: PlayTab, theme: Theme, testName: String = #function) {
         // Play mutates only through the store, so it needs one even to render a
         // Match it never changes — the alternative was an optional store, which

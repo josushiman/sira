@@ -38,47 +38,63 @@ struct ScoresheetView: View {
             uniqueKeysWithValues: scoresheet.totals.ranked.map { ($0.entrantID, $0.total) }
         )
 
-        VStack(alignment: .leading, spacing: 12) {
-            CardSurface(cornerRadius: 22, padding: 0) {
-                VStack(spacing: 0) {
-                    columnHeader
-
-                    Rectangle()
-                        .fill(theme.line)
-                        .frame(height: 1)
-
-                    if scoresheet.rows.isEmpty {
-                        Text("No rounds yet.")
-                            .siraStyle(.body)
-                            .foregroundStyle(theme.ink.opacity(0.45))
-                            .frame(maxWidth: .infinity)
-                            .padding(24)
-                    } else {
-                        ForEach(Array(scoresheet.rows.enumerated()), id: \.element.id) { index, row in
-                            roundRow(row)
-                            if index < scoresheet.rows.count - 1 {
-                                Rectangle()
-                                    .fill(theme.line)
-                                    .frame(height: 1)
-                            }
-                        }
-                    }
-
-                    totalsRow(totalsByEntrant)
+        // A Section in Play's lazy stack, directly inside its sole vertical
+        // ScrollView. Wrapping the history in an eager/clipped card would
+        // defeat row virtualization and the native pinned column header.
+        Section {
+            if scoresheet.rows.isEmpty {
+                Text("No rounds yet.")
+                    .siraStyle(.body)
+                    .foregroundStyle(theme.ink.opacity(0.45))
+                    .frame(maxWidth: .infinity)
+                    .padding(24)
+                    .background(theme.surface)
+                    .overlay { tableEdges }
+            } else {
+                ForEach(scoresheet.rows) { row in
+                    roundRow(row)
+                        .background(theme.surface)
+                        .overlay { tableEdges }
+                        .overlay(alignment: .bottom) { theme.line.frame(height: 1) }
                 }
-                .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
             }
+            totalsRow(totalsByEntrant)
+                .background(theme.track, in: UnevenRoundedRectangle(bottomLeadingRadius: 22, bottomTrailingRadius: 22))
+                .overlay {
+                    UnevenRoundedRectangle(bottomLeadingRadius: 22, bottomTrailingRadius: 22)
+                        .stroke(theme.line, lineWidth: 1)
+                }
+        } header: {
+            columnHeader
+                .background(theme.surface, in: UnevenRoundedRectangle(topLeadingRadius: 22, topTrailingRadius: 22))
+                .background(theme.background)
+                .overlay {
+                    UnevenRoundedRectangle(topLeadingRadius: 22, topTrailingRadius: 22)
+                        .stroke(theme.line, lineWidth: 1)
+                }
+        }
 
-            let marks = marksInUse(scoresheet.rows)
-            if !marks.isEmpty {
-                modifierKey(marks)
-            }
+        let marks = marksInUse(scoresheet.rows)
+        if !marks.isEmpty {
+            modifierKey(marks)
+                .padding(.top, 12)
+        }
 
-            if !match.isReadOnly {
-                Text("Undo removes the last round — totals, eliminations and rejoins all recalculate.")
-                    .siraStyle(.caption)
-                    .foregroundStyle(theme.ink.opacity(0.5))
-            }
+        if !match.isReadOnly {
+            Text("Undo removes the last round — totals, eliminations and rejoins all recalculate.")
+                .siraStyle(.caption)
+                .foregroundStyle(theme.ink.opacity(0.5))
+                .padding(.top, 12)
+        }
+    }
+
+    @ScaledMetric(relativeTo: .caption2) private var roundColumnWidth = 44
+
+    private var tableEdges: some View {
+        HStack {
+            theme.line.frame(width: 1)
+            Spacer(minLength: 0)
+            theme.line.frame(width: 1)
         }
     }
 
@@ -86,7 +102,7 @@ struct ScoresheetView: View {
         HStack(spacing: 8) {
             Text(sira: .monoEyebrow, "Rd")
                 .foregroundStyle(theme.ink.opacity(0.5))
-                .frame(width: 26, alignment: .leading)
+                .frame(width: roundColumnWidth, alignment: .leading)
             // Every column is an equal share of what is left beside the Rd
             // column, header and numbers alike, so a name long enough to fill
             // its own header truncates inside it rather than widening it and
@@ -96,7 +112,9 @@ struct ScoresheetView: View {
                 Text(sira: .monoEyebrow, columnLabel(for: entrant))
                     .foregroundStyle(theme.ink.opacity(0.5))
                     .lineLimit(1)
-                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .truncationMode(.middle)
+                    .accessibilityLabel(entrant.name)
+                    .frame(minWidth: 0, maxWidth: .infinity, alignment: .trailing)
             }
         }
         .padding(.horizontal, 15)
@@ -107,7 +125,7 @@ struct ScoresheetView: View {
         HStack(spacing: 8) {
             Text(sira: .monoLabel, "\(row.roundNumber)")
                 .foregroundStyle(theme.ink.opacity(0.4))
-                .frame(width: 26, alignment: .leading)
+                .frame(width: roundColumnWidth, alignment: .leading)
             ForEach(match.entrants) { entrant in
                 HStack(spacing: 5) {
                     ForEach(modifiers(for: entrant.id, in: row)) { modifier in
@@ -117,12 +135,14 @@ struct ScoresheetView: View {
                     }
                     Text(deltaText(row.deltas[entrant.id]))
                         .siraStyle(.monoLabel)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.65)
                         // A dash is dimmed like a zero: neither is a score
                         // this Round moved, and the numbers that did move are
                         // what the column is read for.
                         .foregroundStyle((row.deltas[entrant.id] ?? 0) == 0 ? theme.ink.opacity(0.35) : theme.ink)
                 }
-                .frame(maxWidth: .infinity, alignment: .trailing)
+                .frame(minWidth: 0, maxWidth: .infinity, alignment: .trailing)
             }
         }
         .padding(.horizontal, 15)
@@ -170,22 +190,29 @@ struct ScoresheetView: View {
 
     private func totalsRow(_ totalsByEntrant: [Entrant.ID: Int]) -> some View {
         HStack(spacing: 8) {
-            Text(sira: .monoEyebrow, "Tot")
+            Text("Total").siraStyle(.monoLabel)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
                 .foregroundStyle(theme.ink.opacity(0.5))
-                .frame(width: 26, alignment: .leading)
+                .frame(width: roundColumnWidth, alignment: .leading)
             ForEach(match.entrants) { entrant in
-                Text("\(totalsByEntrant[entrant.id] ?? 0)")
+                Text(String(totalsByEntrant[entrant.id] ?? 0))
                     .siraStyle(.monoValue)
-                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.65)
+                    .frame(minWidth: 0, maxWidth: .infinity, alignment: .trailing)
             }
         }
         .padding(.horizontal, 15)
         .padding(.vertical, 13)
-        .background(theme.track)
     }
 
     private func columnLabel(for entrant: Entrant) -> String {
-        String(entrant.name.split(separator: " ").first.map(String.init) ?? entrant.name)
+        let fallback = EntrantName("", seat: entrant.sequence, mode: match.mode).fallback
+        if entrant.name == fallback {
+            return "\(match.mode == .teams ? "T" : "P")\(entrant.sequence + 1)"
+        }
+        return entrant.name.split(separator: " ").first.map(String.init) ?? entrant.name
     }
 
     /// An em-dash where the Round holds no entry for this Entrant, which is
@@ -214,7 +241,11 @@ struct ScoresheetView: View {
             Round(deltas: [a.id: 0, b.id: 12], okeyAtanID: a.id),
         ]
     )
-    return ScoresheetView(match: match, engine: SurvivalEngine())
+    return ScrollView {
+        LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
+            ScoresheetView(match: match, engine: SurvivalEngine())
+        }
         .padding()
+    }
         .themed()
 }

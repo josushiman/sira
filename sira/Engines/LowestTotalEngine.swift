@@ -3,6 +3,19 @@ import Foundation
 /// Okey 101 accumulates deltas with no elimination or Round target. Only the
 /// persisted ending declares the lowest total (or tied totals) final.
 struct LowestTotalEngine: MatchEngine {
+    func deltasByRound(for match: Match, rounds: [Round]) -> [[Entrant.ID: Int]] {
+        rounds.map { appliedDeltas(for: $0, in: match) }
+    }
+
+    /// The same arithmetic feeds history and Standings. A missing raw entry
+    /// still has a zero change for a seated Entrant in Lowest Total.
+    private func appliedDeltas(for round: Round, in match: Match) -> [Entrant.ID: Int] {
+        let multipliers = round.multipliers(in: match, winCondition: .lowestTotal)
+        return Dictionary(uniqueKeysWithValues: match.entrants.map { entrant in
+            (entrant.id, (round.deltas[entrant.id] ?? 0) * (multipliers[entrant.id] ?? 1))
+        })
+    }
+
     func standings(for match: Match, rounds: [Round]) -> Standings {
         var totals: [Entrant.ID: Int] = [:]
         for entrant in match.entrants {
@@ -12,13 +25,9 @@ struct LowestTotalEngine: MatchEngine {
         var lastRoundDeltas: [Entrant.ID: Int] = [:]
 
         for round in rounds {
-            lastRoundDeltas = [:]
-            let multipliers = round.multipliers(in: match, winCondition: .lowestTotal)
-            for entrant in match.entrants {
-                guard let delta = round.deltas[entrant.id] else { continue }
-                let appliedDelta = delta * (multipliers[entrant.id] ?? 1)
-                totals[entrant.id] = (totals[entrant.id] ?? 0) + appliedDelta
-                lastRoundDeltas[entrant.id] = appliedDelta
+            lastRoundDeltas = appliedDeltas(for: round, in: match)
+            for (id, delta) in lastRoundDeltas {
+                totals[id, default: 0] += delta
             }
         }
 

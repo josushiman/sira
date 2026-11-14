@@ -13,9 +13,27 @@ protocol MatchEngine {
     /// scored a prefix would have emptied the real Match of its Rounds
     /// (`docs/adr/0006`).
     func standings(for match: Match, rounds: [Round]) -> Standings
+
+    /// The visible change in total for each Round. Engines with additive
+    /// scoring can provide this without replaying every prefix; the default
+    /// retains resets, eliminated scores and arrivals from the Standings.
+    func deltasByRound(for match: Match, rounds: [Round]) -> [[Entrant.ID: Int]]
 }
 
 extension MatchEngine {
+    func deltasByRound(for match: Match, rounds: [Round]) -> [[Entrant.ID: Int]] {
+        var previousTotals: [Entrant.ID: Int] = [:]
+        return rounds.indices.map { index in
+            let standings = standings(for: match, rounds: Array(rounds.prefix(index + 1)))
+            var deltas: [Entrant.ID: Int] = [:]
+            for standing in standings.ranked {
+                deltas[standing.entrantID] = standing.total - (previousTotals[standing.entrantID] ?? 0)
+                previousTotals[standing.entrantID] = standing.total
+            }
+            return deltas
+        }
+    }
+
     /// The Standings for every Round the Match holds — what almost every caller
     /// wants, and the only form the screens use.
     func standings(for match: Match) -> Standings {

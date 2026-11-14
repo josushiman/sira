@@ -26,48 +26,27 @@ struct ScoresheetRow: Identifiable {
     }
 }
 
-/// A Round-by-Round history derived purely from `Match` → `Standings` diffs, so it
-/// requires no Engine-specific logic: each row's delta is the change in an Entrant's
-/// total between the Standings for the Rounds up to and including that Round, and the
-/// Standings for the Rounds before it. This also means Rejoins are represented
-/// correctly without special-casing them here.
+/// A Round-by-Round history of changes in total, supplied by the Engine so
+/// additive scoring can avoid repeated prefix calculations while resets and
+/// arrivals keep their Standings-derived meaning.
 struct Scoresheet {
     let rows: [ScoresheetRow]
     let totals: Standings
 
     init(match: Match, engine: MatchEngine) {
-        var rows: [ScoresheetRow] = []
-        // Seeded by the Standings themselves, one Round at a time, rather than
-        // by the roster: an Entrant who joined partway through is absent from
-        // the Standings for the Rounds before they arrived, so they pick up a
-        // previous total — and a row entry — only from the Round they joined
-        // at. Seeding every seat at zero up front would have made those earlier
-        // Rounds read as a delta of zero, which is a score they never took.
-        var previousTotals: [Entrant.ID: Int] = [:]
-
         // `match.rounds` is sequence-ordered, so a row's number is its position
         // in that order — never its position in however the Rounds were stored.
         let played = match.rounds
-        for (index, round) in played.enumerated() {
-            let standings = engine.standings(for: match, rounds: Array(played.prefix(index + 1)))
-
-            var deltas: [Entrant.ID: Int] = [:]
-            for standing in standings.ranked {
-                let previous = previousTotals[standing.entrantID] ?? 0
-                deltas[standing.entrantID] = standing.total - previous
-                previousTotals[standing.entrantID] = standing.total
-            }
-
-            rows.append(ScoresheetRow(
+        let deltas = engine.deltasByRound(for: match, rounds: played)
+        self.rows = played.enumerated().map { index, round in
+            ScoresheetRow(
                 id: round.id,
                 roundNumber: index + 1,
-                deltas: deltas,
+                deltas: deltas[index],
                 cifteCallers: round.cifteCallers,
                 okeyAtanID: round.okeyAtanID
-            ))
+            )
         }
-
-        self.rows = rows
         self.totals = engine.standings(for: match, rounds: played)
     }
 }

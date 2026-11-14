@@ -46,6 +46,66 @@ final class MatchStorePersistenceTests: XCTestCase {
         try XCTUnwrap(match.entrants.first { $0.name == name })
     }
 
+    func test_104RoundScoresheetSurvivesReopeningEndResumeFurtherScoringAndUndoToZero() throws {
+        let facts = try launch { store in
+            let alice = Entrant(name: "Alice"), bob = Entrant(name: "Bob")
+            let match = Match(game: .okey, variant: .okey101, mode: .players, entrants: [alice, bob])
+            store.add(match)
+            for _ in 0..<104 {
+                store.addRound(Round(deltas: [alice.id: 0, bob.id: 10], cifteCallers: [bob.id],
+                                     okeyAtanID: alice.id), to: match)
+            }
+            let sheet = Scoresheet(match: match, engine: LowestTotalEngine())
+            XCTAssertEqual(sheet.rows.count, 104)
+            XCTAssertEqual(sheet.totals.ranked.map(\.total), [0, 4160])
+            return (match.id, alice.id, bob.id, sheet.rows.map(\.id))
+        }
+        try launch { store in
+            let stored = try match(facts.0, in: store)
+            let sheet = Scoresheet(match: stored, engine: LowestTotalEngine())
+            XCTAssertEqual(stored.entrants.map(\.id), [facts.1, facts.2])
+            XCTAssertEqual(stored.entrants.map(\.sequence), [0, 1])
+            XCTAssertEqual(stored.rounds.map(\.sequence), Array(0..<104))
+            XCTAssertEqual(sheet.rows.map(\.id), facts.3)
+            XCTAssertEqual(sheet.rows.map(\.roundNumber), Array(1...104))
+            XCTAssertTrue(sheet.rows.allSatisfy { $0.deltas == [facts.1: 0, facts.2: 40] })
+            XCTAssertTrue(stored.rounds.allSatisfy {
+                $0.deltas == [facts.1: 0, facts.2: 10] && $0.cifteCallers == [facts.2]
+                    && $0.okeyAtanID == facts.1 && $0.joins.isEmpty && $0.rejoins.isEmpty
+            })
+            XCTAssertEqual(sheet.totals, LowestTotalEngine().standings(for: stored))
+            XCTAssertEqual(sheet.totals.ranked.map(\.total), [0, 4160])
+            XCTAssertTrue(store.end(stored))
+            XCTAssertTrue(stored.isReadOnly)
+        }
+        try launch { store in
+            let stored = try match(facts.0, in: store)
+            XCTAssertTrue(stored.isReadOnly)
+            XCTAssertEqual(Scoresheet(match: stored, engine: LowestTotalEngine()).rows.map(\.id), facts.3)
+            XCTAssertEqual(LowestTotalEngine().standings(for: stored).result, "Alice wins!")
+            XCTAssertTrue(store.resume(stored))
+            store.addRound(Round(deltas: [facts.1: 15, facts.2: 0]), to: stored)
+            let continued = Scoresheet(match: stored, engine: LowestTotalEngine())
+            XCTAssertEqual(continued.rows.last?.roundNumber, 105)
+            XCTAssertEqual(continued.totals.ranked.map(\.total), [15, 4160])
+            store.undoLastRound(in: stored)
+            XCTAssertEqual(Scoresheet(match: stored, engine: LowestTotalEngine()).rows.map(\.id), facts.3)
+            for _ in 0..<104 { store.undoLastRound(in: stored) }
+            XCTAssertTrue(Scoresheet(match: stored, engine: LowestTotalEngine()).rows.isEmpty)
+            XCTAssertEqual(LowestTotalEngine().standings(for: stored).ranked.map(\.total), [0, 0])
+            XCTAssertFalse(stored.canEnd)
+            store.addRound(Round(deltas: [facts.1: 0, facts.2: 5]), to: stored)
+            XCTAssertEqual(Scoresheet(match: stored, engine: LowestTotalEngine()).rows.map(\.roundNumber), [1])
+            XCTAssertEqual(store.freeMatches.startedMatches, 1)
+        }
+        try launch { store in
+            let stored = try match(facts.0, in: store)
+            XCTAssertFalse(stored.isReadOnly)
+            XCTAssertEqual(Scoresheet(match: stored, engine: LowestTotalEngine()).totals.ranked.map(\.total), [0, 5])
+            XCTAssertEqual(store.freeMatches.startedMatches, 1)
+        }
+    }
+
     func test_resumedHistoryAndFurtherScoresSurviveRelaunchAndCanEndAgain() throws {
         let facts = try launch { store in
             let alice = Entrant(name: "Alice")

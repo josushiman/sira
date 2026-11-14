@@ -60,16 +60,17 @@ struct PlayView: View {
         let standings = engine.standings(for: match)
 
         ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                PillTrack(options: PlayTab.allCases, label: \.rawValue, selection: $selectedTab)
-                    .padding(.top, 16)
-                    .padding(.bottom, 16)
-
-                switch selectedTab {
-                case .standings:
-                    standingsContent(variant, standings)
-                case .scoresheet:
-                    ScoresheetView(match: match, engine: engine)
+            Group {
+                if selectedTab == .scoresheet {
+                    LazyVStack(alignment: .leading, spacing: 0, pinnedViews: [.sectionHeaders]) {
+                        tabPicker
+                        ScoresheetView(match: match, engine: engine)
+                    }
+                } else {
+                    VStack(alignment: .leading, spacing: 0) {
+                        tabPicker
+                        standingsContent(variant, standings)
+                    }
                 }
             }
             .padding(.horizontal, 22)
@@ -129,6 +130,12 @@ struct PlayView: View {
                 )
             }
         }
+    }
+
+    private var tabPicker: some View {
+        PillTrack(options: PlayTab.allCases, label: \.rawValue, selection: $selectedTab)
+            .padding(.top, 16)
+            .padding(.bottom, 16)
     }
 
     @ViewBuilder
