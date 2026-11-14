@@ -1,6 +1,6 @@
 # Okey 101 manual ending
 
-Five approved tickets are published locally as ready-for-agent. Implementation has not started. The [feature spec](spec.md) remains the parent contract; this handoff does not change it.
+Implementation is in progress: ticket 01 is verified complete; tickets 02–05 remain ready-for-agent. Authoritative status and completion evidence live in each ticket. The [feature spec](spec.md) remains the parent contract; this handoff does not change it.
 
 | Ticket | Deliverable | Blocked by |
 | --- | --- | --- |
@@ -10,6 +10,6 @@ Five approved tickets are published locally as ready-for-agent. Implementation h
 | [04 — Resume from Play or Home](issues/04-resume-from-play-or-home.md) | Explicit Resume → live scoring/corrections → re-end | 03 |
 | [05 — Keep long Scoresheets readable and responsive](issues/05-keep-long-scoresheets-usable.md) | Usable, correct histories beyond 100 Rounds | 02 |
 
-Ticket 01 is the initial frontier. After 01, take 02; after 02, both 03 and 05 are unblocked. Ticket 04 follows 03. Follow the repository's worktree and PR workflow when implementation is requested.
+Ticket 02 is the current frontier. After 02, both 03 and 05 are unblocked; their published order selects 03 first. Ticket 04 follows 03. Follow the repository's worktree and PR workflow when implementation is requested.
 
 Each ticket carries behavior-oriented acceptance criteria and relevant approved screenshots. [Open the saved interactive flow](mockups/flow.html) or use the [mockup guide](mockups/README.md). Assets are stored with the tickets, so handoffs do not rely on another agent's access to the original chat's visualization directory.
