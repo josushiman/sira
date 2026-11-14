@@ -46,6 +46,70 @@ final class MatchStorePersistenceTests: XCTestCase {
         try XCTUnwrap(match.entrants.first { $0.name == name })
     }
 
+    func test_resumedHistoryAndFurtherScoresSurviveRelaunchAndCanEndAgain() throws {
+        let facts = try launch { store in
+            let alice = Entrant(name: "Alice")
+            let bob = Entrant(name: "Bob")
+            let match = Match(game: .okey, variant: .okey101, mode: .players, entrants: [alice, bob],
+                              createdAt: Date(timeIntervalSince1970: 1_700_000_000))
+            let round = Round(deltas: [alice.id: 10, bob.id: 20], cifteCallers: [bob.id], okeyAtanID: alice.id)
+            store.add(match)
+            store.addRound(round, to: match)
+            store.end(match)
+            store.resume(match)
+            store.rename(alice, to: "Alicia")
+            store.addRound(Round(deltas: [alice.id: 70, bob.id: 0]), to: match)
+            return (match.id, round.id, alice.id, bob.id)
+        }
+        try launch { store in
+            let stored = try match(facts.0, in: store)
+            XCTAssertFalse(stored.isReadOnly)
+            XCTAssertFalse(stored.archived)
+            XCTAssertTrue(stored.started)
+            XCTAssertEqual(stored.createdAt, Date(timeIntervalSince1970: 1_700_000_000))
+            XCTAssertEqual(stored.entrants.map(\.id), [facts.2, facts.3])
+            XCTAssertEqual(stored.entrants.map(\.name), ["Alicia", "Bob"])
+            XCTAssertEqual(stored.entrants.map(\.sequence), [0, 1])
+            XCTAssertEqual(stored.rounds.map(\.sequence), [0, 1])
+            XCTAssertEqual(stored.rounds[0].id, facts.1)
+            XCTAssertEqual(stored.rounds[0].deltas, [facts.2: 10, facts.3: 20])
+            XCTAssertEqual(stored.rounds[0].cifteCallers, [facts.3])
+            XCTAssertEqual(stored.rounds[0].okeyAtanID, facts.2)
+            XCTAssertEqual(LowestTotalEngine().standings(for: stored).ranked.map(\.total), [80, 90])
+            XCTAssertTrue(store.end(stored))
+            XCTAssertEqual(LowestTotalEngine().standings(for: stored).result, "Bob wins!")
+            XCTAssertEqual(store.freeMatches.startedMatches, 1)
+        }
+        try launch { store in
+            let stored = try match(facts.0, in: store)
+            XCTAssertTrue(stored.isReadOnly)
+            XCTAssertTrue(stored.archived)
+            XCTAssertEqual(LowestTotalEngine().standings(for: stored).result, "Bob wins!")
+            XCTAssertEqual(store.freeMatches.startedMatches, 1)
+        }
+    }
+
+    func test_failedResumeSaveKeepsBothVisibleStatesAndSurfacesTheExistingFailure() {
+        var failing = false
+        let store = MatchStore { context in
+            if failing { throw DiskFull() }
+            try context.save()
+        }
+        let match = Match(game: .okey, variant: .okey101, mode: .players,
+                          entrants: [Entrant(name: "Alice")], rounds: [Round()])
+        store.add(match)
+        store.end(match)
+        failing = true
+
+        XCTAssertTrue(store.resume(match))
+
+        XCTAssertNotNil(store.saveFailure)
+        XCTAssertFalse(match.ended)
+        XCTAssertFalse(match.archived)
+        XCTAssertTrue(match.started)
+        XCTAssertEqual(store.freeMatches.startedMatches, 1)
+    }
+
     func test_endedArchivedResultAndReadOnlyHistorySurviveTwoReopens() throws {
         let id = try launch { store -> Match.ID in
             let alice = Entrant(name: "Alice")

@@ -61,6 +61,16 @@ final class PlayViewSnapshotTests: XCTestCase {
     func test_okey101TiedEndedStandings_felt() { assertEnded(theme: .felt, tied: true) }
     func test_okey101ReadOnlyScoresheet_paper() { assertEnded(tab: .scoresheet, theme: .paper) }
     func test_okey101ReadOnlyScoresheet_felt() { assertEnded(tab: .scoresheet, theme: .felt) }
+    private func assertResumed(tab: PlayTab = .standings, theme: Theme, testName: String = #function) {
+        let match = endableMatch(tied: true)
+        match.end()
+        match.resume()
+        assertPlay(match, tab: tab, theme: theme, testName: testName)
+    }
+    func test_okey101ResumedStandings_paper() { assertResumed(theme: .paper) }
+    func test_okey101ResumedStandings_felt() { assertResumed(theme: .felt) }
+    func test_okey101ResumedScoresheet_paper() { assertResumed(tab: .scoresheet, theme: .paper) }
+    func test_okey101ResumedScoresheet_felt() { assertResumed(tab: .scoresheet, theme: .felt) }
     func test_okey101AllTiedLongNamesRemainReadable_felt() {
         let match = endableMatch(allTied: true)
         for (entrant, name) in zip(match.entrants, ["Alexandra", "Benedict", "Cemalettin", "Dilara"]) {

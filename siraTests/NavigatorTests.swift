@@ -2,6 +2,33 @@ import XCTest
 @testable import sira
 
 final class NavigatorTests: XCTestCase {
+    func test_reviewingAnEndedCardDoesNotResumeAndExplicitResumeOpensTheSameLiveMatch() throws {
+        let store = MatchStore()
+        let navigator = Navigator()
+        let match = Match(game: .okey, variant: .okey101, mode: .players,
+                          entrants: [Entrant(name: "Alice"), Entrant(name: "Bob")], rounds: [Round()])
+        store.add(match)
+        store.end(match)
+        let card = HomeCard(match: match, variant: .okey101)
+
+        navigator.openMatchID = card.id
+        let reviewed = try XCTUnwrap([match].scorableMatch(navigator.openMatchID))
+        XCTAssertTrue(reviewed.isReadOnly)
+        XCTAssertTrue(reviewed.archived)
+        navigator.goHome()
+
+        // Home resolves the current model from the card's id when acting.
+        let resumed = try XCTUnwrap([match].scorableMatch(card.id))
+        XCTAssertTrue(store.resume(resumed))
+        navigator.openMatchID = resumed.id
+        let opened = try XCTUnwrap([match].scorableMatch(navigator.openMatchID))
+        XCTAssertTrue(opened === match)
+        XCTAssertFalse(opened.isReadOnly)
+        XCTAssertFalse(opened.archived)
+        XCTAssertTrue(opened.canEnd)
+        XCTAssertEqual(store.freeMatches.startedMatches, 1)
+    }
+
     /// Both routes into Play have to be cleared, not just the one that is
     /// currently set: a Match reached through the Variant picker leaves that
     /// item standing, and a Match opened from a Home card leaves the other.

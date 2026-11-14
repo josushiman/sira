@@ -3,6 +3,82 @@ import SwiftData
 @testable import sira
 
 final class MatchStoreTests: XCTestCase {
+    func test_resumeKeepsTheSameHistoryAndAllowsCorrectionAndReendingWhileLocked() throws {
+        let store = MatchStore()
+        let alice = Entrant(name: "Alice")
+        let bob = Entrant(name: "Bob")
+        let date = Date(timeIntervalSince1970: 1_700_000_000)
+        let match = Match(game: .okey, variant: .okey101, mode: .players,
+                          entrants: [alice, bob], createdAt: date)
+        let id = match.id
+        store.add(match)
+        let round = Round(deltas: [alice.id: 10, bob.id: 20], cifteCallers: [bob.id], okeyAtanID: alice.id)
+        store.addRound(round, to: match)
+        for _ in 0..<2 {
+            let other = gongaMatch(entrants: [Entrant(name: "Other")])
+            store.add(other)
+            store.addRound(Round(), to: other)
+        }
+        XCTAssertTrue(GameAccess.resolved(freeMatches: store.freeMatches, isUnlocked: false).isLocked)
+        XCTAssertTrue(store.end(match))
+
+        XCTAssertTrue(store.resume(match))
+
+        XCTAssertEqual(match.id, id)
+        XCTAssertEqual(match.createdAt, date)
+        XCTAssertFalse(match.ended)
+        XCTAssertFalse(match.archived)
+        XCTAssertTrue(match.started)
+        XCTAssertEqual(match.entrants.map(\.id), [alice.id, bob.id])
+        XCTAssertEqual(match.entrants.map(\.sequence), [0, 1])
+        XCTAssertEqual(match.rounds.map(\.id), [round.id])
+        XCTAssertEqual(match.rounds.map(\.sequence), [0])
+        XCTAssertEqual(round.deltas, [alice.id: 10, bob.id: 20])
+        XCTAssertEqual(round.cifteCallers, [bob.id])
+        XCTAssertEqual(round.okeyAtanID, alice.id)
+        XCTAssertNil(LowestTotalEngine().standings(for: match).result)
+        XCTAssertEqual(LowestTotalEngine().standings(for: match).ranked.map(\.total), [20, 80])
+        XCTAssertTrue(MatchFilter.active.includes(match))
+        XCTAssertFalse(MatchFilter.archived.includes(match))
+        store.rename(alice, to: "Alicia")
+        store.undoLastRound(in: match)
+        XCTAssertTrue(match.started)
+        XCTAssertTrue(match.rounds.isEmpty)
+        XCTAssertFalse(match.canEnd)
+        XCTAssertFalse(store.end(match))
+        store.addRound(Round(deltas: [alice.id: 30, bob.id: 10]), to: match)
+        XCTAssertTrue(store.end(match))
+        XCTAssertEqual(LowestTotalEngine().standings(for: match).result, "Bob wins!")
+        XCTAssertTrue(store.resume(match))
+        store.addRound(Round(deltas: [alice.id: 0, bob.id: 40]), to: match)
+        XCTAssertTrue(store.end(match))
+        XCTAssertEqual(LowestTotalEngine().standings(for: match).result, "Alicia wins!")
+        XCTAssertEqual(store.freeMatches.startedMatches, 3)
+        XCTAssertEqual(try storedMatches(in: store).count, 3)
+    }
+
+    func test_liveArchiveAndRestoreRemainVisibilityOnlyAndResumeRequiresAnEndedOkey101() {
+        let store = MatchStore()
+        for variant in [Variant.okey101, .gongaStandard, .okeyStandard] {
+            let match = Match(game: variant == .gongaStandard ? .gonga : .okey, variant: variant,
+                              number: 101, mode: variant.entrantMode,
+                              entrants: [Entrant(name: "Alice"), Entrant(name: "Bob")])
+            store.add(match)
+            store.addRound(Round(), to: match)
+            store.archive(match)
+            XCTAssertFalse(store.resume(match))
+            XCTAssertTrue(match.archived)
+            XCTAssertFalse(match.ended)
+            store.addRound(Round(), to: match)
+            XCTAssertEqual(match.rounds.count, 2)
+            store.restore(match)
+            XCTAssertFalse(match.archived)
+            XCTAssertFalse(match.ended)
+            XCTAssertEqual(match.rounds.count, 2)
+        }
+        XCTAssertEqual(store.freeMatches.startedMatches, 3)
+    }
+
     func test_endingOkey101DeclaresAndArchivesTheCurrentResultWithoutSpendingAnotherStart() throws {
         let store = MatchStore()
         let alice = Entrant(name: "Alice")

@@ -102,6 +102,69 @@ final class MatchStoreMigrationTests: XCTestCase {
             .contains { $0.contains("unreadable") }, "Recovery must not hide a failed migration behind an empty store")
     }
 
+    func test_resumedLegacyResultsStayLiveAcrossRelaunchAfterScoringAndUndoToZero() throws {
+        let ids = try writeV1 { context in
+            [false, true].map { archived in
+                let alice = SiraSchemaV1.Entrant(name: "Alice", sequence: 0)
+                let bob = SiraSchemaV1.Entrant(name: "Bob", sequence: 1)
+                let match = SiraSchemaV1.Match(
+                    game: .okey, variantId: "okey-101", roundCount: 1, mode: .players,
+                    storedEntrants: [bob, alice],
+                    storedRounds: [SiraSchemaV1.Round(deltas: [alice.id: 10, bob.id: 20], cifteCallers: [bob.id], okeyAtanID: alice.id)],
+                    archived: archived, createdAt: Date(timeIntervalSince1970: 1_700_000_000)
+                )
+                match.started = true
+                context.insert(match)
+                return match.id
+            }
+        }
+
+        try launch { store in
+            for (index, id) in ids.enumerated() {
+                let match = try match(id, in: store)
+                let alice = try XCTUnwrap(match.entrants.first)
+                XCTAssertTrue(match.isReadOnly)
+                XCTAssertEqual(match.archived, index == 1)
+                XCTAssertTrue(store.resume(match))
+                XCTAssertEqual(match.createdAt, Date(timeIntervalSince1970: 1_700_000_000))
+                XCTAssertEqual(match.entrants.map(\.sequence), [0, 1])
+                XCTAssertEqual(LowestTotalEngine().standings(for: match).ranked.map(\.total), [20, 80])
+                if index == 0 {
+                    store.addRound(Round(deltas: [alice.id: 30]), to: match)
+                } else {
+                    store.undoLastRound(in: match)
+                }
+            }
+        }
+        try launch { store in
+            for (index, id) in ids.enumerated() {
+                let match = try match(id, in: store)
+                XCTAssertFalse(match.ended)
+                XCTAssertFalse(match.archived)
+                XCTAssertTrue(match.started)
+                XCTAssertEqual(match.rounds.map(\.sequence), index == 0 ? [0, 1] : [])
+                XCTAssertEqual(match.canEnd, index == 0)
+                if index == 0 {
+                    XCTAssertEqual(match.rounds[0].cifteCallers, [match.entrants[1].id])
+                    XCTAssertEqual(match.rounds[0].okeyAtanID, match.entrants[0].id)
+                    XCTAssertEqual(LowestTotalEngine().standings(for: match).ranked.map(\.total), [50, 80])
+                } else {
+                    store.addRound(Round(deltas: [match.entrants[0].id: 40]), to: match)
+                }
+            }
+            XCTAssertEqual(store.freeMatches.startedMatches, 2)
+        }
+        try launch { store in
+            for id in ids {
+                let match = try match(id, in: store)
+                XCTAssertFalse(match.ended, "The old target must never infer completion again")
+                XCTAssertFalse(match.archived)
+                XCTAssertTrue(match.started)
+            }
+            XCTAssertEqual(store.freeMatches.startedMatches, 2)
+        }
+    }
+
     func test_legacyStartedHistoryAndMissingAccessAccountingAreReconciledOnce() throws {
         let ids = try writeV1 { context in
             let undone = SiraSchemaV1.Match(

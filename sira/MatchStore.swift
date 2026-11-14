@@ -413,6 +413,15 @@ final class MatchStore {
         return true
     }
 
+    /// Reopening and unarchiving are persisted together, retaining the Start
+    /// and its already-spent Free Match just as Undo does.
+    @discardableResult
+    func resume(_ match: Match) -> Bool {
+        guard match.resume() else { return false }
+        save()
+        return true
+    }
+
     func archive(_ match: Match) {
         match.archive()
         save()

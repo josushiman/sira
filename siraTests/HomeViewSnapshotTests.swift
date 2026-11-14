@@ -79,6 +79,20 @@ final class HomeViewSnapshotTests: XCTestCase {
         assertHome(endedTiedHistory(), theme: .felt, filter: .archived)
     }
 
+    private func resumedHistory() throws -> MatchStore {
+        let store = storeWithOkey101History()
+        let matches = try store.context.fetch(FetchDescriptor<Match>())
+        for match in matches where match.isReadOnly { store.resume(match) }
+        return store
+    }
+
+    func test_okey101ResumedHistoryKeepsOriginalOrder_paper() throws {
+        assertHome(try resumedHistory(), theme: .paper)
+    }
+    func test_okey101ResumedHistoryKeepsOriginalOrder_felt() throws {
+        assertHome(try resumedHistory(), theme: .felt)
+    }
+
     func test_okey101HistoryOmitsTargets_paper() {
         assertHome(storeWithOkey101History(), theme: .paper)
     }

@@ -121,7 +121,7 @@ struct HomeView: View {
                     .listRowBackground(Color.clear)
                     .listRowInsets(EdgeInsets(top: 0, leading: 22, bottom: 10, trailing: 22))
                     .swipeActions {
-                        archiveButton(for: card)
+                        matchAction(for: card)
                     }
                     // Deliberately a context menu and not a swipe action.
                     // Archive's swipe is safe to brush against; deletion is
@@ -343,10 +343,14 @@ struct HomeView: View {
     }
 
     @ViewBuilder
-    private func archiveButton(for card: HomeCard) -> some View {
+    private func matchAction(for card: HomeCard) -> some View {
         if card.isReadOnly {
-            // Resume is a deliberate lifecycle action supplied by ticket 04.
-            // Restore must not offer a way around an Ended result meanwhile.
+            Button("Resume") {
+                if let match = match(card.id), store.resume(match) {
+                    navigator.openMatchID = match.id
+                }
+            }
+            .tint(.blue)
         } else if card.archived {
             Button("Restore") {
                 if let match = match(card.id) { store.restore(match) }

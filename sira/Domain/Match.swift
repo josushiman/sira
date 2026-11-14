@@ -363,6 +363,16 @@ final class Match {
         return true
     }
 
+    /// Reopens the declared result and returns this same Match to Active.
+    /// An ordinary live archive is restored separately, without changing play.
+    @discardableResult
+    func resume() -> Bool {
+        guard isReadOnly else { return false }
+        ended = false
+        archived = false
+        return true
+    }
+
     /// Hides this Match from the Active filter without locking it — Rounds can
     /// still be added and standings still recompute normally.
     func archive() {

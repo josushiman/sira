@@ -86,17 +86,16 @@ struct PlayView: View {
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             VStack(spacing: 4) {
-                addRoundButton(variant, isOver: standings.isOver)
-                if variant.winCondition == .lowestTotal {
-                    if match.isReadOnly {
-                        Text("Match ended. Scores are read-only.")
-                            .siraStyle(.caption)
-                            .foregroundStyle(theme.ink.opacity(0.7))
-                            .fixedSize(horizontal: false, vertical: true)
-                            .padding(.top, 8)
-                    } else {
-                        endMatchButton
-                    }
+                if match.isReadOnly {
+                    Text("Resume to add rounds or make changes.")
+                        .siraStyle(.caption)
+                        .foregroundStyle(theme.ink.opacity(0.7))
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.bottom, 8)
+                }
+                primaryButton(variant, isOver: standings.isOver)
+                if variant.winCondition == .lowestTotal && !match.isReadOnly {
+                    endMatchButton
                 }
             }
                 .padding(.horizontal, 22)
@@ -456,14 +455,19 @@ struct PlayView: View {
     }
 
     @ViewBuilder
-    private func addRoundButton(_ variant: Variant, isOver: Bool) -> some View {
-        Button {
-            switch variant.entryStyle {
-            case .keypad: showingKeypadEntry = true
-            case .okeyStandard: showingOkeyStandardEntry = true
+    private func primaryButton(_ variant: Variant, isOver: Bool) -> some View {
+        let isDisabled = isOver && !match.isReadOnly
+        return Button {
+            if match.isReadOnly {
+                store.resume(match)
+            } else {
+                switch variant.entryStyle {
+                case .keypad: showingKeypadEntry = true
+                case .okeyStandard: showingOkeyStandardEntry = true
+                }
             }
         } label: {
-            Text(isOver ? "Match finished" : "Add round \(match.rounds.count + 1) scores")
+            Text(match.isReadOnly ? "Resume match" : (isOver ? "Match finished" : "Add round \(match.rounds.count + 1) scores"))
                 .siraStyle(.subheadline)
                 .fontWeight(.semibold)
                 .frame(maxWidth: .infinity)
@@ -471,12 +475,12 @@ struct PlayView: View {
                 .frame(minHeight: 54)
                 .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         }
-        .foregroundStyle(isOver ? theme.ink.opacity(0.5) : theme.background)
+        .foregroundStyle(isDisabled ? theme.ink.opacity(0.5) : theme.background)
         .background {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(isOver ? theme.surface : theme.ink)
+                .fill(isDisabled ? theme.surface : theme.ink)
                 .overlay {
-                    if isOver {
+                    if isDisabled {
                         RoundedRectangle(cornerRadius: 18, style: .continuous)
                             .stroke(theme.line, lineWidth: 1)
                     }
@@ -484,7 +488,7 @@ struct PlayView: View {
         }
         .contentShape(Rectangle())
         .buttonStyle(.plain)
-        .disabled(isOver)
+        .disabled(isDisabled)
     }
 }
 
