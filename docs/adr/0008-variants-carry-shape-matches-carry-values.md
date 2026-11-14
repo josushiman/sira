@@ -1,5 +1,7 @@
 # Variants carry shape, Matches carry values
 
+Partially superseded by [ADR 0012](0012-okey101-ends-by-table-decision.md): Okey 101 no longer takes a Setup number or ends at a Round target. Gonga and Okey retain the parameter model described here.
+
 Gonga 101 and Gonga 151 were one ruleset written twice: identical Win Condition, Entrant mode, table size, absence of Çifte and keypad entry, differing by a single integer. Okey 101's Round count was already a Setup choice while Okey 21's starting score was baked into its Variant, so the same kind of number was data in one Variant and code in another. We decided three linked things:
 
 - **A Variant declares shape only; the number it is played at lives on the Match.** `Variant` declares no `limit`, `startingScore` or `roundCount` at all — there is no number to be read off a Variant — and Setup asks for the one number the Variant's Win Condition takes — a limit, a starting score or a Round count — which the Match stores and every screen reads back through `Match.variantNumber` and names with `Match.numberPhrase`.
