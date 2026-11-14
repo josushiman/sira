@@ -165,7 +165,7 @@ final class MatchStorePersistenceTests: XCTestCase {
         let matchID = try launch { store -> Match.ID in
             let alice = Entrant(name: "Alice")
             let bob = Entrant(name: "Bob")
-            let match = Match(game: .okey, variant: .okey101, number: 8, mode: .players, entrants: [alice, bob])
+            let match = Match(game: .okey, variant: .okey101, mode: .players, entrants: [alice, bob])
             store.add(match)
             store.addRound(
                 Round(
@@ -319,12 +319,12 @@ final class MatchStorePersistenceTests: XCTestCase {
         }
     }
 
-    func test_fixedRoundsStandingsAreUnchangedByAReload() throws {
+    func test_lowestTotalStandingsAreUnchangedByAReload() throws {
         let (matchID, before) = try launch { store -> (Match.ID, Standings) in
             let alice = Entrant(name: "Alice")
             let bob = Entrant(name: "Bob")
             let carol = Entrant(name: "Carol")
-            let match = Match(game: .okey, variant: .okey101, number: 8, mode: .players, entrants: [alice, bob, carol])
+            let match = Match(game: .okey, variant: .okey101, mode: .players, entrants: [alice, bob, carol])
             store.add(match)
             store.addRound(
                 Round(deltas: [alice.id: 30, bob.id: 0, carol.id: 45], cifteCallers: [carol.id]),
@@ -334,33 +334,23 @@ final class MatchStorePersistenceTests: XCTestCase {
                 Round(deltas: [alice.id: 12, bob.id: 20, carol.id: 0], okeyAtanID: carol.id),
                 to: match
             )
-            return (match.id, WinCondition.fixedRounds.engine.standings(for: match))
+            return (match.id, WinCondition.lowestTotal.engine.standings(for: match))
         }
 
         try launch { store in
-            let after = WinCondition.fixedRounds.engine.standings(for: try match(matchID, in: store))
+            let after = WinCondition.lowestTotal.engine.standings(for: try match(matchID, in: store))
 
             XCTAssertEqual(after, before)
         }
     }
 
-    /// Okey 101's Round count is chosen at Setup rather than by the Variant, so
-    /// it is the one part of the rules stored per Match. Lose it and a 12-Round
-    /// Match resolves the Variant's own 8 and declares itself over four Rounds
-    /// early.
-    func test_okey101sSetupChosenRoundCountSurvives() throws {
+    func test_targetFreeOkey101ScoresAndRoutesAfterAReload() throws {
         let matchID = try launch { store -> Match.ID in
             let alice = Entrant(name: "Alice")
             let bob = Entrant(name: "Bob")
-            let match = Match(
-                game: .okey,
-                variantId: Variant.okey101.id,
-                roundCount: 12,
-                mode: .players,
-                entrants: [alice, bob]
-            )
+            let match = Match(game: .okey, variant: .okey101, mode: .players, entrants: [alice, bob])
             store.add(match)
-            for _ in 0..<8 {
+            for _ in 0..<51 {
                 store.addRound(Round(deltas: [alice.id: 10, bob.id: 0]), to: match)
             }
             return match.id
@@ -368,9 +358,16 @@ final class MatchStorePersistenceTests: XCTestCase {
 
         try launch { store in
             let reloaded = try match(matchID, in: store)
-
-            XCTAssertEqual(reloaded.variantNumber, 12)
-            XCTAssertFalse(WinCondition.fixedRounds.engine.standings(for: reloaded).isOver)
+            XCTAssertNil(reloaded.variantNumber)
+            XCTAssertNil(reloaded.numberPhrase)
+            XCTAssertTrue([reloaded].scorableMatch(matchID) === reloaded)
+            XCTAssertEqual(reloaded.rounds.count, 51)
+            let standings = WinCondition.lowestTotal.engine.standings(for: reloaded)
+            XCTAssertEqual(standings.ranked.map(\.total), [0, 510])
+            XCTAssertFalse(standings.isOver)
+            XCTAssertNil(standings.result)
+            XCTAssertTrue(reloaded.started)
+            XCTAssertEqual(store.freeMatches.startedMatches, 1)
         }
     }
 

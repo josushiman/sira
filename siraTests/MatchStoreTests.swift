@@ -3,6 +3,59 @@ import SwiftData
 @testable import sira
 
 final class MatchStoreTests: XCTestCase {
+    func test_targetFreeOkey101CanStartAndRouteIntoPlay() throws {
+        let store = MatchStore()
+        let alice = Entrant(name: "Alice")
+        let bob = Entrant(name: "Bob")
+        let match = Match(game: .okey, variantId: "okey-101", mode: .players, entrants: [alice, bob])
+        store.add(match)
+
+        let fresh = try storedMatches(in: store)
+        XCTAssertEqual(fresh.scorable.map(\.match.id), [match.id])
+        XCTAssertTrue(fresh.scorableMatch(match.id) === match)
+        XCTAssertFalse(match.started)
+        XCTAssertEqual(store.freeMatches.remaining, 3)
+
+        store.addRound(Round(deltas: [alice.id: 10, bob.id: 20]), to: match)
+
+        XCTAssertTrue(match.started)
+        XCTAssertEqual(store.freeMatches.remaining, 2)
+        let standings = try XCTUnwrap(match.variant).winCondition.engine.standings(for: match)
+        XCTAssertEqual(standings.ranked.map(\.total), [10, 20])
+        XCTAssertFalse(standings.isOver)
+        XCTAssertNil(standings.result)
+    }
+
+    func test_targetFreeOkey101ContinuesBeyondFormerCountsAndUndoDoesNotSpendAnotherStart() throws {
+        let store = MatchStore()
+        let alice = Entrant(name: "Alice")
+        let bob = Entrant(name: "Bob")
+        let match = Match(game: .okey, variant: .okey101, mode: .players, entrants: [alice, bob])
+        store.add(match)
+
+        for _ in 0..<104 {
+            store.addRound(Round(deltas: [alice.id: 10, bob.id: 0]), to: match)
+        }
+
+        let standings = try XCTUnwrap(match.variant).winCondition.engine.standings(for: match)
+        XCTAssertEqual(standings.ranked.map(\.total), [0, 1040])
+        XCTAssertFalse(standings.isOver)
+        XCTAssertNil(standings.result)
+        XCTAssertEqual(match.rounds.map(\.sequence), Array(0..<104))
+        XCTAssertEqual(match.entrants.map(\.sequence), [0, 1])
+        XCTAssertEqual(store.freeMatches.startedMatches, 1)
+
+        for _ in 0..<104 { store.undoLastRound(in: match) }
+        XCTAssertTrue(match.rounds.isEmpty)
+        XCTAssertTrue(match.started)
+        XCTAssertTrue([match].scorableMatch(match.id) === match)
+
+        store.addRound(Round(deltas: [alice.id: 20, bob.id: 0]), to: match)
+        XCTAssertEqual(match.rounds.map(\.sequence), [0])
+        XCTAssertEqual(store.freeMatches.startedMatches, 1)
+        XCTAssertFalse(match.ended)
+    }
+
     private func gongaMatch(
         entrants: [Entrant] = [Entrant(name: "Alice")],
         createdAt: Date = Date()

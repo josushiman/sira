@@ -45,19 +45,10 @@ struct PlayView: View {
 
     @ViewBuilder
     var body: some View {
-        // A Match naming a Variant this build doesn't know, or carrying no
-        // number to be played at, has no rules to score it by — so it is
-        // skipped rather than played under a substitute. Both are asked here,
-        // because an Engine handed either says nothing about the Match while
-        // Play would go on offering to add Rounds to it.
-        //
-        // In practice this always resolves: Home names a Match by id and
-        // resolves it through `scorableMatch` first, and Setup only ever hands
-        // over a Match it just built from the Variant it is holding, at the
-        // number it was asked for. So this stays as the last word on a Match
-        // Play cannot score, rather than as the thing keeping the player off a
-        // blank screen.
-        if let variant = match.variant, match.variantNumber != nil {
+        // Home applies this same gate before routing; Setup supplies a resolved
+        // Variant and any required score. Keep Play safe for direct presentation
+        // too, including parameterless Lowest Total Matches.
+        if let variant = match.variant, match.isScorable {
             play(variant)
         }
     }
@@ -131,7 +122,8 @@ struct PlayView: View {
                         standing: standing,
                         rank: index + 1,
                         badgeIndex: badgeIndex(for: standing.entrantID),
-                        isLeader: index == 0 && !standing.isOut && !standings.isOver,
+                        isLeader: index == 0 && !standing.isOut && !standings.isOver
+                            && (variant.winCondition != .lowestTotal || !match.rounds.isEmpty),
                         maxAbsTotal: maxAbsTotal(variant, standings),
                         roomLeft: roomLeft(variant, for: standing)
                     )
@@ -223,11 +215,11 @@ struct PlayView: View {
     /// each Standing's progress-bar width — matches the prototype's `maxAbs`.
     ///
     /// A limit and a starting score are both scores, so a bar can be drawn
-    /// against either. A Round count is not, so Fixed Rounds scales against
+    /// against either. Lowest Total has no target, so it scales against
     /// the Entrants' own totals instead.
     private func maxAbsTotal(_ variant: Variant, _ standings: Standings) -> Int {
         let entrantMax = standings.ranked.map { abs($0.total) }.max() ?? 0
-        let scale = variant.winCondition == .fixedRounds ? nil : match.variantNumber
+        let scale = variant.winCondition == .lowestTotal ? nil : match.variantNumber
         return max(1, scale ?? entrantMax)
     }
 
@@ -333,6 +325,7 @@ struct PlayView: View {
             VStack(alignment: .leading, spacing: 5) {
                 Text(variant.label)
                     .siraStyle(.subheadline)
+                    .foregroundStyle(theme.ink)
                 Text(sira: .monoLabel, playSubtitle)
                     .foregroundStyle(theme.ink.opacity(0.5))
             }
@@ -699,7 +692,6 @@ struct MatchOverBanner: View {
     PlayPreview(
         game: .okey,
         variant: .okey101,
-        number: 12,
         mode: .players,
         names: ["Alice", "Bob"]
     )
@@ -712,7 +704,7 @@ private struct PlayPreview: View {
     @State private var store: MatchStore
     private let match: Match
 
-    init(game: Game, variant: Variant, number: Int, mode: EntrantMode, names: [String]) {
+    init(game: Game, variant: Variant, number: Int? = nil, mode: EntrantMode, names: [String]) {
         let store = MatchStore()
         let match = Match(
             game: game,

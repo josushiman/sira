@@ -76,13 +76,14 @@ final class MatchStoreMigrationTests: XCTestCase {
                     XCTAssertEqual(match.entrants.map(\.name), ["Alice", "Bob"])
                     XCTAssertEqual(match.entrants.map(\.sequence), [0, 1])
                     XCTAssertEqual(match.rounds.map(\.sequence), completed ? [0, 1, 2] : [0, 1])
-                    XCTAssertEqual(match.variantNumber, 3)
+                    XCTAssertNil(match.variantNumber)
+                    XCTAssertNil(match.numberPhrase)
                     XCTAssertNotNil([match].scorableMatch(id))
-                    let standings = WinCondition.fixedRounds.engine.standings(for: match)
+                    let standings = WinCondition.lowestTotal.engine.standings(for: match)
                     XCTAssertEqual(standings.ranked.map(\.total), completed ? [30, 30] : [20, 20])
                     XCTAssertEqual(standings.isOver, completed)
                     XCTAssertEqual(standings.result, completed ? "Tie between Alice and Bob!" : nil)
-                    XCTAssertEqual(MatchSummary(match: match, engine: WinCondition.fixedRounds.engine).text,
+                    XCTAssertEqual(MatchSummary(match: match, engine: WinCondition.lowestTotal.engine).text,
                                    completed ? "Tie between Alice and Bob!" : "Alice leads with 20")
                 }
             }
@@ -131,7 +132,7 @@ final class MatchStoreMigrationTests: XCTestCase {
     }
 
 
-    func test_countEraScoringAndUndoKeepThePreparedResultCurrentWithoutAnotherStart() throws {
+    func test_migratedLiveMatchIgnoresItsOldTargetWithoutAnotherStart() throws {
         let id = try writeV1 { context in
             let alice = SiraSchemaV1.Entrant(name: "Alice")
             let match = SiraSchemaV1.Match(
@@ -149,7 +150,7 @@ final class MatchStoreMigrationTests: XCTestCase {
             let alice = try XCTUnwrap(match.entrants.first)
             XCTAssertFalse(match.ended)
             store.addRound(Round(deltas: [alice.id: 20]), to: match)
-            XCTAssertTrue(match.ended)
+            XCTAssertFalse(match.ended)
             store.undoLastRound(in: match)
             XCTAssertFalse(match.ended)
             store.undoLastRound(in: match)
@@ -157,15 +158,15 @@ final class MatchStoreMigrationTests: XCTestCase {
             XCTAssertTrue(match.started)
             store.addRound(Round(deltas: [alice.id: 30]), to: match)
             store.addRound(Round(deltas: [alice.id: 40]), to: match)
-            XCTAssertTrue(match.ended)
+            XCTAssertFalse(match.ended)
             XCTAssertEqual(store.freeMatches.startedMatches, 1)
         }
         try launch { store in
             let match = try match(id, in: store)
-            XCTAssertTrue(match.ended)
+            XCTAssertFalse(match.ended)
             XCTAssertFalse(match.archived)
             XCTAssertEqual(match.rounds.map(\.sequence), [0, 1])
-            XCTAssertEqual(WinCondition.fixedRounds.engine.standings(for: match).ranked.map(\.total), [70])
+            XCTAssertEqual(WinCondition.lowestTotal.engine.standings(for: match).ranked.map(\.total), [70])
             XCTAssertEqual(store.freeMatches.startedMatches, 1)
         }
     }
@@ -280,7 +281,7 @@ final class MatchStoreMigrationTests: XCTestCase {
                 XCTAssertEqual(okey101.rounds.map(\.okeyAtanID), [a, nil])
                 XCTAssertTrue(okey101.ended)
                 XCTAssertEqual(okey101.createdAt, Date(timeIntervalSince1970: 1_600_000_000))
-                let lowest = WinCondition.fixedRounds.engine.standings(for: okey101)
+                let lowest = WinCondition.lowestTotal.engine.standings(for: okey101)
                 XCTAssertEqual(lowest.ranked.map(\.name), ["Bob", "Alice", "Cem"])
                 XCTAssertEqual(lowest.ranked.map(\.total), [40, 60, 85])
                 XCTAssertEqual(lowest.result, "Bob wins!")

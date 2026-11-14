@@ -52,7 +52,7 @@ final class Round {
     /// opinion about where it sits, so only a Match can stamp one, via
     /// `addRound` or `withSequence(_:)`.
     private(set) var sequence = 0
-    /// Per-Entrant deltas for the keypad entry styles (Survival, Fixed Rounds),
+    /// Per-Entrant deltas for the keypad entry styles (Survival, Lowest Total),
     /// stored **raw** — exactly the counts the player entered, never scaled by
     /// Çifte, Okey atmak or any other Round modifier. The Engines are the only
     /// place a multiplier is applied (`docs/adr/0005`). Unused by Elimination
@@ -141,7 +141,7 @@ extension Round {
     /// The two contributions multiply, so ×4 is the ceiling for one Entrant.
     ///
     /// What each Engine scales with the result is its own business: Survival
-    /// and Fixed Rounds scale every delta, Elimination scales only the loss
+    /// and Lowest Total scale every delta, Elimination scales only the loss
     /// penalty and never a Gösterge find. The Match comes in whole because
     /// "won the Round" is read differently per Win Condition — which the
     /// calling Engine states, rather than it being re-derived from the Match.
@@ -151,7 +151,7 @@ extension Round {
         case .elimination:
             // Okey records the team that lost; the other one won.
             return multipliers(for: entrantIDs) { $0 != losingEntrantID }
-        case .survival, .fixedRounds:
+        case .survival, .lowestTotal:
             return keypadMultipliers(for: entrantIDs)
         }
     }

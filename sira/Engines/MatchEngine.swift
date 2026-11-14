@@ -32,7 +32,7 @@ extension WinCondition {
         switch self {
         case .survival: return SurvivalEngine()
         case .elimination: return EliminationEngine()
-        case .fixedRounds: return FixedRoundsEngine()
+        case .lowestTotal: return LowestTotalEngine()
         }
     }
 }

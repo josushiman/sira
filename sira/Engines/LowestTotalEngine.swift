@@ -1,21 +1,9 @@
 import Foundation
 
-/// Win Condition for Okey 101: Entrants accumulate deltas each Round, scaled
-/// by that Round's modifiers, with no elimination. The Match ends once the
-/// Round count chosen at Setup is reached; the lowest total wins. This is
-/// the only Win Condition where Çifte's asymmetry is observable, having more
-/// than one loser for a winning caller to double.
-struct FixedRoundsEngine: MatchEngine {
+/// Okey 101 accumulates deltas with no elimination or Round target. Only the
+/// persisted ending declares the lowest total (or tied totals) final.
+struct LowestTotalEngine: MatchEngine {
     func standings(for match: Match, rounds: [Round]) -> Standings {
-        // A Match with no Round count is not a Match that runs forever, which
-        // is what resolving it as `.max` used to make it: it could never end
-        // and so could never be won. There is nothing to score it by, so there
-        // is nothing to say about it. Such a Match does not reach here —
-        // `scorable` gates it out before Play can open it.
-        guard let roundCount = match.variantNumber else {
-            return Standings(ranked: [], isOver: false, result: nil)
-        }
-
         var totals: [Entrant.ID: Int] = [:]
         for entrant in match.entrants {
             totals[entrant.id] = 0
@@ -25,7 +13,7 @@ struct FixedRoundsEngine: MatchEngine {
 
         for round in rounds {
             lastRoundDeltas = [:]
-            let multipliers = round.multipliers(in: match, winCondition: .fixedRounds)
+            let multipliers = round.multipliers(in: match, winCondition: .lowestTotal)
             for entrant in match.entrants {
                 guard let delta = round.deltas[entrant.id] else { continue }
                 let appliedDelta = delta * (multipliers[entrant.id] ?? 1)
@@ -34,7 +22,7 @@ struct FixedRoundsEngine: MatchEngine {
             }
         }
 
-        let isOver = rounds.count >= roundCount
+        let isOver = match.ended
 
         let ranked = match.entrants
             .map { entrant in

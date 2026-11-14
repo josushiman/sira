@@ -83,21 +83,11 @@ final class VariantTests: XCTestCase {
 
     // MARK: - The rules read back at a chosen number
 
-    func test_theRulesRestateThemselvesAtWhateverNumberIsChosen() {
-        XCTAssertEqual(
-            Variant.okey101.ruleText(at: 5),
-            "Individuals only. Accumulate points each Round over 5 Rounds. Lowest total when the Rounds run out wins."
-        )
-    }
-
-    /// A Round count of 1 is inside `VariantParameter`'s legal range, and the
-    /// readback has to survive it — the same singular `VariantParameter` gets
-    /// right in the Match's number phrase.
-    func test_aSingleRoundReadsBackInTheSingular() {
-        XCTAssertEqual(
-            Variant.okey101.ruleText(at: 1),
-            "Individuals only. Accumulate points each Round over 1 Round. Lowest total when the Rounds run out wins."
-        )
+    func test_okey101ExplainsTableChosenEndingAndLowestScoreVictory() {
+        XCTAssertEqual(Variant.okey101.ruleText,
+                       "Keep score for every round. End when your table decides. Lowest total wins.")
+        XCTAssertEqual(Variant.okey101.ruleTextTemplate,
+                       "Keep playing until your table decides to end. Lowest score wins.")
     }
 
     /// The Picker runs before anything is chosen, so its copy cannot quote a

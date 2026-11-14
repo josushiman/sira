@@ -34,7 +34,7 @@ final class SetupViewSnapshotTests: XCTestCase {
     /// Custom tapped and 201 typed into the revealed field, with the rules
     /// following it up: "Go over 201 and you're Out."
     private var customLimit: VariantParameter {
-        var parameter = VariantParameter(for: .gongaStandard)
+        var parameter = VariantParameter(for: .gongaStandard)!
         parameter.enterCustom("201")
         return parameter
     }
@@ -50,7 +50,7 @@ final class SetupViewSnapshotTests: XCTestCase {
     /// Out of range: 5 is still in the field, Start is dimmed, and the reason
     /// sits above the button that will not work.
     private var refusedLimit: VariantParameter {
-        var parameter = VariantParameter(for: .gongaStandard)
+        var parameter = VariantParameter(for: .gongaStandard)!
         parameter.enterCustom("5")
         return parameter
     }
@@ -76,7 +76,7 @@ final class SetupViewSnapshotTests: XCTestCase {
     /// Custom tapped and 31 typed into the revealed field, with the rules
     /// counting down from it.
     private var customStartingScore: VariantParameter {
-        var parameter = VariantParameter(for: .okeyStandard)
+        var parameter = VariantParameter(for: .okeyStandard)!
         parameter.enterCustom("31")
         return parameter
     }
@@ -92,7 +92,7 @@ final class SetupViewSnapshotTests: XCTestCase {
     /// Out of range: 100 is still in the field, Start is dimmed, and the reason
     /// sits above the button that will not work.
     private var refusedStartingScore: VariantParameter {
-        var parameter = VariantParameter(for: .okeyStandard)
+        var parameter = VariantParameter(for: .okeyStandard)!
         parameter.enterCustom("100")
         return parameter
     }
@@ -105,45 +105,11 @@ final class SetupViewSnapshotTests: XCTestCase {
         assertSetup(.okeyStandard, parameter: refusedStartingScore, theme: .felt)
     }
 
-    /// The preselected state the screen opens on: 12 of `8 · 12 · Custom`,
-    /// with the rules read back at 12.
-    func test_okey101_roundCountChips_paper() {
+    func test_okey101_targetFreeSetup_paper() {
         assertSetup(.okey101, theme: .paper)
     }
 
-    func test_okey101_roundCountChips_felt() {
+    func test_okey101_targetFreeSetup_felt() {
         assertSetup(.okey101, theme: .felt)
-    }
-
-    /// Custom tapped and a Round count typed into the revealed field, with the
-    /// rules following it down to 5.
-    private var customRoundCount: VariantParameter {
-        var parameter = VariantParameter(for: .okey101)
-        parameter.enterCustom("5")
-        return parameter
-    }
-
-    func test_okey101_customRoundCountRevealsTheField_paper() {
-        assertSetup(.okey101, parameter: customRoundCount, theme: .paper)
-    }
-
-    func test_okey101_customRoundCountRevealsTheField_felt() {
-        assertSetup(.okey101, parameter: customRoundCount, theme: .felt)
-    }
-
-    /// Out of range: the typed number is still there, Start is dimmed, and the
-    /// reason sits directly above the button that will not work.
-    private var refusedRoundCount: VariantParameter {
-        var parameter = VariantParameter(for: .okey101)
-        parameter.enterCustom("500")
-        return parameter
-    }
-
-    func test_okey101_anOutOfRangeRoundCountCannotStart_paper() {
-        assertSetup(.okey101, parameter: refusedRoundCount, theme: .paper)
-    }
-
-    func test_okey101_anOutOfRangeRoundCountCannotStart_felt() {
-        assertSetup(.okey101, parameter: refusedRoundCount, theme: .felt)
     }
 }

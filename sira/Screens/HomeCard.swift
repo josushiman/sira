@@ -62,10 +62,8 @@ struct HomeCard: Identifiable {
             entrantsPhrase = "\(entrantCount) \(entrantCount == 1 ? "team" : "teams")"
         }
 
-        // The number the Match is played at rides beside the count rather than
-        // inside the label: two Okey 101 Matches over 8 and 12 Rounds are the
-        // same Variant, and a card that fused the number into the name would
-        // read as two different games.
+        // Only parameterized Variants include a score phrase. Lowest Total
+        // omits obsolete targets even on migrated Matches.
         entrantsText = [entrantsPhrase, match.numberPhrase].compactMap { $0 }.joined(separator: " · ")
     }
 }

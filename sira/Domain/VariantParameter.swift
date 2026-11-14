@@ -1,9 +1,7 @@
 import Foundation
 
-/// The number a Variant is played at, as Setup asks for it: which of the three
-/// numbers it is, the presets offered as chips, the legal range, what the
-/// player has currently chosen, whether that can start a Match, and how the
-/// number reads once it is chosen.
+/// A required Setup score: its presets, legal range, current choice and
+/// wording. Okey 101 needs no parameter.
 ///
 /// A struct that owns interactive state together with the rules governing it
 /// and touches no SwiftUI — the shape `RoundEntryState` already established, so
@@ -14,24 +12,19 @@ import Foundation
 /// offers and whether Start is allowed, here — and, through `Kind`, the phrase
 /// `Match.numberPhrase` names a Match by long after Setup is gone.
 struct VariantParameter: Equatable {
-    /// Which of the three numbers a Win Condition is played at. The kind is
-    /// what makes the number mean something — 12 alone could be a limit, a
-    /// starting score or a Round count, and each is read, ranged and phrased
-    /// differently.
+    /// Which score a Win Condition requires, with its range and wording.
     enum Kind: Hashable {
         /// Survival: the score an Entrant must stay at or under.
         case limit
         /// Elimination: the score Entrants count down from.
         case startingScore
-        /// Fixed Rounds: how many Rounds the Match runs for.
-        case roundCount
 
         /// The number a Win Condition takes.
-        init(_ winCondition: WinCondition) {
+        init?(_ winCondition: WinCondition) {
             switch winCondition {
             case .survival: self = .limit
             case .elimination: self = .startingScore
-            case .fixedRounds: self = .roundCount
+            case .lowestTotal: return nil
             }
         }
 
@@ -42,7 +35,6 @@ struct VariantParameter: Equatable {
             switch self {
             case .limit: return 11...999
             case .startingScore: return 2...99
-            case .roundCount: return 1...50
             }
         }
 
@@ -52,19 +44,14 @@ struct VariantParameter: Equatable {
             switch self {
             case .limit: return "Limit"
             case .startingScore: return "Starting score"
-            case .roundCount: return "Rounds"
             }
         }
 
-        /// How the number reads beside a Variant's label — `to 201`, `from 21`,
-        /// `12 rounds`. The phrase form is the whole of what distinguishes the
-        /// three, which is why no surface has to carry a separate label saying
-        /// which one it is showing.
+        /// The score beside a Variant's label: `to 201` or `from 21`.
         func phrase(for value: Int) -> String {
             switch self {
             case .limit: return "to \(value)"
             case .startingScore: return "from \(value)"
-            case .roundCount: return "\(value) \(value == 1 ? "round" : "rounds")"
             }
         }
     }
@@ -106,10 +93,7 @@ struct VariantParameter: Equatable {
         }
     }
 
-    /// Whether this can start a Match. Out of range is a refusal, never a
-    /// correction: a player who typed 500 Rounds is told 500 will not do, and
-    /// is left holding 500. Clamping it to 50 would start a Match at a length
-    /// nobody chose, and say nothing about having done so.
+    /// Out-of-range input is refused, never clamped to a different choice.
     var isStartable: Bool {
         value.map(kind.range.contains) ?? false
     }
@@ -164,19 +148,14 @@ extension VariantParameter {
     /// the standard game is something the player chooses rather than a default
     /// they failed to change.
     ///
-    /// Okey 101 opens on 8, which is what it was played at before the Round
-    /// count became a choice — moving the default would quietly lengthen every
-    /// Match started without touching the chips, and the point of asking is to
-    /// let a table say 12, not to decide for them that they meant it.
-    ///
     /// The presets are stated here and nowhere else: a Variant carries no
     /// numbers at all, so there is no constant for these to agree or disagree
     /// with. What Setup opens on is a question about what tables usually play,
     /// which is this type's business; how far a Match runs is the Match's.
-    init(for variant: Variant) {
+    init?(for variant: Variant) {
         switch variant.winCondition {
-        case .fixedRounds:
-            self.init(kind: .roundCount, presets: [8, 12], preselected: 8)
+        case .lowestTotal:
+            return nil
         case .survival:
             self.init(kind: .limit, presets: [101, 151], preselected: 101)
         case .elimination:

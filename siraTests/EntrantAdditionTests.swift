@@ -174,7 +174,6 @@ final class EntrantAdditionTests: XCTestCase {
         let okey101 = Match(
             game: .okey,
             variant: .okey101,
-            number: 8,
             mode: .players,
             entrants: [ali, veli],
             rounds: [Round(deltas: [ali.id: 20, veli.id: 0])]

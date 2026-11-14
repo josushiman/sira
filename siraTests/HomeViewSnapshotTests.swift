@@ -42,6 +42,32 @@ final class HomeViewSnapshotTests: XCTestCase {
         assertHome(.seeded(), theme: .felt)
     }
 
+    /// Both old targets are deliberately retained in the fixture. Live and
+    /// migrated final cards omit them and read their persisted result state.
+    private func storeWithOkey101History() -> MatchStore {
+        let store = MatchStore()
+        for (index, ended) in [false, true].enumerated() {
+            let alice = Entrant(name: "Alice")
+            let bob = Entrant(name: "Bob")
+            let match = Match(
+                game: .okey, variantId: "okey-101", roundCount: 1, mode: .players,
+                entrants: [alice, bob], rounds: [Round(deltas: [alice.id: 20, bob.id: 15])],
+                createdAt: .fixture(year: 2026, month: 3, day: 14 - index, hour: 21)
+            )
+            match.ended = ended
+            store.add(match)
+        }
+        return store
+    }
+
+    func test_okey101HistoryOmitsTargets_paper() {
+        assertHome(storeWithOkey101History(), theme: .paper)
+    }
+
+    func test_okey101HistoryOmitsTargets_felt() {
+        assertHome(storeWithOkey101History(), theme: .felt)
+    }
+
     /// Two Gonga Matches, one to 101 and one to 201. They carry the same
     /// label, so the metadata line is the only thing telling them apart — the
     /// job the two old Gonga Variants used to do with their names.

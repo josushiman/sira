@@ -36,7 +36,7 @@ final class MatchTests: XCTestCase {
     func test_resolvedVariantCarriesItsOwnScoringRules() {
         XCTAssertEqual(match(game: .gonga, variantId: "gonga-standard").variant?.winCondition, .survival)
         XCTAssertEqual(match(game: .okey, variantId: "okey-standard").variant?.entrantMode, .teams)
-        XCTAssertEqual(match(game: .okey, variantId: "okey-101").variant?.winCondition, .fixedRounds)
+        XCTAssertEqual(match(game: .okey, variantId: "okey-101").variant?.winCondition, .lowestTotal)
     }
 
     // Resolving the Variant cannot smuggle the Match's number back onto it:
@@ -71,8 +71,8 @@ final class MatchTests: XCTestCase {
         XCTAssertEqual(match(game: .okey, variantId: "okey-standard", startingScore: 31).variantNumber, 31)
     }
 
-    func test_aStoredRoundCountIsTheNumberAFixedRoundsMatchIsPlayedAt() {
-        XCTAssertEqual(match(game: .okey, variantId: "okey-101", roundCount: 12).variantNumber, 12)
+    func test_anObsoleteRoundCountNoLongerDescribesAnOkey101Match() {
+        XCTAssertNil(match(game: .okey, variantId: "okey-101", roundCount: 12).variantNumber)
     }
 
     /// A Match that stored no number is played at no number: the Variant it
@@ -108,17 +108,17 @@ final class MatchTests: XCTestCase {
         XCTAssertNil(match(game: .gonga, variantId: "gonga-from-a-later-release").variantNumber)
     }
 
-    /// Setup records the number for every Match it starts, in the field its
-    /// Win Condition takes it in.
+    /// Setup records any required score in the field its
+    /// Win Condition takes it in; Okey 101 needs none.
     func test_aMatchStartedFromAVariantRecordsTheNumberItWasStartedAt() {
         let gonga = Match(game: .gonga, variant: .gongaStandard, number: 101, mode: .players, entrants: [Entrant(name: "Alice")])
         let okeyStandard = Match(game: .okey, variant: .okeyStandard, number: 21, mode: .teams, entrants: [Entrant(name: "Us")])
-        let okey101 = Match(game: .okey, variant: .okey101, number: 8, mode: .players, entrants: [Entrant(name: "Alice")])
+        let okey101 = Match(game: .okey, variant: .okey101, mode: .players, entrants: [Entrant(name: "Alice")])
 
         XCTAssertEqual(gonga.variantNumber, 101)
         XCTAssertEqual(gonga.limit, 101)
         XCTAssertEqual(okeyStandard.startingScore, 21)
-        XCTAssertEqual(okey101.roundCount, 8)
+        XCTAssertNil(okey101.roundCount)
     }
 
     /// At most one of the three is ever set, so nothing downstream has to ask
@@ -354,7 +354,7 @@ final class MatchTests: XCTestCase {
 
     // MARK: - The gate a Match with no number does not pass
 
-    // A Match with a Variant this build knows and no number to play it at is
+    // A parameterized Match with no required score is
     // as unscorable as one naming a Variant it does not know, and is treated
     // the same way: skipped, and left exactly where it is.
 
@@ -401,14 +401,13 @@ final class MatchTests: XCTestCase {
     }
 
     /// The `?? .max` regression, pinned where it is actually prevented. An
-    /// Engine handed a numberless Match has nothing to score it by; what keeps
+    /// Parameterized Engine handed a numberless Match has nothing to score it by; what keeps
     /// one from ever being handed over is this gate, so it is asserted here
     /// rather than by giving an Engine a substitute to be scored against.
-    func test_noWinConditionsMatchesReachAnEngineWithoutANumber() {
+    func test_parameterizedWinConditionsCannotReachAnEngineWithoutTheirNumber() {
         let numberlessMatches = [
             match(game: .gonga, variantId: "gonga-standard"),
             match(game: .okey, variantId: "okey-standard"),
-            match(game: .okey, variantId: "okey-101"),
         ]
 
         XCTAssertTrue(numberlessMatches.scorable.isEmpty)
@@ -473,11 +472,11 @@ extension MatchTests {
     func test_aMatchIsNamedByTheNumberItIsPlayedAtInItsOwnKindsPhrase() {
         let survival = match(game: .gonga, variantId: "gonga-standard", limit: 201)
         let elimination = match(game: .okey, variantId: "okey-standard", startingScore: 31)
-        let fixedRounds = match(game: .okey, variantId: "okey-101", roundCount: 5)
+        let lowestTotal = match(game: .okey, variantId: "okey-101", roundCount: 5)
 
         XCTAssertEqual(survival.numberPhrase, "to 201")
         XCTAssertEqual(elimination.numberPhrase, "from 31")
-        XCTAssertEqual(fixedRounds.numberPhrase, "5 rounds")
+        XCTAssertNil(lowestTotal.numberPhrase)
     }
 
     /// Nothing to name it by when nothing resolves — the same silence the

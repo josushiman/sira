@@ -61,7 +61,6 @@ final class PlayViewSnapshotTests: XCTestCase {
         return Match(
             game: .okey,
             variant: .okey101,
-            number: 8,
             mode: .players,
             entrants: [a, b, c],
             rounds: [
@@ -158,7 +157,6 @@ final class PlayViewSnapshotTests: XCTestCase {
         return Match(
             game: .okey,
             variant: .okey101,
-            number: 8,
             mode: .players,
             entrants: [a, b],
             rounds: [Round(deltas: [a.id: 20, b.id: 0])]
@@ -200,6 +198,27 @@ final class PlayViewSnapshotTests: XCTestCase {
 
     func test_standingsNoAddRowOnAnOkeyMatch_paper() {
         assertPlay(okey101RoomToSpareMatch, tab: .standings, theme: .paper)
+    }
+
+    func test_okey101LiveStandings_paper() {
+        assertPlay(doubledMatch, tab: .standings, theme: .paper)
+    }
+
+    func test_okey101LiveStandings_felt() {
+        assertPlay(doubledMatch, tab: .standings, theme: .felt)
+    }
+
+    private var freshOkey101: Match {
+        Match(game: .okey, variant: .okey101, mode: .players,
+              entrants: [Entrant(name: "Alice"), Entrant(name: "Bob"), Entrant(name: "Cem"), Entrant(name: "Dila")])
+    }
+
+    func test_okey101ZeroRounds_paper() {
+        assertPlay(freshOkey101, tab: .standings, theme: .paper)
+    }
+
+    func test_okey101ZeroRounds_felt() {
+        assertPlay(freshOkey101, tab: .standings, theme: .felt)
     }
 
     func test_standingsNoAddRowOnADecidedMatch_paper() {

@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The keypad Round Entry screen (Survival, Fixed Rounds): every still-in
+/// The keypad Round Entry screen (Survival, Lowest Total): every still-in
 /// Entrant renders as a row at once; tapping one makes it "active," and the
 /// shared keypad plus quick-entry shortcuts always write into whichever row
 /// is active. Pushed full-screen from Play, matching the prototype's Entry
