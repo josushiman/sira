@@ -15,6 +15,9 @@ struct DecisionSheet<Prompt: View, Actions: View>: View {
     /// asking about things that cannot be taken back, or that show up
     /// everywhere at once, so this line is the one doing the real work.
     let explanation: String
+    /// Result previews may name a whole table. At accessibility sizes their
+    /// native sheet scrolls rather than compressing the decision or actions.
+    var scrollsWhenNeeded = false
     /// What the player has to supply before the decision can be made — the
     /// rename's name field. Empty on the sheets that only ask yes or no, and
     /// an empty one costs nothing: a `VStack` neither draws nor spaces around
@@ -28,7 +31,16 @@ struct DecisionSheet<Prompt: View, Actions: View>: View {
     @State private var surfaceHeight: CGFloat?
 
     var body: some View {
-        bottomSheet
+        Group {
+            if scrollsWhenNeeded {
+                ViewThatFits(in: .vertical) {
+                    bottomSheet.fixedSize(horizontal: false, vertical: true)
+                    ScrollView { bottomSheet }
+                }
+            } else {
+                bottomSheet
+            }
+        }
             .onGeometryChange(for: CGFloat.self) { proxy in
                 proxy.size.height
             } action: { height in
@@ -170,7 +182,8 @@ struct SheetButton: View {
         Text(title)
             .siraStyle(.subheadline)
             .frame(maxWidth: .infinity)
-            .frame(height: 52)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(minHeight: 52)
             .contentShape(RoundedRectangle(cornerRadius: 17, style: .continuous))
     }
 }

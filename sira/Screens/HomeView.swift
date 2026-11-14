@@ -30,6 +30,10 @@ struct HomeView: View {
     /// none of which leaves Home.
     @State private var offeringUnlock = false
 
+    init(initialFilter: MatchFilter = .active) {
+        _filter = State(initialValue: initialFilter)
+    }
+
     /// What the player may start: Unlocked, free with some games left, or
     /// **Locked**. The one question Home asks about the paywall, and the only
     /// thing either the meter or the wall reads.
@@ -340,7 +344,10 @@ struct HomeView: View {
 
     @ViewBuilder
     private func archiveButton(for card: HomeCard) -> some View {
-        if card.archived {
+        if card.isReadOnly {
+            // Resume is a deliberate lifecycle action supplied by ticket 04.
+            // Restore must not offer a way around an Ended result meanwhile.
+        } else if card.archived {
             Button("Restore") {
                 if let match = match(card.id) { store.restore(match) }
             }
@@ -469,10 +476,11 @@ private struct MatchCard: View {
 
                 Text(card.summaryText)
                     .siraStyle(.monoLabel)
-                    .foregroundStyle(theme.ink.opacity(0.5))
+                    .foregroundStyle(theme.ink.opacity(card.isReadOnly ? 0.7 : 0.5))
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .opacity(card.archived ? 0.62 : 1)
+        .opacity(card.archived && !card.isReadOnly ? 0.62 : 1)
     }
 
     /// Kept to one line — a long month plus minutes ("14th September 2026 ·

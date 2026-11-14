@@ -25,6 +25,7 @@ struct PlayView: View {
     /// offer is derived afresh on every pass through `body`, so holding one
     /// here is exactly the staleness the Add row exists to avoid.
     @State private var addingEntrant = false
+    @State private var showingEndConfirmation = false
     @State private var selectedTab: PlayTab
 
     @Environment(\.theme) private var theme
@@ -84,7 +85,20 @@ struct PlayView: View {
                 .background(theme.background)
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            addRoundButton(variant, isOver: standings.isOver)
+            VStack(spacing: 4) {
+                addRoundButton(variant, isOver: standings.isOver)
+                if variant.winCondition == .lowestTotal {
+                    if match.isReadOnly {
+                        Text("Match ended. Scores are read-only.")
+                            .siraStyle(.caption)
+                            .foregroundStyle(theme.ink.opacity(0.7))
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.top, 8)
+                    } else {
+                        endMatchButton
+                    }
+                }
+            }
                 .padding(.horizontal, 22)
                 .padding(.vertical, 10)
                 .background(theme.background)
@@ -94,6 +108,16 @@ struct PlayView: View {
         }
         .navigationDestination(isPresented: $showingOkeyStandardEntry) {
             okeyStandardRoundEntry
+        }
+        .sheet(isPresented: $showingEndConfirmation) {
+            if match.canEnd {
+                EndMatchSheet(match: match) {
+                    if store.end(match) {
+                        showingEndConfirmation = false
+                        selectedTab = .standings
+                    }
+                }
+            }
         }
         .sheet(item: rejoinBinding) { entrant in
             if let survivalEngine = engine as? SurvivalEngine, let limit = match.variantNumber {
@@ -111,7 +135,10 @@ struct PlayView: View {
     @ViewBuilder
     private func standingsContent(_ variant: Variant, _ standings: Standings) -> some View {
         if standings.isOver {
-            MatchOverBanner(text: standings.result ?? "Match over")
+            MatchOverBanner(
+                text: standings.result ?? "Match over",
+                detail: match.isReadOnly ? (match.archived ? "Match ended · Archived" : "Match ended") : nil
+            )
                 .padding(.bottom, 14)
         }
 
@@ -125,7 +152,8 @@ struct PlayView: View {
                         isLeader: index == 0 && !standing.isOut && !standings.isOver
                             && (variant.winCondition != .lowestTotal || !match.rounds.isEmpty),
                         maxAbsTotal: maxAbsTotal(variant, standings),
-                        roomLeft: roomLeft(variant, for: standing)
+                        roomLeft: roomLeft(variant, for: standing),
+                        winnerLabel: winnerLabel(for: standing, standings: standings)
                     )
                     // A row is a way into the rename only while the Match
                     // still accepts roster edits — the Standings' own rule,
@@ -178,10 +206,17 @@ struct PlayView: View {
 
         let stats = PlayStats(variant: variant, match: match, standings: standings)
         HStack(spacing: 10) {
-            StatTile(label: stats.leadLabel, value: stats.leadValue)
+            StatTile(label: stats.leadLabel, value: stats.leadValue, wrapsValue: match.isReadOnly)
             StatTile(label: stats.secondaryLabel, value: stats.secondaryValue)
         }
         .padding(.top, 14)
+    }
+
+    private func winnerLabel(for standing: EntrantStanding, standings: Standings) -> String? {
+        guard match.isReadOnly,
+              let result = LowestTotalResult(ranked: standings.ranked),
+              result.winners.contains(where: { $0.id == standing.id }) else { return nil }
+        return result.winners.count == 1 ? "Wins" : "Tied"
     }
 
     /// The offer the Add row makes, or `nil` where this Match has no seat to
@@ -332,9 +367,11 @@ struct PlayView: View {
 
             Spacer()
 
-            HStack(spacing: 7) {
-                archiveButton
-                undoButton
+            if !match.isReadOnly {
+                HStack(spacing: 7) {
+                    archiveButton
+                    undoButton
+                }
             }
         }
     }
@@ -365,6 +402,7 @@ struct PlayView: View {
                 .siraStyle(.caption)
                 .padding(.horizontal, 11)
                 .padding(.vertical, 7)
+                .frame(minHeight: match.variant?.winCondition == .lowestTotal ? 44 : nil)
                 .contentShape(Capsule())
         }
         .foregroundStyle(theme.ink.opacity(0.7))
@@ -380,6 +418,7 @@ struct PlayView: View {
                 .siraStyle(.caption)
                 .padding(.horizontal, 11)
                 .padding(.vertical, 7)
+                .frame(minHeight: match.variant?.winCondition == .lowestTotal ? 44 : nil)
                 .contentShape(Capsule())
         }
         .foregroundStyle(theme.ink.opacity(match.rounds.isEmpty ? 0.35 : 1))
@@ -389,6 +428,31 @@ struct PlayView: View {
         }
         .buttonStyle(.plain)
         .disabled(match.rounds.isEmpty)
+    }
+
+    private var endMatchButton: some View {
+        VStack(spacing: 0) {
+            Button {
+                showingEndConfirmation = true
+            } label: {
+                Text("End match")
+                    .siraStyle(.subheadline)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .contentShape(Rectangle())
+            }
+            .frame(maxWidth: .infinity, minHeight: 44)
+            .contentShape(Rectangle())
+            .buttonStyle(.plain)
+            .foregroundStyle(theme.ink.opacity(match.canEnd ? 0.7 : 0.35))
+            .disabled(!match.canEnd)
+
+            if !match.canEnd {
+                Text("Score a round before ending.")
+                    .siraStyle(.caption)
+                    .foregroundStyle(theme.ink.opacity(0.7))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
     }
 
     @ViewBuilder
@@ -403,7 +467,8 @@ struct PlayView: View {
                 .siraStyle(.subheadline)
                 .fontWeight(.semibold)
                 .frame(maxWidth: .infinity)
-                .frame(height: 54)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(minHeight: 54)
                 .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         }
         .foregroundStyle(isOver ? theme.ink.opacity(0.5) : theme.background)
@@ -434,6 +499,7 @@ struct StandingRow: View {
     let maxAbsTotal: Int
     /// Points before this Entrant passes the limit, where the Variant has one.
     var roomLeft: Int?
+    var winnerLabel: String? = nil
 
     @Environment(\.theme) private var theme
 
@@ -462,6 +528,9 @@ struct StandingRow: View {
                     if standing.isOut {
                         StatusPill(text: "Out", foreground: theme.background, background: theme.accent2)
                             .fixedSize()
+                    } else if let winnerLabel {
+                        StatusPill(text: winnerLabel, foreground: theme.onAccent, background: theme.accent)
+                            .fixedSize()
                     } else if isLeader {
                         StatusPill(text: "Leads", foreground: theme.onAccent, background: theme.accent)
                             .fixedSize()
@@ -481,7 +550,7 @@ struct StandingRow: View {
             VStack(alignment: .trailing, spacing: 7) {
                 Text("\(standing.total)")
                     .siraStyle(.monoValueLarge)
-                    .foregroundStyle(isLeader ? theme.accent : theme.ink)
+                    .foregroundStyle((isLeader || winnerLabel != nil) ? theme.accent : theme.ink)
                 Text(deltaText)
                     .siraStyle(.monoLabel)
                     .foregroundStyle(theme.ink.opacity(0.42))
@@ -490,7 +559,7 @@ struct StandingRow: View {
         }
         .padding(13)
         .background {
-            if isLeader {
+            if isLeader || winnerLabel != nil {
                 RoundedRectangle(cornerRadius: 19, style: .continuous)
                     .fill(theme.track)
             }
@@ -504,7 +573,7 @@ struct StandingRow: View {
             ZStack(alignment: .leading) {
                 Capsule().fill(theme.track)
                 Capsule()
-                    .fill(standing.isOut ? theme.line : (isLeader ? theme.accent : theme.ink.opacity(0.35)))
+                    .fill(standing.isOut ? theme.line : ((isLeader || winnerLabel != nil) ? theme.accent : theme.ink.opacity(0.35)))
                     .frame(width: geo.size.width * fraction)
             }
         }
@@ -586,6 +655,7 @@ struct AddEntrantRow: View {
 private struct StatTile: View {
     let label: String
     let value: String
+    var wrapsValue = false
 
     @Environment(\.theme) private var theme
 
@@ -601,8 +671,9 @@ private struct StatTile: View {
                 // the trailing "N left" that a single line drops, which is
                 // the half of the tile worth reading. A second line is spent
                 // only when there is something to put on it.
-                .lineLimit(2)
-                .minimumScaleFactor(0.8)
+                .lineLimit(wrapsValue ? nil : 2)
+                .fixedSize(horizontal: false, vertical: true)
+                .minimumScaleFactor(wrapsValue ? 1 : 0.8)
         }
         // Both tiles grow to the taller of the two, so a wrapped value never
         // leaves its neighbour a short box beside a tall one.
@@ -613,6 +684,63 @@ private struct StatTile: View {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .stroke(theme.line, lineWidth: 1)
         }
+    }
+}
+
+/// Ending previews the current scores without changing the Match. The sheet
+/// is common to both tabs, so cancelling has no selection or lifecycle effect.
+struct EndMatchSheet: View {
+    let match: Match
+    let onEnd: () -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.theme) private var theme
+
+    var body: some View {
+        DecisionSheet(
+            title: "End this match?",
+            explanation: "\(match.rounds.count) \(match.rounds.count == 1 ? "round" : "rounds") played. Lowest score wins.",
+            scrollsWhenNeeded: true
+        ) {
+            if let result = match.prospectiveEndResult {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(result.declaration)
+                        .siraStyle(.headline)
+                        .fixedSize(horizontal: false, vertical: true)
+                    ForEach(result.winners) { winner in
+                        HStack(spacing: 12) {
+                            DotBadge(text: winner.name.dotBadgeInitial,
+                                     index: match.entrant(winner.id)?.sequence ?? 0, size: 34)
+                            Text(winner.name)
+                                .siraStyle(.subheadline)
+                                .fixedSize(horizontal: false, vertical: true)
+                            Spacer(minLength: 8)
+                            Text("\(result.total)")
+                                .siraStyle(.monoValueLarge)
+                                .foregroundStyle(theme.accent)
+                        }
+                    }
+                    Text("Lowest total")
+                        .siraStyle(.caption)
+                        .foregroundStyle(theme.ink.opacity(0.7))
+                    Divider().overlay(theme.line)
+                    Text("This match will be archived. You can resume it any time.")
+                        .siraStyle(.body)
+                        .foregroundStyle(theme.ink.opacity(0.7))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.top, 12)
+                .padding(.bottom, 4)
+            }
+        } actions: {
+            SheetButton(title: "End & archive match", emphasis: .filled(background: theme.ink, foreground: theme.background)) {
+                onEnd()
+            }
+            SheetButton(title: "Keep playing", emphasis: .outlined) {
+                dismiss()
+            }
+        }
+        .foregroundStyle(theme.ink)
     }
 }
 
@@ -651,12 +779,13 @@ struct RejoinSheet: View {
 /// Match's Win Condition is met.
 struct MatchOverBanner: View {
     let text: String
+    var detail: String? = nil
 
     @Environment(\.theme) private var theme
 
     var body: some View {
         VStack(alignment: .leading, spacing: 9) {
-            Text(sira: .monoEyebrow, "Match over")
+            Text(sira: .monoEyebrow, detail ?? "Match over")
                 .foregroundStyle(theme.onAccent.opacity(0.65))
             Text(text)
                 .siraStyle(.headline)

@@ -36,18 +36,35 @@ struct LowestTotalEngine: MatchEngine {
             }
             .sorted { $0.total < $1.total }
 
-        let result: String?
-        if isOver, let lowest = ranked.first?.total {
-            let winners = ranked.filter { $0.total == lowest }
-            if winners.count == 1 {
-                result = "\(winners[0].name) wins!"
-            } else {
-                result = "Tie between \(winners.map(\.name).joined(separator: " and "))!"
-            }
-        } else {
-            result = nil
-        }
+        let result = isOver ? LowestTotalResult(ranked: ranked)?.declaration : nil
 
         return Standings(ranked: ranked, isOver: isOver, result: result)
     }
+}
+
+/// The prospective result and the declared result name the same lowest totals.
+/// This is a value projection: previewing never temporarily ends a Match.
+struct LowestTotalResult {
+    let winners: [EntrantStanding]
+    let total: Int
+
+    init?(ranked: [EntrantStanding]) {
+        guard let lowest = ranked.map(\.total).min() else { return nil }
+        winners = ranked.filter { $0.total == lowest }
+        total = lowest
+    }
+
+    var names: String {
+        let names = winners.map(\.name)
+        guard names.count > 1, let last = names.last else { return names.first ?? "" }
+        return "\(names.dropLast().joined(separator: ", ")) & \(last)"
+    }
+
+    var declaration: String {
+        winners.count == 1
+            ? "\(names) wins!"
+            : "Tie between \(winners.map(\.name).joined(separator: " and "))!"
+    }
+
+    var summary: String { "\(names) · \(total)" }
 }

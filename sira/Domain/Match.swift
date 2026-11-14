@@ -194,6 +194,7 @@ final class Match {
     /// Whatever sequence the Round arrived with is overwritten: where a Round
     /// sits is the Match's to say, not the Round's.
     func addRound(_ round: Round) {
+        guard !isReadOnly else { return }
         storedRounds.append(round.withSequence(nextSequence))
         // Scoring a Round is what Starts a Match, so it happens here rather
         // than at whichever screen happened to enter the Round. Whether this
@@ -222,6 +223,7 @@ final class Match {
     /// Rejoin with it. A no-op with no Rounds, which the Rejoin flow can't
     /// reach — it is only offered in response to a Round just added.
     func recordRejoin(_ rejoin: RejoinEvent) {
+        guard !isReadOnly else { return }
         rounds.last?.rejoins.append(rejoin)
     }
 
@@ -251,6 +253,7 @@ final class Match {
     /// No existing seat moves: this appends, and `withSequence` is the only
     /// thing that stamps one.
     func addEntrant(_ entrant: Entrant, joiningOn total: Int) {
+        guard !isReadOnly else { return }
         storedEntrants.append(entrant.withSequence(nextSeat))
         guard let latest = rounds.last else { return }
         // Both halves, and in this order: the Entrant records *that* they
@@ -322,6 +325,7 @@ final class Match {
     /// mistake this signature exists to make visible, so a caller with no use
     /// for it has to say `_ =` and mean it.
     func undoLastRound() -> Round? {
+        guard !isReadOnly else { return nil }
         guard let latest = rounds.last else { return nil }
         storedRounds.removeAll { $0.id == latest.id }
         return latest
@@ -336,6 +340,29 @@ final class Match {
         ended = roundCount.map { storedRounds.count >= $0 } ?? false
     }
 
+    /// Only an explicitly Ended Okey 101 result is locked for review. Other
+    /// Variants keep their existing automatic-ending mutation behavior.
+    var isReadOnly: Bool { variant?.winCondition == .lowestTotal && ended }
+
+    /// Manual ending is available only after a currently scored Round.
+    var canEnd: Bool {
+        variant?.winCondition == .lowestTotal && !ended && !storedRounds.isEmpty
+    }
+
+    var prospectiveEndResult: LowestTotalResult? {
+        guard canEnd else { return nil }
+        return LowestTotalResult(ranked: LowestTotalEngine().standings(for: self).ranked)
+    }
+
+    /// Declares the current result and hides it from Active in one mutation.
+    @discardableResult
+    func end() -> Bool {
+        guard canEnd else { return false }
+        ended = true
+        archived = true
+        return true
+    }
+
     /// Hides this Match from the Active filter without locking it — Rounds can
     /// still be added and standings still recompute normally.
     func archive() {
@@ -344,6 +371,7 @@ final class Match {
 
     /// Returns an archived Match to the Active filter.
     func restore() {
+        guard !isReadOnly else { return }
         archived = false
     }
 }

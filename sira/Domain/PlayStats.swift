@@ -20,7 +20,11 @@ struct PlayStats {
         let leader = variant.winCondition == .lowestTotal && match.rounds.isEmpty ? nil : standings.ranked.first
 
         leadLabel = standings.isOver ? "Result" : "Leader"
-        leadValue = leader.map { "\($0.name) · \($0.total)" } ?? "—"
+        if variant.winCondition == .lowestTotal, standings.isOver {
+            leadValue = LowestTotalResult(ranked: standings.ranked)?.summary ?? "—"
+        } else {
+            leadValue = leader.map { "\($0.name) · \($0.total)" } ?? "—"
+        }
 
         switch variant.winCondition {
         case .survival:

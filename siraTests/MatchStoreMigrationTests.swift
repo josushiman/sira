@@ -85,6 +85,16 @@ final class MatchStoreMigrationTests: XCTestCase {
                     XCTAssertEqual(standings.result, completed ? "Tie between Alice and Bob!" : nil)
                     XCTAssertEqual(MatchSummary(match: match, engine: WinCondition.lowestTotal.engine).text,
                                    completed ? "Tie between Alice and Bob!" : "Alice leads with 20")
+                    if completed {
+                        let alice = try XCTUnwrap(match.entrants.first)
+                        store.addRound(Round(deltas: [alice.id: 200]), to: match)
+                        store.undoLastRound(in: match)
+                        store.rename(alice, to: "Changed")
+                        XCTAssertEqual(LowestTotalEngine().standings(for: match), standings)
+                        XCTAssertTrue(match.isReadOnly)
+                        XCTAssertEqual(match.archived, archived)
+                    }
+
                 }
             }
         }

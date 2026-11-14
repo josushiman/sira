@@ -22,6 +22,54 @@ final class PlayViewSnapshotTests: XCTestCase {
         assertSnapshot(of: view, as: .image(layout: .fixed(width: 402, height: 874)), testName: testName)
     }
 
+    private func endableMatch(tied: Bool = false, allTied: Bool = false) -> Match {
+        let entrants = ["Alice", "Bob", "Cem", "Dila"].map { Entrant(name: $0) }
+        let scores = allTied ? [70, 70, 70, 70] : (tied ? [70, 105, 70, 165] : [70, 105, 100, 165])
+        return Match(game: .okey, variant: .okey101, mode: .players, entrants: entrants,
+                     rounds: [Round(deltas: Dictionary(uniqueKeysWithValues: zip(entrants.map(\.id), scores)))])
+    }
+
+    private func assertEndConfirmation(theme: Theme, tied: Bool = false, testName: String = #function) {
+        let view = EndMatchSheet(match: endableMatch(tied: tied), onEnd: {})
+            .environment(\.theme, theme)
+            .frame(width: 402, height: 650)
+        assertSnapshot(of: view, as: .image(layout: .fixed(width: 402, height: 650)), testName: testName)
+    }
+
+    func test_okey101EndConfirmation_paper() { assertEndConfirmation(theme: .paper) }
+    func test_okey101EndConfirmation_felt() { assertEndConfirmation(theme: .felt) }
+    func test_okey101TiedEndConfirmation_paper() { assertEndConfirmation(theme: .paper, tied: true) }
+    func test_okey101TiedEndConfirmation_felt() { assertEndConfirmation(theme: .felt, tied: true) }
+
+    func test_okey101TiedEndConfirmationLargeType_paper() {
+        let view = EndMatchSheet(match: endableMatch(allTied: true), onEnd: {})
+            .environment(\.theme, .paper)
+            .dynamicTypeSize(.accessibility3)
+            .frame(width: 402, height: 874)
+        assertSnapshot(of: view, as: .image(layout: .fixed(width: 402, height: 874)))
+    }
+
+    private func assertEnded(tab: PlayTab = .standings, theme: Theme, tied: Bool = false, testName: String = #function) {
+        let match = endableMatch(tied: tied)
+        match.end()
+        assertPlay(match, tab: tab, theme: theme, testName: testName)
+    }
+
+    func test_okey101EndedStandings_paper() { assertEnded(theme: .paper) }
+    func test_okey101EndedStandings_felt() { assertEnded(theme: .felt) }
+    func test_okey101TiedEndedStandings_paper() { assertEnded(theme: .paper, tied: true) }
+    func test_okey101TiedEndedStandings_felt() { assertEnded(theme: .felt, tied: true) }
+    func test_okey101ReadOnlyScoresheet_paper() { assertEnded(tab: .scoresheet, theme: .paper) }
+    func test_okey101ReadOnlyScoresheet_felt() { assertEnded(tab: .scoresheet, theme: .felt) }
+    func test_okey101AllTiedLongNamesRemainReadable_felt() {
+        let match = endableMatch(allTied: true)
+        for (entrant, name) in zip(match.entrants, ["Alexandra", "Benedict", "Cemalettin", "Dilara"]) {
+            entrant.name = name
+        }
+        match.end()
+        assertPlay(match, tab: .standings, theme: .felt)
+    }
+
     private var midMatch: Match {
         let a = Entrant(name: "Alice")
         let b = Entrant(name: "Bob")

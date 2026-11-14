@@ -46,6 +46,60 @@ final class MatchStorePersistenceTests: XCTestCase {
         try XCTUnwrap(match.entrants.first { $0.name == name })
     }
 
+    func test_endedArchivedResultAndReadOnlyHistorySurviveTwoReopens() throws {
+        let id = try launch { store -> Match.ID in
+            let alice = Entrant(name: "Alice")
+            let bob = Entrant(name: "Bob")
+            let match = Match(game: .okey, variant: .okey101, mode: .players, entrants: [alice, bob],
+                              createdAt: Date(timeIntervalSince1970: 1_700_000_000))
+            store.add(match)
+            store.addRound(Round(deltas: [alice.id: 20, bob.id: 10], okeyAtanID: bob.id), to: match)
+            XCTAssertTrue(store.end(match))
+            return match.id
+        }
+        for _ in 0..<2 {
+            try launch { store in
+                let stored = try match(id, in: store)
+                let alice = try entrant("Alice", in: stored)
+                XCTAssertTrue([stored].scorableMatch(id) === stored)
+                XCTAssertTrue(stored.ended)
+                XCTAssertTrue(stored.archived)
+                XCTAssertTrue(stored.started)
+                XCTAssertEqual(stored.createdAt, Date(timeIntervalSince1970: 1_700_000_000))
+                XCTAssertEqual(stored.entrants.map(\.sequence), [0, 1])
+                XCTAssertEqual(stored.rounds.map(\.sequence), [0])
+                XCTAssertEqual(LowestTotalEngine().standings(for: stored).ranked.map(\.total), [20, 40])
+                XCTAssertEqual(HomeCard(match: stored, variant: .okey101).summaryText, "Bob wins!")
+                store.addRound(Round(deltas: [alice.id: 200]), to: stored)
+                store.undoLastRound(in: stored)
+                store.rename(alice, to: "Changed")
+                store.restore(stored)
+                XCTAssertEqual(stored.entrants.map(\.name), ["Alice", "Bob"])
+                XCTAssertEqual(stored.rounds.count, 1)
+                XCTAssertTrue(stored.archived)
+                XCTAssertEqual(store.freeMatches.startedMatches, 1)
+            }
+        }
+    }
+
+    func test_failedEndSaveKeepsBothVisibleStatesAndSurfacesTheExistingFailure() throws {
+        var failing = false
+        let store = MatchStore { context in
+            if failing { throw DiskFull() }
+            try context.save()
+        }
+        let match = Match(game: .okey, variant: .okey101, mode: .players,
+                          entrants: [Entrant(name: "Alice")], rounds: [Round()])
+        store.add(match)
+        failing = true
+        XCTAssertTrue(store.end(match))
+        XCTAssertNotNil(store.saveFailure)
+        XCTAssertTrue(match.ended)
+        XCTAssertTrue(match.archived)
+        XCTAssertTrue(match.isReadOnly)
+        XCTAssertEqual(store.freeMatches.startedMatches, 1)
+    }
+
     // MARK: - First launch
 
     /// The first thing a new player sees. Until Matches were stored, the app

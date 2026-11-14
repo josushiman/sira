@@ -3,6 +3,113 @@ import SwiftData
 @testable import sira
 
 final class MatchStoreTests: XCTestCase {
+    func test_endingOkey101DeclaresAndArchivesTheCurrentResultWithoutSpendingAnotherStart() throws {
+        let store = MatchStore()
+        let alice = Entrant(name: "Alice")
+        let bob = Entrant(name: "Bob")
+        let match = Match(game: .okey, variant: .okey101, mode: .players, entrants: [alice, bob])
+        store.add(match)
+        store.addRound(Round(deltas: [alice.id: 10, bob.id: 20]), to: match)
+
+        XCTAssertTrue(store.end(match))
+
+        XCTAssertTrue(match.ended)
+        XCTAssertTrue(match.archived)
+        XCTAssertTrue(match.started)
+        XCTAssertEqual(store.freeMatches.startedMatches, 1)
+        XCTAssertEqual(LowestTotalEngine().standings(for: match).result, "Alice wins!")
+        XCTAssertEqual(MatchFilter.active.apply(to: [match]).count, 0)
+        XCTAssertEqual(MatchFilter.archived.apply(to: [match]).map(\.id), [match.id])
+        XCTAssertEqual(MatchFilter.all.apply(to: [match]).map(\.id), [match.id])
+        XCTAssertTrue([match].scorableMatch(match.id) === match)
+    }
+
+    func test_endedOkey101RefusesScoresUndoRenameAndRestoreAtOrdinaryMutationPaths() throws {
+        let store = MatchStore()
+        let alice = Entrant(name: "Alice")
+        let bob = Entrant(name: "Bob")
+        let match = Match(game: .okey, variant: .okey101, mode: .players, entrants: [alice, bob])
+        store.add(match)
+        store.addRound(Round(deltas: [alice.id: 10, bob.id: 20]), to: match)
+        store.end(match)
+        let result = LowestTotalEngine().standings(for: match)
+
+        store.addRound(Round(deltas: [alice.id: 200, bob.id: 0]), to: match)
+        store.undoLastRound(in: match)
+        store.rename(alice, to: "Changed")
+        store.addEntrant(Entrant(name: "Uninvited"), to: match, joiningOn: 0)
+        store.recordRejoin(RejoinEvent(id: bob.id, to: 0), in: match)
+        store.restore(match)
+        // Domain callers cannot bypass the same protections either.
+        match.addRound(Round(deltas: [alice.id: 500]))
+        match.addEntrant(Entrant(name: "Also uninvited"), joiningOn: 0)
+        match.recordRejoin(RejoinEvent(id: alice.id, to: 0))
+        XCTAssertNil(match.undoLastRound())
+        match.restore()
+
+        XCTAssertEqual(LowestTotalEngine().standings(for: match), result)
+        XCTAssertEqual(match.rounds.count, 1)
+        XCTAssertEqual(match.entrants.map(\.name), ["Alice", "Bob"])
+        XCTAssertTrue(match.rounds[0].rejoins.isEmpty)
+        XCTAssertTrue(match.archived)
+        XCTAssertEqual(store.freeMatches.startedMatches, 1)
+        XCTAssertEqual(try store.context.fetch(FetchDescriptor<Round>()).count, 1)
+        XCTAssertEqual(try store.context.fetch(FetchDescriptor<Entrant>()).count, 2)
+    }
+
+    func test_prospectiveEndNamesEveryTiedWinnerWithoutChangingTheLiveMatch() throws {
+        let store = MatchStore()
+        let entrants = ["Alice", "Bob", "Cem", "Dila"].map { Entrant(name: $0) }
+        let match = Match(game: .okey, variant: .okey101, mode: .players, entrants: entrants)
+        store.add(match)
+        store.addRound(Round(deltas: Dictionary(uniqueKeysWithValues: entrants.map { ($0.id, 20) })), to: match)
+        store.archive(match)
+        let preview = try XCTUnwrap(match.prospectiveEndResult)
+
+        XCTAssertEqual(preview.winners.map(\.name), ["Alice", "Bob", "Cem", "Dila"])
+        XCTAssertEqual(preview.total, 20)
+        XCTAssertEqual(preview.summary, "Alice, Bob, Cem & Dila · 20")
+        XCTAssertFalse(match.ended)
+        XCTAssertTrue(match.archived)
+        XCTAssertNil(LowestTotalEngine().standings(for: match).result)
+        XCTAssertTrue(store.end(match))
+        let standings = LowestTotalEngine().standings(for: match)
+        XCTAssertEqual(standings.result, preview.declaration)
+        XCTAssertEqual(PlayStats(variant: .okey101, match: match, standings: standings).leadValue, preview.summary)
+        XCTAssertEqual(HomeCard(match: match, variant: .okey101).summaryText, preview.declaration)
+    }
+
+    func test_endRequiresACurrentRoundEvenAfterUndoAndOnlyAppliesToOkey101() {
+        let store = MatchStore()
+        let alice = Entrant(name: "Alice")
+        let match = Match(game: .okey, variant: .okey101, mode: .players, entrants: [alice])
+        store.add(match)
+        XCTAssertFalse(match.canEnd)
+        XCTAssertNil(match.prospectiveEndResult)
+        XCTAssertFalse(store.end(match))
+        XCTAssertFalse(match.ended)
+        XCTAssertFalse(match.archived)
+        store.addRound(Round(deltas: [alice.id: 20]), to: match)
+        XCTAssertTrue(match.canEnd)
+        XCTAssertEqual(match.prospectiveEndResult?.declaration, "Alice wins!")
+        store.undoLastRound(in: match)
+        XCTAssertFalse(store.end(match))
+        XCTAssertFalse(match.end())
+        XCTAssertFalse(match.archived)
+        XCTAssertFalse(match.ended)
+        XCTAssertTrue(match.started)
+        XCTAssertEqual(store.freeMatches.startedMatches, 1)
+
+        for variant in [Variant.gongaStandard, .okeyStandard] {
+            let other = Match(game: variant == .gongaStandard ? .gonga : .okey, variant: variant, number: 101,
+                              mode: variant == .gongaStandard ? .players : .teams, entrants: [Entrant(name: "Other")], rounds: [Round()])
+            store.add(other)
+            XCTAssertFalse(store.end(other))
+            XCTAssertFalse(other.ended)
+            XCTAssertFalse(other.archived)
+        }
+    }
+
     func test_targetFreeOkey101CanStartAndRouteIntoPlay() throws {
         let store = MatchStore()
         let alice = Entrant(name: "Alice")

@@ -12,10 +12,11 @@ final class HomeViewSnapshotTests: XCTestCase {
         _ store: MatchStore,
         theme: Theme,
         unlocked: Bool = false,
+        filter: MatchFilter = .active,
         testName: String = #function
     ) {
         let view = NavigationStack {
-            HomeView()
+            HomeView(initialFilter: filter)
         }
         .environment(store)
         .environment(Navigator())
@@ -58,6 +59,24 @@ final class HomeViewSnapshotTests: XCTestCase {
             store.add(match)
         }
         return store
+    }
+
+    private func endedTiedHistory() -> MatchStore {
+        let store = MatchStore()
+        let entrants = ["Alexandra", "Benedict", "Cemalettin", "Dilara"].map { Entrant(name: $0) }
+        let match = Match(game: .okey, variant: .okey101, mode: .players, entrants: entrants,
+                          rounds: [Round(deltas: Dictionary(uniqueKeysWithValues: entrants.map { ($0.id, 70) }))],
+                          createdAt: .fixture(year: 2026, month: 3, day: 14, hour: 21))
+        store.add(match)
+        store.end(match)
+        return store
+    }
+
+    func test_okey101ArchivedTiedHistory_paper() {
+        assertHome(endedTiedHistory(), theme: .paper, filter: .archived)
+    }
+    func test_okey101ArchivedTiedHistory_felt() {
+        assertHome(endedTiedHistory(), theme: .felt, filter: .archived)
     }
 
     func test_okey101HistoryOmitsTargets_paper() {

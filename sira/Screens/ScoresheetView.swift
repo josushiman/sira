@@ -74,9 +74,11 @@ struct ScoresheetView: View {
                 modifierKey(marks)
             }
 
-            Text("Undo removes the last round — totals, eliminations and rejoins all recalculate.")
-                .siraStyle(.caption)
-                .foregroundStyle(theme.ink.opacity(0.5))
+            if !match.isReadOnly {
+                Text("Undo removes the last round — totals, eliminations and rejoins all recalculate.")
+                    .siraStyle(.caption)
+                    .foregroundStyle(theme.ink.opacity(0.5))
+            }
         }
     }
 
