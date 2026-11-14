@@ -10,9 +10,9 @@ final class SetupViewSnapshotTests: XCTestCase {
         theme: Theme,
         testName: String = #function
     ) {
-        let view = NavigationStack {
-            SetupView(variant: variant, initialParameter: parameter)
-        }
+        // Snapshot screen content directly. Navigation is covered separately;
+        // nested NavigationStack hosts leak toolbar insets between iOS 27 renders.
+        let view = SetupView(variant: variant, initialParameter: parameter)
         .environment(MatchStore())
         .environment(\.theme, theme)
         .frame(width: 402, height: 874)

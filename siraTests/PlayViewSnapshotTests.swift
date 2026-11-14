@@ -11,9 +11,9 @@ final class PlayViewSnapshotTests: XCTestCase {
         // would have left the buttons looking live while dropping every Round.
         let store = MatchStore()
         store.add(match)
-        let view = NavigationStack {
-            PlayView(match: match, initialTab: tab)
-        }
+        // Snapshot screen content directly. Navigation is covered separately;
+        // nested NavigationStack hosts leak toolbar insets between iOS 27 renders.
+        let view = PlayView(match: match, initialTab: tab)
         .environment(store)
         .modelContainer(store.container)
         .environment(\.theme, theme)
